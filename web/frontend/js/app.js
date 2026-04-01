@@ -12,6 +12,7 @@ const App = {
   user:        null,
   modelOk:     false,
   participant: null,
+  historyRows: [],
   testLines:   [],   // cada línea: array de 47 estímulos
   linesData:   [],   // resultados por línea
   clickLog:    [],
@@ -860,41 +861,63 @@ const App = {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       rows = await r.json();
+      this.historyRows = rows;
     } catch(e) {}
 
     const card = document.getElementById('history-card');
-    if (!rows.length) {
+    if (!rows || !rows.length) {
       card.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px;">No hay evaluaciones guardadas.</p>';
       return;
     }
 
     card.innerHTML = `
-      <div class="flex flex-between items-center mb-4">
+      <div class="flex flex-between items-center mb-4" style="flex-wrap: wrap; gap: 10px;">
         <div class="section-title" style="border:none;margin:0;padding:0;">
           ${rows.length} evaluacion${rows.length > 1 ? 'es' : ''} guardada${rows.length > 1 ? 's' : ''}
+        </div>
+        <div>
+          <input type="text" id="history-search" placeholder="🔍 Buscar por ID o Nombre..." style="padding: 8px 14px; border-radius: 8px; border: 1px solid #CFD8DC; font-family: 'Inter', sans-serif; min-width: 250px;" oninput="App.filterHistory(this.value)" />
         </div>
       </div>
       <table class="history-table">
         <thead>
           <tr><th>#</th><th>Fecha</th><th>ID</th><th>Nombre</th><th>Edad</th><th>CP %</th><th>TA</th><th>Acciones</th></tr>
         </thead>
-        <tbody>
-          ${rows.map(r => `
-            <tr>
-              <td>${r.id}</td>
-              <td>${new Date(r.created_at).toLocaleString('es',{dateStyle:'short',timeStyle:'short'})}</td>
-              <td>${r.participant_id}</td>
-              <td>${r.participant_name}</td>
-              <td>${r.age}</td>
-              <td><span style="font-weight:700;color:${r.CP>=75?'#2E7D32':r.CP>=50?'#E65100':'#B71C1C'}">${r.CP}</span></td>
-              <td>${r.TA}</td>
-              <td class="flex gap-2">
-                <button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id})">📥 Excel</button>
-                <button class="btn btn-danger btn-sm" onclick="App.deleteEval(${r.id}, this)">🗑</button>
-              </td>
-            </tr>`).join('')}
+        <tbody id="history-tbody">
+          ${this.generateHistoryRowsHTML(rows)}
         </tbody>
       </table>`;
+  },
+
+  generateHistoryRowsHTML(rows) {
+    if (!rows.length) return `<tr><td colspan="8" style="text-align:center;color:#789;">No se encontraron resultados</td></tr>`;
+    return rows.map(r => `
+      <tr>
+        <td>${r.id}</td>
+        <td>${new Date(r.created_at).toLocaleString('es',{dateStyle:'short',timeStyle:'short'})}</td>
+        <td>${r.participant_id}</td>
+        <td><strong>${r.participant_name}</strong></td>
+        <td>${r.age}</td>
+        <td><span style="font-weight:700;color:${r.CP>=75?'#2E7D32':r.CP>=50?'#E65100':'#B71C1C'}">${r.CP}</span></td>
+        <td>${r.TA}</td>
+        <td class="flex gap-2">
+          <button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id})">📥 Excel</button>
+          <button class="btn btn-danger btn-sm" onclick="App.deleteEval(${r.id}, this)">🗑</button>
+        </td>
+      </tr>`).join('');
+  },
+
+  filterHistory(query) {
+    const q = (query || '').toLowerCase().trim();
+    let filtered = this.historyRows;
+    if (q) {
+      filtered = this.historyRows.filter(r => 
+        (r.participant_name || '').toLowerCase().includes(q) || 
+        String(r.participant_id || '').toLowerCase().includes(q)
+      );
+    }
+    const tbody = document.getElementById('history-tbody');
+    if (tbody) tbody.innerHTML = this.generateHistoryRowsHTML(filtered);
   },
 
   async downloadById(id) {
