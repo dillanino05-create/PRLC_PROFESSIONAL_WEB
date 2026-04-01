@@ -1,6 +1,10 @@
 // app.js — PLC Professional SPA
 // Gestión de estado y renderizado de todas las pantallas
 
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+  ? '' 
+  : 'https://plc-backend.onrender.com';
+
 const App = {
   /* ── Estado ──────────────────────────────────────────────────────────── */
   screen:      'login',
@@ -48,7 +52,7 @@ const App = {
     } catch(e) {}
 
     try {
-      const r = await fetch('/api/status');
+      const r = await fetch(API_BASE + '/api/status');
       const d = await r.json();
       this.modelOk = d.model_available;
     } catch(e) { this.modelOk = false; }
@@ -641,7 +645,7 @@ const App = {
 
     // ML prediction via API
     try {
-      const resp = await fetch('/api/predict', {
+      const resp = await fetch(API_BASE + '/api/predict', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           age: this.participant.age, education: this.participant.education,
@@ -662,7 +666,7 @@ const App = {
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
 
-      const saveResp  = await fetch('/api/save', {
+      const saveResp  = await fetch(API_BASE + '/api/save', {
         method:'POST', headers:{'Content-Type':'application/json', 'Authorization': `Bearer ${token}`},
         body: JSON.stringify({
           participant:   this.participant,
@@ -852,7 +856,7 @@ const App = {
     try {
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
-      const r = await fetch('/api/history', {
+      const r = await fetch(API_BASE + '/api/history', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       rows = await r.json();
@@ -899,7 +903,7 @@ const App = {
       btn.textContent = "Cargando...";
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
-      const r = await fetch(`/api/export/${id}`, {
+      const r = await fetch(`${API_BASE}/api/export/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const d = await r.json();
@@ -918,7 +922,7 @@ const App = {
       btn.textContent = "...";
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
-      await fetch(`/api/history/${id}`, { 
+      await fetch(`${API_BASE}/api/history/${id}`, { 
         method:'DELETE',
         headers: { 'Authorization': `Bearer ${token}` } 
       });

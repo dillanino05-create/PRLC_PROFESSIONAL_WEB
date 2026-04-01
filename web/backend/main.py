@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -17,6 +18,14 @@ WEB_DIR      = Path(__file__).parent.parent
 FRONTEND_DIR = WEB_DIR / 'frontend'
 
 app = FastAPI(title='PLC Professional Web', version='2.0')
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ── Supabase Setup ─────────────────────────────────────────────────────────────
 SUPABASE_URL = "https://lfyaiwbtfgoiczyyzlwh.supabase.co"
