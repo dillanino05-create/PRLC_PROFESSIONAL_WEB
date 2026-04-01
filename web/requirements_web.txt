@@ -1,0 +1,13 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+pydantic>=2.0
+numpy>=1.24
+pandas>=2.0
+matplotlib>=3.7
+tensorflow>=2.16
+scikit-learn>=1.6
+joblib>=1.3
+openpyxl>=3.1
+Pillow>=10.0
+aiofiles>=23.0

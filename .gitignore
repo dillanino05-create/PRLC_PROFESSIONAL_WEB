@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Entornos Virtuales
+venv310/
+venv/
+env/
+.env
+
+# Archivos de datos autogenerados y bases de datos locales
+web/data/*.db
+web/data/*.sqlite3
+web/data/*.sqlite
+web/exports/*.xlsx
+web/exports/*.png
+
+# Modelos excesivamente grandes
+*.ckpt
+*.h5
+
+# OS generados
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/

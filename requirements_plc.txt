@@ -1,0 +1,8 @@
+﻿# Dependencias para PLC Professional
+tkinter        # incluido en Python standard library
+numpy>=1.24
+pandas>=2.0
+matplotlib>=3.7
+tensorflow>=2.13
+joblib>=1.3
+openpyxl>=3.1
