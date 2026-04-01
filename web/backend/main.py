@@ -1,13 +1,12 @@
 import os
-import sqlite3
-import json
 from pathlib import Path
 from datetime import datetime
-from typing import Any, Dict
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
+
+from supabase import create_client, Client, ClientOptions
 
 from .models import PredictRequest, SaveRequest
 from .predictor import predictor
@@ -16,64 +15,49 @@ from .excel_export import save_excel, EXPORTS_DIR
 # ── Paths ──────────────────────────────────────────────────────────────────────
 WEB_DIR      = Path(__file__).parent.parent
 FRONTEND_DIR = WEB_DIR / 'frontend'
-DATA_DIR     = WEB_DIR / 'data'
-DATA_DIR.mkdir(exist_ok=True)
-DB_PATH      = DATA_DIR / 'plc.db'
 
-# ── FastAPI app ────────────────────────────────────────────────────────────────
-app = FastAPI(title='PLC Professional Web', version='1.0')
+app = FastAPI(title='PLC Professional Web', version='2.0')
 
-# ── SQLite setup ───────────────────────────────────────────────────────────────
-def get_db():
-    con = sqlite3.connect(str(DB_PATH))
-    con.row_factory = sqlite3.Row
-    return con
+# ── Supabase Setup ─────────────────────────────────────────────────────────────
+SUPABASE_URL = "https://lfyaiwbtfgoiczyyzlwh.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjc1MTEsImV4cCI6MjA5MDY0MzUxMX0.ZfVceXuYWQKEZimgRLt9kGkSGpq8FO7kRgKbL-Ta-3M"
 
-def init_db():
-    con = get_db()
-    con.execute('''CREATE TABLE IF NOT EXISTS evaluations (
-        id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        created_at    TEXT,
-        participant_id TEXT,
-        participant_name TEXT,
-        age           INTEGER,
-        gender        TEXT,
-        education     TEXT,
-        hand          TEXT,
-        occupation    TEXT,
-        metrics_json  TEXT,
-        ml_json       TEXT,
-        lines_json    TEXT,
-        clicks_json   TEXT,
-        narrative     TEXT,
-        excel_path    TEXT
-    )''')
-    con.commit(); con.close()
+def get_supabase(authorization: str = Header(None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Falta autorización/Ingresa de nuevo")
+    
+    token = authorization.split(" ")[1]
+    
+    # Cliente configurado para actuar en nombre del psicólogo logueado (Respetando RLS)
+    opts = ClientOptions(headers={'Authorization': f'Bearer {token}'})
+    sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
+    
+    # Verificación del usuario contra Supabase Auth
+    res = sb.auth.get_user(token)
+    if not res or not res.user:
+         raise HTTPException(status_code=401, detail="Usuario inválido")
+         
+    return {"client": sb, "user_id": res.user.id}
 
-init_db()
-
-# ── Static files ───────────────────────────────────────────────────────────────
+# ── Archivos Estáticos ─────────────────────────────────────────────────────────
 app.mount('/static', StaticFiles(directory=str(FRONTEND_DIR)), name='static')
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
 @app.get('/')
 def root():
     return FileResponse(str(FRONTEND_DIR / 'index.html'))
 
 @app.get('/api/status')
 def status():
-    return {
-        'model_available': predictor.available,
-        'version': '1.0'
-    }
+    return {'model_available': predictor.available, 'version': '2.0'}
 
 @app.post('/api/predict')
 def predict(req: PredictRequest):
-    result = predictor.predict(req.model_dump())
-    return result
+    return predictor.predict(req.model_dump())
 
 @app.post('/api/save')
-def save(req: SaveRequest):
+def save(req: SaveRequest, auth_ctx: dict = Depends(get_supabase)):
+    sb = auth_ctx["client"]
+    uid = auth_ctx["user_id"]
     try:
         part      = req.participant.model_dump()
         metrics   = req.metrics.model_dump()
@@ -82,71 +66,93 @@ def save(req: SaveRequest):
         ml_pred   = req.ml_prediction
         narrative = req.narrative
 
-        # Generate Excel
+        # Generar Excel en disco local TEMPORAL
         excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative)
+        filename = os.path.basename(excel_path)
+        
+        # Guardar a la nube (Supabase Storage)
+        with open(excel_path, "rb") as f:
+            sb.storage.from_("exports").upload(
+                path=filename, 
+                file=f, 
+                file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+            )
+            
+        # Curación de datos: Eliminar Excel local ahora que está seguro en la nube
+        try: os.remove(excel_path)
+        except: pass
 
-        # Save to SQLite
-        con = get_db()
-        cur = con.execute('''INSERT INTO evaluations
-            (created_at, participant_id, participant_name, age, gender, education, hand, occupation,
-             metrics_json, ml_json, lines_json, clicks_json, narrative, excel_path)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
-            datetime.now().isoformat(),
-            part['id'], part['name'], part['age'], part['gender'],
-            part['education'], part['hand'], part.get('occupation',''),
-            json.dumps(metrics), json.dumps(ml_pred),
-            json.dumps(lines), json.dumps(clicks),
-            narrative, excel_path
-        ))
-        eval_id = cur.lastrowid
-        con.commit(); con.close()
+        # Centralizar historial de pacientes en Supabase Database (con RLS protegido)
+        row_data = {
+            "user_id": uid,
+            "participant_id": part["id"],
+            "participant_name": part["name"],
+            "age": part["age"],
+            "gender": part["gender"],
+            "education": part["education"],
+            "hand": part["hand"],
+            "occupation": part.get("occupation", ""),
+            "metrics_json": metrics,
+            "ml_json": ml_pred,
+            "lines_json": lines,
+            "clicks_json": clicks,
+            "narrative": narrative,
+            "excel_path": filename
+        }
+        
+        res = sb.table("evaluations").insert(row_data).execute()
+        eval_id = res.data[0]["id"]
 
-        return {'id': eval_id, 'excel_filename': os.path.basename(excel_path)}
+        return {'id': eval_id, 'excel_filename': filename}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/api/export/{eval_id}')
-def export(eval_id: int):
-    con = get_db()
-    row = con.execute('SELECT excel_path FROM evaluations WHERE id=?', (eval_id,)).fetchone()
-    con.close()
-    if not row or not row['excel_path']:
-        raise HTTPException(status_code=404, detail='Archivo no encontrado')
-    fp = row['excel_path']
-    if not os.path.exists(fp):
-        raise HTTPException(status_code=404, detail='Archivo Excel no existe en disco')
-    return FileResponse(fp, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        filename=os.path.basename(fp))
+def export(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
+    sb = auth_ctx["client"]
+    res = sb.table("evaluations").select("excel_path").eq("id", eval_id).execute()
+    if not res.data or not res.data[0].get("excel_path"):
+        raise HTTPException(status_code=404, detail="Archivo no encontrado en base de datos")
+        
+    filename = res.data[0]["excel_path"]
+    public_url = sb.storage.from_("exports").get_public_url(filename)
+    return {"url": public_url}
 
 @app.get('/api/history')
-def history():
-    con = get_db()
-    rows = con.execute(
-        'SELECT id, created_at, participant_id, participant_name, age, metrics_json '
-        'FROM evaluations ORDER BY id DESC'
-    ).fetchall()
-    con.close()
-    result = []
-    for r in rows:
-        m = json.loads(r['metrics_json'] or '{}')
-        result.append({
-            'id': r['id'],
-            'created_at': r['created_at'],
-            'participant_id': r['participant_id'],
-            'participant_name': r['participant_name'],
-            'age': r['age'],
-            'CP': round(m.get('CP', 0), 1),
-            'TA': m.get('TA', 0),
-        })
-    return result
+def history(auth_ctx: dict = Depends(get_supabase)):
+    sb = auth_ctx["client"]
+    try:
+        # Extrae de forma segura el historial vinculado por RLS.
+        res = sb.table("evaluations").select(
+            "id, created_at, participant_id, participant_name, age, metrics_json"
+        ).order("id", desc=True).execute()
+        
+        result = []
+        for r in res.data:
+            m = r.get("metrics_json", {})
+            result.append({
+                'id': r['id'],
+                'created_at': r['created_at'],
+                'participant_id': r['participant_id'],
+                'participant_name': r['participant_name'],
+                'age': r['age'],
+                'CP': round(m.get('CP', 0), 1) if 'CP' in m else 0,
+                'TA': m.get('TA', 0),
+            })
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete('/api/history/{eval_id}')
-def delete_eval(eval_id: int):
-    con = get_db()
-    row = con.execute('SELECT excel_path FROM evaluations WHERE id=?', (eval_id,)).fetchone()
-    if row and row['excel_path'] and os.path.exists(row['excel_path']):
-        try: os.remove(row['excel_path'])
-        except: pass
-    con.execute('DELETE FROM evaluations WHERE id=?', (eval_id,))
-    con.commit(); con.close()
+def delete_eval(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
+    sb = auth_ctx["client"]
+    
+    # 1. Recuperar path y borrar excel en la nube
+    res = sb.table("evaluations").select("excel_path").eq("id", eval_id).execute()
+    if res.data and res.data[0].get("excel_path"):
+        filename = res.data[0]["excel_path"]
+        sb.storage.from_("exports").remove([filename])
+            
+    # 2. Borrar del registro base de datos
+    sb.table("evaluations").delete().eq("id", eval_id).execute()
     return {'ok': True}

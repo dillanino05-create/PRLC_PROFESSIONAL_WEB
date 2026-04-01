@@ -3,7 +3,9 @@
 
 const App = {
   /* ── Estado ──────────────────────────────────────────────────────────── */
-  screen:      'menu',
+  screen:      'login',
+  supabase:    null,
+  user:        null,
   modelOk:     false,
   participant: null,
   testLines:   [],   // cada línea: array de 47 estímulos
@@ -32,16 +34,35 @@ const App = {
 
   /* ── Init ──────────────────────────────────────────────────────────────── */
   async init() {
+    // Configuración de Supabase
+    const SUPABASE_URL = 'https://lfyaiwbtfgoiczyyzlwh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjc1MTEsImV4cCI6MjA5MDY0MzUxMX0.ZfVceXuYWQKEZimgRLt9kGkSGpq8FO7kRgKbL-Ta-3M';
+    this.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    try {
+      // Verificar sesión activa
+      const { data: { session } } = await this.supabase.auth.getSession();
+      if (session) {
+        this.user = session.user;
+      }
+    } catch(e) {}
+
     try {
       const r = await fetch('/api/status');
       const d = await r.json();
       this.modelOk = d.model_available;
     } catch(e) { this.modelOk = false; }
-    this.nav('menu');
+    
+    // Si hay usuario logueado -> menú, si no -> login
+    this.nav(this.user ? 'menu' : 'login');
   },
 
   nav(screen) {
-    this.screen = screen;
+    if (!this.user && screen !== 'login') {
+      this.screen = 'login';
+    } else {
+      this.screen = screen;
+    }
     this.render();
   },
 
@@ -50,6 +71,7 @@ const App = {
     app.innerHTML = '';
     app.className = 'fade-in';
     switch(this.screen) {
+      case 'login':   this.renderLogin(app);   break;
       case 'menu':    this.renderMenu(app);    break;
       case 'form':    this.renderForm(app);    break;
       case 'pretest': this.renderPreTest(app); break;
@@ -57,6 +79,75 @@ const App = {
       case 'results': this.renderResults(app); break;
       case 'history': this.renderHistory(app); break;
     }
+  },
+
+  /* ══════════════════════════════════════════════════════════════════════
+     PANTALLA 0: LOGIN
+  ══════════════════════════════════════════════════════════════════════ */
+  renderLogin(app) {
+    app.innerHTML = `
+      <div id="test-screen" style="background:linear-gradient(135deg,#1A237E 0%,#283593 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.3);width:100%;max-width:400px;">
+          <h2 style="margin-bottom:8px;text-align:center;">PLC Professional <span style="font-size:0.5em;vertical-align:top;color:#546E7A;">Cloud</span></h2>
+          <p style="color:#546E7A;text-align:center;font-size:0.9rem;margin-bottom:24px;">
+            Acceso exclusivo para evaluadores
+          </p>
+
+          <div class="form-group">
+            <label>Correo Electrónico</label>
+            <input type="text" id="login-email" placeholder="usuario@clinica.com" />
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>Contraseña</label>
+            <input type="password" id="login-pwd" placeholder="•••••••••" style="width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Inter', sans-serif; font-size: .95rem; background: var(--a-light);" />
+          </div>
+
+          <div id="login-error" style="color:#B71C1C;font-size:0.85rem;margin-bottom:16px;text-align:center;min-height:16px;"></div>
+
+          <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;" onclick="App.doLogin(this)">
+            Iniciar Sesión
+          </button>
+        </div>
+      </div>
+    `;
+  },
+
+  async doLogin(btn) {
+    const email = document.getElementById('login-email').value.trim();
+    const pwd   = document.getElementById('login-pwd').value;
+    const errEl = document.getElementById('login-error');
+    errEl.textContent = '';
+
+    if (!email || !pwd) {
+      errEl.textContent = 'Ingrese correo y contraseña.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Verificando...';
+
+    const { data, error } = await this.supabase.auth.signInWithPassword({
+      email: email,
+      password: pwd
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Iniciar Sesión';
+
+    if (error) {
+      console.warn("Login failed:", error.message);
+      // Ocultar mensaje genérico de supabase
+      errEl.textContent = 'Credenciales inválidas. Compruebe o contáctenos.';
+    } else {
+      this.user = data.user;
+      this.nav('menu');
+    }
+  },
+
+  async doLogout() {
+    await this.supabase.auth.signOut();
+    this.user = null;
+    this.nav('login');
   },
 
   /* ══════════════════════════════════════════════════════════════════════
@@ -72,6 +163,9 @@ const App = {
           </div>
           <div style="font-size:1.1rem;color:#C5CAE9;margin-top:8px;font-weight:300;">
             Prueba de Líneas Cruzadas — Evaluación Cognitiva
+          </div>
+          <div style="margin-top:20px;padding:10px 20px;background:rgba(255,255,255,0.1);border-radius:8px;display:inline-block;font-size:0.95rem;">
+            👋 Bienvenido/a, <strong style="color:#FFF;">${this.user ? this.user.email : 'Evaluador'}</strong>
           </div>
         </div>
 
@@ -108,6 +202,9 @@ const App = {
             </button>
             <button class="btn btn-ghost btn-lg" onclick="App.nav('history')">
               📋 &nbsp; Historial
+            </button>
+            <button class="btn btn-danger btn-lg" onclick="App.doLogout()">
+              Cerrar Sesión
             </button>
           </div>
 
@@ -562,8 +659,11 @@ const App = {
     // Save + generate Excel
     try {
       const narrative = generateNarrative(this.metrics);
+      const sess = await this.supabase.auth.getSession();
+      const token = sess.data.session ? sess.data.session.access_token : '';
+
       const saveResp  = await fetch('/api/save', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json', 'Authorization': `Bearer ${token}`},
         body: JSON.stringify({
           participant:   this.participant,
           lines_data:    this.linesData,
@@ -730,7 +830,7 @@ const App = {
 
   downloadExcel() {
     if (!this.evalId) return;
-    window.location.href = `/api/export/${this.evalId}`;
+    this.downloadById(this.evalId);
   },
 
   /* ══════════════════════════════════════════════════════════════════════
@@ -750,7 +850,11 @@ const App = {
 
     let rows = [];
     try {
-      const r = await fetch('/api/history');
+      const sess = await this.supabase.auth.getSession();
+      const token = sess.data.session ? sess.data.session.access_token : '';
+      const r = await fetch('/api/history', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       rows = await r.json();
     } catch(e) {}
 
@@ -789,14 +893,35 @@ const App = {
       </table>`;
   },
 
-  downloadById(id) {
-    window.location.href = `/api/export/${id}`;
+  async downloadById(id) {
+    try {
+      const btn = event.target;
+      btn.textContent = "Cargando...";
+      const sess = await this.supabase.auth.getSession();
+      const token = sess.data.session ? sess.data.session.access_token : '';
+      const r = await fetch(`/api/export/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const d = await r.json();
+      btn.textContent = "📥 Excel";
+      if (d.url) {
+        window.open(d.url, '_blank');
+      } else {
+        alert(d.detail || "URL no disponible");
+      }
+    } catch(e) { alert("Error al contactar con la nube"); }
   },
 
   async deleteEval(id, btn) {
-    if (!confirm('¿Eliminar esta evaluación?')) return;
+    if (!confirm('¿Eliminar definitivamente esta evaluación (BD y Storage)?')) return;
     try {
-      await fetch(`/api/history/${id}`, { method:'DELETE' });
+      btn.textContent = "...";
+      const sess = await this.supabase.auth.getSession();
+      const token = sess.data.session ? sess.data.session.access_token : '';
+      await fetch(`/api/history/${id}`, { 
+        method:'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` } 
+      });
       btn.closest('tr').remove();
     } catch(e) { alert('Error al eliminar.'); }
   }
