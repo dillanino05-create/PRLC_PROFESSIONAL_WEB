@@ -10,15 +10,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar el archivo de requerimientos e instalarlos
-COPY requirements_web.txt .
+COPY web/requirements_web.txt .
 RUN pip install --no-cache-dir -r requirements_web.txt
 
-# Copiar el resto del código del backend web
+# Copiar TODO el repositorio (incluyendo Modelos Keras en la raíz y la carpeta web)
 COPY . .
 
-# Hugging Face Spaces por defecto escucha en el puerto 7860.
-# Render o Koyeb pueden sobreescribir esta variable $PORT en tiempo de ejecución.
 ENV PORT=7860
+EXPOSE 7860
 
-# Comando para arrancar el servidor con Uvicorn
-CMD uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+# Comando para arrancar el servidor con Uvicorn (desde la carpeta web)
+CMD ["uvicorn", "web.backend.main:app", "--host", "0.0.0.0", "--port", "7860"]
