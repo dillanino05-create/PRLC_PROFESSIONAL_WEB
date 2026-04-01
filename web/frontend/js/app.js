@@ -3,7 +3,7 @@
 
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
   ? '' 
-  : 'https://plc-backend.onrender.com';
+  : 'https://dalamus2405-plc-backend.hf.space';
 
 const App = {
   /* ── Estado ──────────────────────────────────────────────────────────── */
