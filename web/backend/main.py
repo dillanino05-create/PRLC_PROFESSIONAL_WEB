@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -63,10 +63,38 @@ def status():
 def predict(req: PredictRequest):
     return predictor.predict(req.model_dump())
 
+def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, metrics, ml_pred, narrative):
+    opts = ClientOptions(headers={'Authorization': f'Bearer {token}'})
+    sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
+    
+    try:
+        sb.table("evaluations").update({"status": "processing"}).eq("id", eval_id).execute()
+        
+        excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative)
+        filename = os.path.basename(excel_path)
+        
+        with open(excel_path, "rb") as f:
+            sb.storage.from_("exports").upload(
+                path=filename, 
+                file=f, 
+                file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+            )
+            
+        try: os.remove(excel_path)
+        except: pass
+        
+        sb.table("evaluations").update({"status": "completed", "excel_path": filename}).eq("id", eval_id).execute()
+        
+    except Exception as e:
+        print(f"Error bg_excel: {e}")
+        try: sb.table("evaluations").update({"status": "error"}).eq("id", eval_id).execute()
+        except: pass
+
 @app.post('/api/save')
-def save(req: SaveRequest, auth_ctx: dict = Depends(get_supabase)):
+def save(req: SaveRequest, background_tasks: BackgroundTasks, authorization: str = Header(None), auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
+    token = authorization.split(" ")[1] if authorization else ""
     try:
         part      = req.participant.model_dump()
         metrics   = req.metrics.model_dump()
@@ -75,25 +103,10 @@ def save(req: SaveRequest, auth_ctx: dict = Depends(get_supabase)):
         ml_pred   = req.ml_prediction
         narrative = req.narrative
 
-        # Generar Excel en disco local TEMPORAL
-        excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative)
-        filename = os.path.basename(excel_path)
-        
-        # Guardar a la nube (Supabase Storage)
-        with open(excel_path, "rb") as f:
-            sb.storage.from_("exports").upload(
-                path=filename, 
-                file=f, 
-                file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
-            )
-            
-        # Curación de datos: Eliminar Excel local ahora que está seguro en la nube
-        try: os.remove(excel_path)
-        except: pass
-
-        # Centralizar historial de pacientes en Supabase Database (con RLS protegido)
+        # Guardado Inmediato Estricto (Sin bloqueos)
         row_data = {
             "user_id": uid,
+            "status": "pending",
             "participant_id": part["id"],
             "participant_name": part["name"],
             "age": part["age"],
@@ -106,22 +119,32 @@ def save(req: SaveRequest, auth_ctx: dict = Depends(get_supabase)):
             "lines_json": lines,
             "clicks_json": clicks,
             "narrative": narrative,
-            "excel_path": filename
+            "excel_path": ""
         }
-        
         res = sb.table("evaluations").insert(row_data).execute()
         eval_id = res.data[0]["id"]
 
-        return {'id': eval_id, 'excel_filename': filename}
+        # Tarea de fondo sin bloquear el runtime de Uvicorn principal
+        background_tasks.add_task(process_excel_bg, token, eval_id, uid, part, lines, clicks, metrics, ml_pred, narrative)
+
+        return {'id': eval_id, 'status': 'pending'}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/api/export/{eval_id}')
 def export(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
-    res = sb.table("evaluations").select("excel_path").eq("id", eval_id).execute()
-    if not res.data or not res.data[0].get("excel_path"):
+    res = sb.table("evaluations").select("excel_path, status").eq("id", eval_id).execute()
+    if not res.data:
         raise HTTPException(status_code=404, detail="Archivo no encontrado en base de datos")
+    
+    st = res.data[0].get("status")
+    if st in ["pending", "processing"]:
+        raise HTTPException(status_code=400, detail="El Excel aún se está generando (background). Intente en unos 5 a 10 segundos.")
+    if st == "error":
+        raise HTTPException(status_code=500, detail="El sistema generó un error inesperado al compilar el Excel de este participante.")
+    if not res.data[0].get("excel_path"):
+        raise HTTPException(status_code=404, detail="Ausencia de archivo físico.")
         
     filename = res.data[0]["excel_path"]
     try:
@@ -139,7 +162,7 @@ def history(auth_ctx: dict = Depends(get_supabase)):
     try:
         # Extrae de forma segura el historial vinculado por RLS.
         res = sb.table("evaluations").select(
-            "id, created_at, participant_id, participant_name, age, metrics_json"
+            "id, created_at, participant_id, participant_name, age, metrics_json, status"
         ).order("id", desc=True).execute()
         
         result = []
@@ -151,6 +174,7 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'participant_id': r['participant_id'],
                 'participant_name': r['participant_name'],
                 'age': r['age'],
+                'status': r.get('status', 'completed'),
                 'CP': round(m.get('CP', 0), 1) if 'CP' in m else 0,
                 'TA': m.get('TA', 0),
             })

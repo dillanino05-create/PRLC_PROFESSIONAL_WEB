@@ -640,6 +640,8 @@ const App = {
      FIN DEL TEST — cálculo + predicción + guardado
   ══════════════════════════════════════════════════════════════════════ */
   async finishTest() {
+    if (this.isSaving) return;
+    this.isSaving = true;
     this.nav('results');  // show loading state first
     this.metrics = calcMetrics(this.linesData, this.clickLog, this.participant.age);
     this.metrics._age = this.participant.age;
@@ -694,9 +696,10 @@ const App = {
       });
       const sd = await saveResp.json();
       this.evalId       = sd.id;
-      this.evalFilename = sd.excel_filename;
+      this.evalStatus   = sd.status;
     } catch(e) { console.warn('Save error:', e); }
 
+    this.isSaving = false;
     this.nav('results');
   },
 
@@ -901,7 +904,12 @@ const App = {
         <td><span style="font-weight:700;color:${r.CP>=75?'#2E7D32':r.CP>=50?'#E65100':'#B71C1C'}">${r.CP}</span></td>
         <td>${r.TA}</td>
         <td class="flex gap-2">
-          <button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id})">📥 Excel</button>
+          ${r.status === 'processing' || r.status === 'pending' ? 
+            `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
+           r.status === 'error' ?
+            `<button class="btn btn-danger btn-sm" disabled>❌ Error</button>` :
+            `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id})">📥 Excel</button>`
+          }
           <button class="btn btn-danger btn-sm" onclick="App.deleteEval(${r.id}, this)">🗑</button>
         </td>
       </tr>`).join('');
