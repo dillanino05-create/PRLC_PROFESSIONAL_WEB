@@ -124,8 +124,14 @@ def export(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
         raise HTTPException(status_code=404, detail="Archivo no encontrado en base de datos")
         
     filename = res.data[0]["excel_path"]
-    public_url = sb.storage.from_("exports").get_public_url(filename)
-    return {"url": public_url}
+    try:
+        # Crea un enlace firmado válido por 60 segundos
+        signed_res = sb.storage.from_("exports").create_signed_url(filename, 60)
+        # Extrae la URL (dependiendo de la versión del SDK puede ser signedURL o signedUrl)
+        secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
+        return {"url": secure_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"No se pudo firmar el archivo: {str(e)}")
 
 @app.get('/api/history')
 def history(auth_ctx: dict = Depends(get_supabase)):
