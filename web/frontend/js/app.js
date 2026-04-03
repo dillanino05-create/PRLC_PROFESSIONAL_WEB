@@ -884,6 +884,28 @@ const App = {
         <div><h1>Historial de Evaluaciones</h1></div>
         <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')">← Menú</button>
       </div>
+
+      <!-- Modal Clínico (Inyectado) -->
+      <div id="clinical-modal" class="modal-overlay">
+        <div class="modal-clinical">
+          <button class="modal-close" onclick="document.getElementById('clinical-modal').classList.remove('active'); destroyCharts();">×</button>
+          <div class="section-title">Dashboard Clínico del Paciente</div>
+          
+          <div id="modal-patient-info" style="margin-bottom: 20px; font-weight: 600; color: var(--primary);"></div>
+          
+          <div class="semaforo-container" id="modal-semaforo">
+            <!-- Renderizado dinámico -->
+          </div>
+
+          <div class="charts-grid">
+            <div class="chart-box"><canvas id="chart-behavior"></canvas></div>
+            <div class="chart-box"><canvas id="chart-metrics"></canvas></div>
+            <div class="chart-box"><canvas id="chart-errors"></canvas></div>
+            <div class="chart-box"><canvas id="chart-normal"></canvas></div>
+          </div>
+        </div>
+      </div>
+
       <div class="page fade-in">
         <div class="card" id="history-card">
           <div style="text-align:center;padding:20px;color:#546E7A;">Cargando...</div>
@@ -938,6 +960,7 @@ const App = {
         <td><span style="font-weight:700;color:${r.CP>=75?'#2E7D32':r.CP>=50?'#E65100':'#B71C1C'}">${r.CP}</span></td>
         <td>${r.TA}</td>
         <td class="flex gap-2">
+          <button class="btn btn-ghost btn-sm" style="background:#E8EAF6;color:#1A237E;" onclick="App.openWebReport(${r.id}, this)">👁️ Ver Web</button>
           ${r.status === 'processing' || r.status === 'pending' ? 
             `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
            r.status === 'error' ?
@@ -990,6 +1013,78 @@ const App = {
           btn.textContent = "📥 Excel";
           btn.disabled = false;
       }
+    }
+  },
+
+  async openWebReport(id, btn) {
+    if (btn) {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = "⌛ Cargando...";
+    }
+    
+    try {
+      // Pedimos todo el JSON de forma segura por RLS
+      const { data, error } = await this.supabase
+        .from('evaluations')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (error || !data) {
+        alert("Error al recuperar los datos del paciente.");
+        if (btn) { btn.textContent = "👁️ Ver Web"; btn.disabled = false; }
+        return;
+      }
+      
+      const metrics = data.metrics_json;
+      const lines = data.lines_json;
+      const ml = data.ml_json;
+      
+      // 1. Mostrar Modal
+      document.getElementById('clinical-modal').classList.add('active');
+      document.getElementById('modal-patient-info').innerHTML = `
+        Paciente: <span style="color:var(--text);font-weight:400;">${data.participant_name}</span> 
+        | ID: <span style="color:var(--text);font-weight:400;">${data.participant_id}</span> 
+        | Prueba: <span style="color:var(--text);font-weight:400;">${new Date(data.created_at).toLocaleString()}</span>
+      `;
+      
+      // 2. Semáforo Normativo basado en el Perfil de Eficiencia (CP)
+      const cp = metrics.CP || 0;
+      let sColor = 'yellow', sTitle = 'Atípico - Monitorear', sDesc = 'Variabilidad atencional límite.';
+      if (cp >= 75) {
+        sColor = 'green'; sTitle = 'Rango Normativo'; sDesc = 'Rendimiento esperado p/ edad.';
+      } else if (cp < 25) {
+        sColor = 'red'; sTitle = 'Alerta Clínica'; sDesc = 'Desempeño fuera de rango poblacional.';
+      }
+      
+      document.getElementById('modal-semaforo').innerHTML = `
+        <div class="semaforo-box semaforo-${sColor}">
+          <div class="semaforo-indicator"></div>
+          <div class="semaforo-text">
+            <div class="st-title">${sTitle}</div>
+            <div class="st-desc" style="font-size:0.8rem;">CP: ${cp.toFixed(1)}% | ${sDesc}</div>
+          </div>
+        </div>
+        <div class="semaforo-box semaforo-blue" style="background:var(--a-light);border:1px solid var(--border);">
+          <div class="semaforo-indicator" style="background:var(--accent);"></div>
+          <div class="semaforo-text">
+            <div class="st-title">Confiabilidad Bayesiana</div>
+            <div class="st-desc" style="font-size:0.8rem;">${(ml.confidence_percent || "0%")} (Calidad del ML)</div>
+          </div>
+        </div>
+      `;
+      
+      // 3. Renderizar Gráficas (Destruye previas auto por función)
+      renderResultCharts(lines, metrics, ml);
+      
+    } catch(e) {
+      alert("Error al cargar la visualización");
+    }
+    
+    if (btn) {
+      btn.textContent = "👁️ Ver Web";
+      btn.disabled = false;
     }
   },
 

@@ -433,3 +433,129 @@ canvas.stim.sel-test { box-shadow: 0 0 0 3px #1565C0        !important; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Modal Clínico Glassmorphism (Fase 1) ────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+.modal-clinical {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 1000px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 32px 40px;
+  position: relative;
+  transform: translateY(20px);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-overlay.active .modal-clinical {
+  transform: translateY(0);
+}
+.modal-close {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  background: var(--a-light);
+  border: none;
+  font-size: 1.2rem;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.2s;
+}
+.modal-close:hover {
+  background: var(--border);
+  transform: scale(1.05);
+}
+
+/* ── Semáforo Normativo ──────────────────────────────────────────────── */
+.semaforo-container {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.semaforo-box {
+  flex: 1;
+  padding: 16px 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  opacity: 0.9;
+  border: 1px solid transparent;
+  transition: transform 0.2s;
+}
+.semaforo-box:hover {
+  transform: translateY(-2px);
+  opacity: 1;
+}
+.semaforo-indicator {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+}
+.semaforo-text {
+  flex: 1;
+}
+.semaforo-text .st-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.semaforo-text .st-desc {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Status variants */
+.semaforo-green {
+  background: linear-gradient(145deg, #E8F5E9, #C8E6C9);
+  border-color: #A5D6A7;
+}
+.semaforo-green .semaforo-indicator { background: #43A047; box-shadow: 0 0 10px rgba(67, 160, 71, 0.6); }
+.semaforo-green .st-title { color: #2E7D32; }
+
+.semaforo-yellow {
+  background: linear-gradient(145deg, #FFF8E1, #FFECB3);
+  border-color: #FFE082;
+}
+.semaforo-yellow .semaforo-indicator { background: #FFB300; box-shadow: 0 0 10px rgba(255, 179, 0, 0.6); }
+.semaforo-yellow .st-title { color: #F57F17; }
+
+.semaforo-red {
+  background: linear-gradient(145deg, #FFEBEE, #FFCDD2);
+  border-color: #EF9A9A;
+}
+.semaforo-red .semaforo-indicator { background: #E53935; box-shadow: 0 0 10px rgba(229, 57, 53, 0.6); }
+.semaforo-red .st-title { color: #C62828; }
