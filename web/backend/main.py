@@ -1,8 +1,13 @@
 import os
+import gc
+import asyncio
 from pathlib import Path
 from datetime import datetime
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Header, Depends, BackgroundTasks
+import matplotlib.pyplot as plt
+
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -17,19 +22,57 @@ from .excel_export import save_excel, EXPORTS_DIR
 WEB_DIR      = Path(__file__).parent.parent
 FRONTEND_DIR = WEB_DIR / 'frontend'
 
-app = FastAPI(title='PLC Professional Web', version='2.0')
+# ── Cola Global FIFO ───────────────────────────────────────────────────────────
+task_queue = asyncio.Queue()
+
+async def sequential_worker():
+    """Worker controlado para generar reportes secuenciales sin ahogar la CPU."""
+    while True:
+        try:
+            # Polling eficiente: duerme la corrutina hasta que llega un reporte
+            task = await task_queue.get()
+            eval_id, token, uid, part, lines, clicks, metrics, ml_pred, narrative = task
+            
+            print(f"[WORKER] Iniciando procesamiento orden FIFO de eval_id: {eval_id}")
+            
+            # Delega el cálculo asíncronamente para no bloquear event-loop si hay peticiones
+            await asyncio.to_thread(
+                process_excel_bg, token, eval_id, uid, part, lines, clicks, metrics, ml_pred, narrative
+            )
+            
+            # Recolección obligatoria de basura y liberación explícita VRAM/RAM
+            plt.close('all')
+            gc.collect()
+            print(f"[WORKER] RAM purgada exitosamente tras eval_id: {eval_id}")
+            
+            task_queue.task_done()
+        except asyncio.CancelledError:
+            print("[WORKER] Apagando worker de manera segura.")
+            break
+        except Exception as e:
+            print(f"[WORKER] Excepción catastrófica en el proceso en cola: {e}")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Encender worker en 2do plano al arrancar la app
+    worker_task = asyncio.create_task(sequential_worker())
+    yield
+    # Apagar worker en shutdown
+    worker_task.cancel()
+
+app = FastAPI(title='PLC Professional Web', version='2.0', lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ── Supabase Setup ─────────────────────────────────────────────────────────────
-SUPABASE_URL = "https://lfyaiwbtfgoiczyyzlwh.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjc1MTEsImV4cCI6MjA5MDY0MzUxMX0.ZfVceXuYWQKEZimgRLt9kGkSGpq8FO7kRgKbL-Ta-3M"
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://lfyaiwbtfgoiczyyzlwh.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjc1MTEsImV4cCI6MjA5MDY0MzUxMX0.ZfVceXuYWQKEZimgRLt9kGkSGpq8FO7kRgKbL-Ta-3M")
 
 def get_supabase(authorization: str = Header(None)) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
@@ -91,7 +134,7 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
         except: pass
 
 @app.post('/api/save')
-def save(req: SaveRequest, background_tasks: BackgroundTasks, authorization: str = Header(None), auth_ctx: dict = Depends(get_supabase)):
+def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
     token = authorization.split(" ")[1] if authorization else ""
@@ -103,7 +146,7 @@ def save(req: SaveRequest, background_tasks: BackgroundTasks, authorization: str
         ml_pred   = req.ml_prediction
         narrative = req.narrative
 
-        # Guardado Inmediato Estricto (Sin bloqueos)
+        # Inserción ruda de base de datos
         row_data = {
             "user_id": uid,
             "status": "pending",
@@ -124,17 +167,19 @@ def save(req: SaveRequest, background_tasks: BackgroundTasks, authorization: str
         res = sb.table("evaluations").insert(row_data).execute()
         eval_id = res.data[0]["id"]
 
-        # Tarea de fondo sin bloquear el runtime de Uvicorn principal
-        background_tasks.add_task(process_excel_bg, token, eval_id, uid, part, lines, clicks, metrics, ml_pred, narrative)
+        # Inyección a la Cola Restringida FIFO local en lugar de disparar threads irrestrictos
+        task_queue.put_nowait((eval_id, token, uid, part, lines, clicks, metrics, ml_pred, narrative))
 
         return {'id': eval_id, 'status': 'pending'}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/api/export/{eval_id}')
-def export(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
+async def export(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
-    res = sb.table("evaluations").select("excel_path, status").eq("id", eval_id).execute()
+    uid = auth_ctx["user_id"]
+    # Defensa Extrema IDOR: Aislamos obligatoriamente mediante UUID local del servidor
+    res = sb.table("evaluations").select("excel_path, status").eq("id", eval_id).eq("user_id", uid).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Archivo no encontrado en base de datos")
     

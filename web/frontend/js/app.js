@@ -942,7 +942,7 @@ const App = {
             `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
            r.status === 'error' ?
             `<button class="btn btn-danger btn-sm" disabled>❌ Error</button>` :
-            `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id})">📥 Excel</button>`
+            `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id}, this)">📥 Excel</button>`
           }
           <button class="btn btn-danger btn-sm" onclick="App.deleteEval(${r.id}, this)">🗑</button>
         </td>
@@ -962,23 +962,35 @@ const App = {
     if (tbody) tbody.innerHTML = this.generateHistoryRowsHTML(filtered);
   },
 
-  async downloadById(id) {
+  async downloadById(id, btn) {
+    if (btn) {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.textContent = "Cargando...";
+    }
     try {
-      const btn = event.target;
-      btn.textContent = "Cargando...";
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
       const r = await fetch(`${API_BASE}/api/export/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const d = await r.json();
-      btn.textContent = "📥 Excel";
+      if (btn) {
+          btn.textContent = "📥 Excel";
+          btn.disabled = false;
+      }
       if (d.url) {
         window.open(d.url, '_blank');
       } else {
         alert(d.detail || "URL no disponible");
       }
-    } catch(e) { alert("Error al contactar con la nube"); }
+    } catch(e) { 
+      alert("Error al contactar con la nube"); 
+      if (btn) {
+          btn.textContent = "📥 Excel";
+          btn.disabled = false;
+      }
+    }
   },
 
   async deleteEval(id, btn) {
