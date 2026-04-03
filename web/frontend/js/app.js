@@ -788,7 +788,7 @@ const App = {
               ['TRM Monotonía',     `${m.TRM >= 0 ? '+' : ''}${m.TRM.toFixed(1)} %`],
               ['IVR Vel–Exactitud', m.IVR.toFixed(2)],
               ['TR medio',          `${Math.round(m.meanRt)} ms`],
-              ['Estilo Atencional', m.attnStyle],
+              ['Patrón Dominante', m.attnStyle],
             ].map(([lbl,val]) => `
               <div class="ext-card">
                 <div class="eval">${val}</div>
@@ -810,7 +810,7 @@ const App = {
 
         <!-- C) Perfil cognitivo MLP -->
         <div class="card mb-4">
-          <div class="section-title">Perfil Cognitivo — Indicadores</div>
+          <div class="section-title">Clasificación Algorítmica Descriptiva</div>
           ${ml && ml.model_used ? `
             <div class="profile-badge">
               <span class="pname">${ml.profile_info.nombre}</span>
@@ -825,7 +825,7 @@ const App = {
               ${ml.profile_info.rasgos.map(r => `<div style="font-size:.9rem;padding:2px 0;">• ${r}</div>`).join('')}
             </div>
             <div style="font-size:.82rem;color:#546E7A;margin-bottom:8px;font-weight:600;">
-              Distribución de indicadores (modelo):
+              Similitud con Patrones Paramétricos Base (Bayes):
             </div>
             <div class="prob-bars">
               ${Object.entries(ml.all_probs).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v]) => `
@@ -836,9 +836,17 @@ const App = {
             </div>
           ` : `
             <p class="text-muted">
-              ${ml && ml.error ? ml.error : 'Modelo IA no disponible.'}
-              Las métricas objetivas son válidas para el análisis.
-            </p>`}
+              ${ml && ml.error ? ml.error : 'Báscula algorítmica no disponible o en reposo.'}
+              <br>Las métricas biométricas crudas expuestas arriba son estadísticamente válidas.
+            </p>
+          `}
+        </div>
+
+        <div class="card mb-4" style="background-color: #FFF9C4; border: 1px solid #FBC02D;">
+          <div style="font-weight:700; color:#BF360C; font-size:0.95rem; margin-bottom:6px;">NOTA METODOLÓGICA CLINÍCA</div>
+          <div style="font-size:0.85rem; color:#BF360C; line-height:1.5;">
+            Los datos representados en este informe (tablas, gráficas y textos automáticos) describen parámetros puramente observacionales capturados por el sistema. <b>El software NO diagnostica ni califica cognitivamente al usuario.</b> La ponderación e interpretación psicométrica recae estrictamente sobre el criterio y entrenamiento clínico del profesional evaluador basándose en estas volumetrías biológicas.
+          </div>
         </div>
 
         <!-- D) Narrativa técnica -->

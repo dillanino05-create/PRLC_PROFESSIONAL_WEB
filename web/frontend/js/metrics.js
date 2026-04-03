@@ -65,20 +65,20 @@ function calcMetrics(linesData, clickLog, age) {
         : sortedRts[Math.floor(sortedRts.length/2)])
     : 0;
 
-  // Attention style
+  // Attention pattern (Descriptivo)
   let attnStyle, attnDesc;
   if (O > COM * 2) {
-    attnStyle = 'Cauteloso / Lento';
-    attnDesc  = 'Predominan las omisiones sobre las comisiones. El evaluado tiende a ser selectivo y lento, dejando pasar estímulos objetivo.';
+    attnStyle = 'Omisión predominante';
+    attnDesc  = 'Mayor proporción de omisiones frente a comisiones. El evaluado registró latencia en el reconocimiento, no seleccionando estímulos objetivo.';
   } else if (COM > O * 2) {
-    attnStyle = 'Impulsivo / Rápido';
-    attnDesc  = 'Predominan las comisiones. El evaluado responde rápido con bajo umbral de selección, marcando estímulos distractores.';
+    attnStyle = 'Comisión predominante';
+    attnDesc  = 'Mayor proporción de comisiones frente a omisiones. El evaluado registró un alto volumen de marcado sobre estímulos distractores.';
   } else if (CP >= 75) {
-    attnStyle = 'Eficiente / Equilibrado';
-    attnDesc  = 'Buen balance entre velocidad y precisión. Pocos errores en ambas direcciones.';
+    attnStyle = 'Balance simétrico';
+    attnDesc  = 'Equilibrio probabilístico entre la tasa de respuesta y la precisión transversal de la prueba.';
   } else {
-    attnStyle = 'Mixto / Inestable';
-    attnDesc  = 'Patrón mixto de errores. Alta variabilidad en la ejecución entre líneas.';
+    attnStyle = 'Tasa de variabilidad alta';
+    attnDesc  = 'Ausencia de tendencia unilateral de respuesta cruzada. Alta variabilidad de acierto-error métrico.';
   }
 
   return {
@@ -92,19 +92,19 @@ function calcMetrics(linesData, clickLog, age) {
 }
 
 function generateNarrative(m) {
-  const speedLvl = m.procSpeed > 120 ? 'superior' : m.procSpeed > 80 ? 'dentro de' : 'por debajo de';
-  const cpLvl    = m.CP >= 80 ? 'alto' : m.CP >= 60 ? 'medio' : 'bajo';
-  const trmTxt   = m.TRM > 5         ? 'mejora'
-                 : m.TRM > -15       ? 'estable'
-                 : m.TRM > -30       ? 'decaimiento moderado'
-                 : 'decaimiento significativo';
+  const speedLvl = m.procSpeed > 120 ? 'superior a la media poblacional' : m.procSpeed > 80 ? 'homogéneo a la media general' : 'por debajo de la franja normativa inferior';
+  const cpLvl    = m.CP >= 80 ? 'alto' : m.CP >= 60 ? 'medio' : 'inferior';
+  const trmTxt   = m.TRM > 5         ? 'incremento lineal'
+                 : m.TRM > -15       ? 'fluctuación base estable'
+                 : m.TRM > -30       ? 'descenso métrico de desempeño cronológico'
+                 : 'decrecimiento agudo progresivo';
   const trmSign  = m.TRM >= 0 ? '+' : '';
   return [
-    `Velocidad de procesamiento: ${Math.round(m.procSpeed)} estím/min (${speedLvl} la media).`,
-    `Índice de concentración CP = ${m.CP.toFixed(1)} % (${cpLvl}).`,
-    `Estabilidad del rastro visual: ${Math.round(m.estabilidad)} % (VAR = ${m.VAR.toFixed(1)} %).`,
-    `Resistencia a la monotonía: ${trmTxt} (TRM = ${trmSign}${m.TRM.toFixed(1)} %).`,
-    `Tiempo de reacción medio por ítem: ${Math.round(m.meanRt)} ms.`,
-    `Estilo atencional predominante: ${m.attnStyle}.`
+    `Velocidad de procesamiento observada: ${Math.round(m.procSpeed)} estímulos/min (${speedLvl}).`,
+    `Capacidad de concentración cruda calculada (CP) = ${m.CP.toFixed(1)} % (${cpLvl}).`,
+    `Tasa estadística de consistencia visual (Estabilidad) = ${Math.round(m.estabilidad)} % (Varianza intra-bloque = ${m.VAR.toFixed(1)} %).`,
+    `Curva de resistencia rítmica cronológica: ${trmTxt} (Medición TRM = ${trmSign}${m.TRM.toFixed(1)} %).`,
+    `Tiempo de reacción iterativo (Media base): ${Math.round(m.meanRt)} ms.`,
+    `Patrón predominante de respuesta algorítmica: ${m.attnStyle}.`
   ].join('  ');
 }
