@@ -260,9 +260,29 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         # ── Hoja 5: Datos Gráficas ─────────────────────────────────────────
         if lines_data:
             gd = {'Línea': [l['linea'] for l in lines_data], 'Exactitud': [l['aciertos'] for l in lines_data], 'Omisiones': [l['omisiones'] for l in lines_data], 'Comisiones': [l['comisiones'] for l in lines_data]}
-            pd.DataFrame(gd).to_excel(writer, sheet_name='05_Arrays_Para_Graficas', index=False)
+            pd.DataFrame(gd).to_excel(writer, sheet_name='05_Arrays_Para_Graficas', index=False, startrow=4)
             ws5 = writer.sheets['05_Arrays_Para_Graficas']
-            _style_hdr(ws5, row=1); _set_widths(ws5, [10,12,12,12])
+            _add_educational_header(ws5, "Vectores de Construcción de Gráficas Nativas",
+                                    "Esta matriz bidimensional contiene la planimetría cruda usada para renderizar las curvas interactivas nativas de Excel adjuntas a la derecha de esta tabla.")
+            _style_hdr(ws5, row=5); _set_widths(ws5, [10,12,12,12])
+
+            # Gráficas nativas de openpyxl
+            try:
+                n_rows_data = len(lines_data) + 4
+                lc = LineChart(); lc.title = 'Curva de Aciertos por Línea'; lc.style = 10; lc.height = 12; lc.width = 22
+                dr = Reference(ws5, min_col=2, min_row=4, max_row=n_rows_data)
+                lc.add_data(dr, titles_from_data=True)
+                lc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows_data))
+                ws5.add_chart(lc, 'G5')
+                
+                bc = BarChart(); bc.type = 'col'; bc.title = 'Tasa de Diferencial de Falla (O vs C)'
+                bc.style = 10; bc.height = 12; bc.width = 22
+                er = Reference(ws5, min_col=3, min_row=4, max_col=4, max_row=n_rows_data)
+                bc.add_data(er, titles_from_data=True)
+                bc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows_data))
+                ws5.add_chart(bc, 'G25')
+            except Exception as e:
+                pass
 
     # ── Hoja 6: Imágenes Embebidas ─────────────────────────────────────────
     try:

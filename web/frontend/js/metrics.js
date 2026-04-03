@@ -67,7 +67,10 @@ function calcMetrics(linesData, clickLog, age) {
 
   // Attention pattern (Descriptivo)
   let attnStyle, attnDesc;
-  if (O > COM * 2) {
+  if (TOT <= 3 || (CP >= 95 && TOT <= 5)) {
+    attnStyle = 'Alta Precisión Operativa';
+    attnDesc  = 'Volumen de fallas estadísticamente marginal (insignificante). El sujeto evidenció una ejecución óptima sin sesgos hacia la omisión o la comisión.';
+  } else if (O > COM * 2) {
     attnStyle = 'Omisión predominante';
     attnDesc  = 'Mayor proporción de omisiones frente a comisiones. El evaluado registró latencia en el reconocimiento, no seleccionando estímulos objetivo.';
   } else if (COM > O * 2) {
