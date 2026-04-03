@@ -1,6 +1,13 @@
 // app.js — PLC Professional SPA
 // Gestión de estado y renderizado de todas las pantallas
 
+function escapeHTML(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/[&<>'"]/g, tag => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
+}
+
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
   ? '' 
   : 'https://dalamus2405-plc-backend.hf.space';
@@ -11,6 +18,7 @@ const App = {
   supabase:    null,
   user:        null,
   modelOk:     false,
+  modelWakingUp: false,
   participant: null,
   historyRows: [],
   testLines:   [],   // cada línea: array de 47 estímulos
@@ -45,21 +53,35 @@ const App = {
     this.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     try {
-      // Verificar sesión activa
       const { data: { session } } = await this.supabase.auth.getSession();
       if (session) {
         this.user = session.user;
       }
     } catch(e) {}
 
-    try {
-      const r = await fetch(API_BASE + '/api/status');
-      const d = await r.json();
-      this.modelOk = d.model_available;
-    } catch(e) { this.modelOk = false; }
-    
     // Si hay usuario logueado -> menú, si no -> login
-    this.nav(this.user ? 'menu' : 'login');
+    if (this.user) {
+        this.warmUpModel();
+        this.nav('menu');
+    } else {
+        this.nav('login');
+    }
+  },
+
+  async warmUpModel() {
+      this.modelWakingUp = true;
+      if (this.screen === 'menu') this.render();
+      try {
+          const timeoutObj = new Promise((_, r) => setTimeout(() => r(new Error("Timeout")), 30000));
+          const fetchObj = fetch(API_BASE + '/api/status');
+          const r = await Promise.race([fetchObj, timeoutObj]);
+          const d = await r.json();
+          this.modelOk = d.model_available;
+      } catch (e) {
+          this.modelOk = false;
+      }
+      this.modelWakingUp = false;
+      if (this.screen === 'menu') this.render();
   },
 
   nav(screen) {
@@ -178,9 +200,11 @@ const App = {
         <div style="flex:1;padding:0 60px 40px;display:flex;flex-direction:column;gap:24px;">
 
           <!-- Model badge -->
-          <div class="model-badge ${this.modelOk ? 'ok' : 'off'}" style="width:fit-content;">
+          <div class="model-badge ${this.modelWakingUp ? 'off' : this.modelOk ? 'ok' : 'off'}" style="width:fit-content;transition: 0.3s all;">
             <span class="dot"></span>
-            ${this.modelOk
+            ${this.modelWakingUp 
+              ? '⏳ I.A. Despertando (Hugging Face puede tardar ~1min)' 
+              : this.modelOk
               ? '● Módulo de perfil cognitivo activo'
               : '○ Modelo IA no disponible — solo métricas objetivas'}
           </div>
@@ -295,8 +319,9 @@ const App = {
     const id   = document.getElementById('f-id').value.trim();
     const name = document.getElementById('f-name').value.trim();
     const age  = parseInt(document.getElementById('f-age').value);
-    if (!id || !name) { alert('ID y Nombre son obligatorios.'); return; }
-    if (!age || age < 5 || age > 100) { alert('Ingrese una edad entre 5 y 100 años.'); return; }
+    if (!id) { Math.random(); alert('El ID del participante es obligatorio.'); return; }
+    if (!name || name.length < 3) { alert('El Nombre debe tener al menos 3 caracteres.'); return; }
+    if (!age || age < 5 || age > 100) { alert('Ingrese una edad válida entre 5 y 100 años.'); return; }
     const gender     = document.querySelector('input[name="gender"]:checked')?.value    || 'No especificado';
     const education  = document.querySelector('input[name="education"]:checked')?.value || 'Universitario';
     const hand       = document.querySelector('input[name="hand"]:checked')?.value      || 'Derecha';
@@ -898,8 +923,8 @@ const App = {
       <tr>
         <td>${r.id}</td>
         <td>${new Date(r.created_at).toLocaleString('es',{dateStyle:'short',timeStyle:'short'})}</td>
-        <td>${r.participant_id}</td>
-        <td><strong>${r.participant_name}</strong></td>
+        <td>${escapeHTML(r.participant_id)}</td>
+        <td><strong>${escapeHTML(r.participant_name)}</strong></td>
         <td>${r.age}</td>
         <td><span style="font-weight:700;color:${r.CP>=75?'#2E7D32':r.CP>=50?'#E65100':'#B71C1C'}">${r.CP}</span></td>
         <td>${r.TA}</td>
