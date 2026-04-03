@@ -185,6 +185,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         df_patrones = pd.DataFrame([
             {"Dominio Observacional Algorítmico": "Perfil Matemático Primario: " + ml_nombre},
             {"Dominio Observacional Algorítmico": "Reconocimiento Paramétrico: " + ml_desc},
+            {"Dominio Observacional Algorítmico": "Redes Cognitivas Estimadas: " + metrics.get('focusType', 'N/A')},
             {"Dominio Observacional Algorítmico": "Curvatura Explicada Cronométrica: " + metrics.get('attnDesc', 'N/A')}
         ])
 

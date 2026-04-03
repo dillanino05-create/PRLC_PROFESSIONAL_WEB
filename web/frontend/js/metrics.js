@@ -84,13 +84,32 @@ function calcMetrics(linesData, clickLog, age) {
     attnDesc  = 'Ausencia de tendencia unilateral de respuesta cruzada. Alta variabilidad de acierto-error métrico.';
   }
 
+  // Clinical Attention Systems (Teoría)
+  let sysFocus = [];
+  if (CP >= 80) {
+    sysFocus.push('Selectiva preservada');
+  } else if (COM > O) {
+    sysFocus.push('Selectiva con falla inhibitoria');
+  } else {
+    sysFocus.push('Selectiva en déficit de rastreo');
+  }
+
+  if (TRM >= -10 && estabilidad >= 80) {
+    sysFocus.push('Sostenida óptima');
+  } else if (TRM < -25) {
+    sysFocus.push('Sostenida en declive chronológico');
+  } else {
+    sysFocus.push('Sostenida fluctuante');
+  }
+  const focusType = sysFocus.join('  •  ');
+
   return {
     TA, O, COM, TN, TOT, CON, CP,
     totalTime, meanTpl, stdTpl, cvTime,
     procSpeed, efficiency, FA, GQ,
     VAR, estabilidad, consistency,
     TRM, IVR, blockHits, errorPat, adjScore,
-    meanRt, medRt, attnStyle, attnDesc
+    meanRt, medRt, attnStyle, attnDesc, focusType
   };
 }
 
@@ -108,6 +127,7 @@ function generateNarrative(m) {
     `Tasa estadística de consistencia visual (Estabilidad) = ${Math.round(m.estabilidad)} % (Varianza intra-bloque = ${m.VAR.toFixed(1)} %).`,
     `Curva de resistencia rítmica cronológica: ${trmTxt} (Medición TRM = ${trmSign}${m.TRM.toFixed(1)} %).`,
     `Tiempo de reacción iterativo (Media base): ${Math.round(m.meanRt)} ms.`,
+    `Estado de las redes neuronales implicadas: ${m.focusType}.`,
     `Patrón predominante de respuesta algorítmica: ${m.attnStyle}.`
   ].join('  ');
 }

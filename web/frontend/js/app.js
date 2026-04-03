@@ -788,7 +788,8 @@ const App = {
               ['TRM Monotonía',     `${m.TRM >= 0 ? '+' : ''}${m.TRM.toFixed(1)} %`],
               ['IVR Vel–Exactitud', m.IVR.toFixed(2)],
               ['TR medio',          `${Math.round(m.meanRt)} ms`],
-              ['Patrón Dominante', m.attnStyle],
+              ['Patrón Dominante',  m.attnStyle],
+              ['Redes Cognitivas',  m.focusType],
             ].map(([lbl,val]) => `
               <div class="ext-card">
                 <div class="eval">${val}</div>
