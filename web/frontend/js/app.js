@@ -102,6 +102,7 @@ const App = {
       case 'menu':    this.renderMenu(app);    break;
       case 'form':    this.renderForm(app);    break;
       case 'pretest': this.renderPreTest(app); break;
+      case 'practice':this.renderPractice(app);break;
       case 'test':    this.renderTest(app);    break;
       case 'results': this.renderResults(app); break;
       case 'history': this.renderHistory(app); break;
@@ -331,121 +332,183 @@ const App = {
   },
 
   /* ══════════════════════════════════════════════════════════════════════
-     PANTALLA 3: PRE-PRUEBA
+     PANTALLA 3: PRE-PRUEBA (Instrucciones)
   ══════════════════════════════════════════════════════════════════════ */
   renderPreTest(app) {
     app.innerHTML = `
       <div class="plc-header">
-        <div><h1>Pre-Prueba — Ejemplo</h1>
-          <div class="sub">Identifique el estímulo objetivo antes de comenzar la prueba real</div>
+        <div><h1>Instrucciones de la Prueba</h1>
+          <div class="sub">Por favor lea cuidadosamente antes de continuar</div>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="App.nav('form')">← Volver</button>
+        <button class="btn btn-ghost btn-sm" onclick="App.nav('form')">← Volver al Formulario</button>
       </div>
 
-      <div class="page fade-in">
-
-        <!-- Demo: Target + Distractores -->
-        <div class="card mb-4">
-          <div class="demo-row">
-            <!-- TARGET -->
-            <div class="demo-target-box">
-              <div style="font-weight:700;color:#2E7D32;font-size:.9rem;text-transform:uppercase;letter-spacing:.5px;">
-                ✓ Estímulo Objetivo (TARGET)
-              </div>
-              <canvas id="demo-target" class="stim" width="${SW+20}" height="${SH+20}"></canvas>
-              <div style="font-size:.78rem;color:#546E7A;">■—+—■ &nbsp; Cuadrado en AMBOS extremos</div>
+      <div class="page fade-in" style="max-width: 960px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start;">
+          
+          <!-- Panel Izquierdo: Target -->
+          <div class="card" style="text-align: center; border: 2px solid #3949AB; background: #E8EAF6;">
+            <div style="font-weight: 700; color: #1A237E; font-size: 1.3rem; margin-bottom: 24px;">
+              Símbolo Objetivo
             </div>
-
-            <div style="font-size:2rem;color:#C5CAE9;">→</div>
-
-            <!-- DISTRACTORES -->
-            <div style="flex:1;">
-              <div style="font-weight:700;color:#B71C1C;font-size:.9rem;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
-                ✗ Distractores (NO MARCAR)
-              </div>
-              <div class="flex gap-4">
-                ${['D1','D2','D3'].map((k,i) => `
-                  <div style="text-align:center;">
-                    <div style="font-weight:700;color:#546E7A;margin-bottom:4px;">${i+1})</div>
-                    <canvas id="demo-dist-${i}" width="${SW+20}" height="${SH+20}" style="border:1px solid #FFCDD2;border-radius:4px;background:#FFEBEE;display:block;"></canvas>
-                  </div>`).join('')}
-              </div>
+            
+            <div style="background: #fff; border-radius: 12px; padding: 40px; display: inline-block; box-shadow: 0 8px 24px rgba(0,0,0,0.06); margin-bottom: 24px;">
+              <canvas id="target-huge" width="120" height="160"></canvas>
+            </div>
+            
+            <p style="font-size: 1.1rem; color: #3949AB; font-weight: 500; padding: 0 16px; line-height: 1.5;">
+              Este es el <strong>único</strong> símbolo que deberás marcar.<br/>Memorízalo bien.
+            </p>
+            <div style="font-size: 0.85rem; color: #546E7A; margin-top: 12px; opacity: 0.8;">
+              (Cruz con un cuadrado negro en AMBOS extremos)
             </div>
           </div>
-        </div>
 
-        <!-- Instrucción -->
-        <div class="card mb-4" style="background:#E8EAF6;border-left:4px solid #3949AB;">
-          <div style="font-weight:700;color:#1A237E;margin-bottom:6px;">INSTRUCCIÓN AL EVALUADO</div>
-          <p style="font-size:.92rem;">
-            Marque todos los estímulos que sean <strong>IGUALES al objetivo (TARGET)</strong>:
-            una cruz con un cuadrado negro a <strong>CADA LADO</strong> del brazo horizontal.<br>
-            No marque los distractores aunque tengan forma similar.
-          </p>
-        </div>
+          <!-- Panel Derecho: Instrucciones -->
+          <div class="card" style="display: flex; flex-direction: column; gap: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+            <div style="font-weight: 700; color: #283593; font-size: 1.3rem; border-bottom: 2px solid #E8EAF6; padding-bottom: 12px;">
+              Reglas de Ejecución
+            </div>
+            
+            <div class="instruction-point">
+              <strong style="color: #1A237E; display: flex; align-items: center; gap: 8px; font-size: 1.05rem; margin-bottom: 6px;">
+                <span style="background: #3949AB; color: white; width: 24px; height: 24px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 0.85rem;">1</span> 
+                Metodología
+              </strong>
+              <p style="color: #546E7A; line-height: 1.6; margin: 0; padding-left: 32px;">
+                La prueba se resuelve por líneas, siempre de <strong>izquierda a derecha</strong>. Al terminar una línea, comienza la siguiente desde el extremo izquierdo de la fila de abajo.
+              </p>
+            </div>
 
-        <!-- Práctica -->
-        <div class="card">
-          <div style="font-weight:700;color:#283593;font-size:1rem;margin-bottom:14px;">
-            Práctica: marque los estímulos correctos en la fila de abajo
+            <div class="instruction-point">
+              <strong style="color: #1A237E; display: flex; align-items: center; gap: 8px; font-size: 1.05rem; margin-bottom: 6px;">
+                <span style="background: #3949AB; color: white; width: 24px; height: 24px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 0.85rem;">2</span> 
+                Tiempo
+              </strong>
+              <p style="color: #546E7A; line-height: 1.6; margin: 0; padding-left: 32px;">
+                Cuentas con <strong>20 segundos</strong> por cada línea de estímulos. El sistema cambiará de línea automáticamente al agotarse el tiempo.
+              </p>
+            </div>
+
+            <div class="instruction-point">
+              <strong style="color: #1A237E; display: flex; align-items: center; gap: 8px; font-size: 1.05rem; margin-bottom: 6px;">
+                <span style="background: #3949AB; color: white; width: 24px; height: 24px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 0.85rem;">3</span> 
+                Acción
+              </strong>
+              <p style="color: #546E7A; line-height: 1.6; margin: 0; padding-left: 32px;">
+                Haz clic o toca <strong>solo los símbolos que sean idénticos al objetivo</strong> mostrado a la izquierda. Si te equivocas, vuelve a hacer clic para desmarcarlo.
+              </p>
+            </div>
+
+            <hr class="form-divider" style="margin: 8px 0;" />
+
+            <div style="background: rgba(46, 125, 50, 0.08); border-left: 4px solid #2E7D32; padding: 16px 20px; border-radius: 0 8px 8px 0;">
+              <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; margin: 0; user-select: none;">
+                <input type="checkbox" id="chk-entendido" style="width: 22px; height: 22px; accent-color: #2E7D32; cursor: pointer;" onchange="document.getElementById('btn-practica').disabled = !this.checked">
+                <span style="font-weight: 600; color: #1B5E20; font-size: 1.05rem;">He comprendido las instrucciones</span>
+              </label>
+            </div>
+
+            <button disabled id="btn-practica" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; padding: 16px; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(40, 53, 147, 0.2);" onclick="App.nav('practice')">
+              Entendido, ir a la práctica &nbsp;→
+            </button>
           </div>
-          <div id="pre-row" class="stim-row" style="gap:6px;flex-wrap:wrap;margin-bottom:16px;"></div>
 
-          <div id="pre-feedback" style="min-height:22px;font-size:.88rem;font-weight:600;margin-bottom:10px;"></div>
+        </div>
+      </div>
+    `;
+
+    // Draw HUGE target
+    const tgtCtx = document.getElementById('target-huge').getContext('2d');
+    tgtCtx.scale(2, 2);
+    drawPLCStimulus(tgtCtx, STIM_TYPES['T'], SW, SH, '#1A1A2E', '#FFFFFF', 1.8);
+  },
+
+  /* ══════════════════════════════════════════════════════════════════════
+     PANTALLA 3.5: PRÁCTICA
+  ══════════════════════════════════════════════════════════════════════ */
+  renderPractice(app) {
+    app.innerHTML = `
+      <div class="plc-header">
+        <div><h1>Mini-Prueba de Práctica</h1>
+          <div class="sub">Familiarícese con la tarea. El tiempo es ilimitado.</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="App.nav('pretest')">← Volver a Instrucciones</button>
+      </div>
+
+      <div class="page fade-in" style="max-width: 900px;">
+        <div class="card" style="text-align: center; padding-top: 32px; padding-bottom: 40px;">
+          <div style="font-weight: 700; color: #1A237E; font-size: 1.2rem; margin-bottom: 32px;">
+            Encuentre y marque aquí los estímulos idénticos al objetivo (TARGET):
+          </div>
+
+          <!-- GRID de práctica (2 líneas x 8 estímulos) -->
+          <div style="display: flex; flex-direction: column; gap: 32px; align-items: center; margin-bottom: 40px;" id="practice-container">
+             <div class="stim-row" id="p-row-0" style="gap: 20px; display: flex; justify-content: center;"></div>
+             <div class="stim-row" id="p-row-1" style="gap: 20px; display: flex; justify-content: center;"></div>
+          </div>
+
+          <div id="pre-feedback" style="min-height: 28px; font-size: 1.05rem; font-weight: 600; margin-bottom: 24px;"></div>
 
           <!-- Progress -->
-          <div class="prog-bar-wrap mb-4">
-            <span style="font-size:.82rem;color:#546E7A;">Marcados correctos:</span>
-            <div class="prog-bar" style="max-width:220px;">
-              <div class="prog-bar-fill" id="pre-prog" style="width:0%;"></div>
+          <div class="prog-bar-wrap mb-4" style="justify-content: center; max-width: 400px; margin: 0 auto 32px auto;">
+            <span style="font-size: .95rem; color: #546E7A; font-weight: 500;">Objetivos encontrados:</span>
+            <div class="prog-bar" style="width: 100%; height: 14px; border-radius: 8px;">
+              <div class="prog-bar-fill" id="pre-prog" style="width:0%; transition: width 0.3s ease; border-radius: 8px;"></div>
             </div>
-            <span id="pre-cnt" style="font-size:.9rem;font-weight:700;color:#1A237E;">0 / ${this.preNeed}</span>
+            <span id="pre-cnt" style="font-size: 1.2rem; font-weight: 800; color: #1A237E;">0 / 4</span>
           </div>
 
-          <div class="flex flex-between items-center">
-            <button class="btn btn-warn" onclick="App.resetPractice()">🔄 Repetir práctica</button>
-            <button class="btn btn-primary btn-lg" id="start-btn" disabled onclick="App.startTest()">
-              Iniciar Prueba &nbsp;→
+          <div class="flex flex-between items-center" style="max-width: 600px; margin: 0 auto; gap: 16px;">
+            <button class="btn btn-warn" style="padding: 12px 24px;" onclick="App.resetPractice()">🔄 Repetir práctica</button>
+            <button class="btn btn-primary btn-lg" id="start-btn" disabled style="padding: 14px 40px; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(40, 53, 147, 0.2);" onclick="App.startTest()">
+              Iniciar Prueba Real &nbsp;→
             </button>
           </div>
         </div>
-      </div>`;
-
-    // Draw demo stimuli
-    const tgtCtx = document.getElementById('demo-target').getContext('2d');
-    drawPLCStimulus(tgtCtx, STIM_TYPES['T'], SW+20, SH+20, '#2E7D32', '#E8F5E9', 2.5);
-    ['D1','D2','D3'].forEach((k,i) => {
-      const c = document.getElementById(`demo-dist-${i}`).getContext('2d');
-      drawPLCStimulus(c, STIM_TYPES[k], SW+20, SH+20, '#B71C1C', '#FFEBEE', 2);
-    });
-
+      </div>
+    `;
     this.resetPractice();
   },
 
   resetPractice() {
     this.preOk = 0;
+    this.preNeed = 4; // 2 lines * 2 targets each
     this.preButtons = [];
-    const prow = document.getElementById('pre-row');
-    if (!prow) return;
-    prow.innerHTML = '';
+    
+    const prow0 = document.getElementById('p-row-0');
+    const prow1 = document.getElementById('p-row-1');
+    if (!prow0 || !prow1) return;
+    prow0.innerHTML = '';
+    prow1.innerHTML = '';
+    
     document.getElementById('pre-feedback').textContent = '';
     document.getElementById('pre-prog').style.width = '0%';
-    document.getElementById('pre-cnt').textContent = `0 / ${this.preNeed}`;
+    document.getElementById('pre-cnt').textContent = `${0} / ${this.preNeed}`;
+    
     const btn = document.getElementById('start-btn');
     if (btn) { btn.disabled = true; }
 
-    const line = generatePracticeLine(10);
-    line.forEach((sinfo, idx) => {
-      const canvas = document.createElement('canvas');
-      canvas.width  = SW + 10;
-      canvas.height = SH + 10;
-      canvas.className = 'stim';
-      canvas.style.cursor = 'pointer';
-      const ctx = canvas.getContext('2d');
-      drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#1A1A2E', '#FFFFFF', 1.8);
-      canvas.addEventListener('click', () => this.preToggle(idx, canvas, sinfo, ctx));
-      prow.appendChild(canvas);
-      this.preButtons.push({ canvas, sinfo, sel: false, ctx });
+    // Generar 2 líneas de 8 estímulos cada una, con 2 targets forzados por línea
+    const lines = [generatePracticeLine(8), generatePracticeLine(8)];
+    
+    let globalIdx = 0;
+    lines.forEach((line, rowIdx) => {
+      const rowEl = rowIdx === 0 ? prow0 : prow1;
+      line.forEach((sinfo) => {
+        const currentIdx = globalIdx++;
+        const canvas = document.createElement('canvas');
+        canvas.width  = SW + 10;
+        canvas.height = SH + 10;
+        canvas.className = 'stim';
+        canvas.style.cursor = 'pointer';
+        canvas.style.borderRadius = '8px'; // Smooth UI requested
+        const ctx = canvas.getContext('2d');
+        drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#1A1A2E', '#FFFFFF', 1.8);
+        canvas.addEventListener('click', () => this.preToggle(currentIdx, canvas, sinfo, ctx));
+        rowEl.appendChild(canvas);
+        this.preButtons.push({ canvas, sinfo, sel: false, ctx });
+      });
     });
   },
 
@@ -461,26 +524,28 @@ const App = {
       btn.sel = true;
       if (isT) {
         canvas.className = 'stim sel-ok';
-        drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#2E7D32', '#E8F5E9', 2);
+        drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#2E7D32', '#E8F5E9', 2.2);
         this.preOk++;
         document.getElementById('pre-feedback').innerHTML =
-          '<span class="text-success">✓ Correcto — ese es el estímulo objetivo.</span>';
+          '<span style="color: #2E7D32;">✓ ¡Correcto!</span>';
       } else {
         canvas.className = 'stim sel-wrong';
-        drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#B71C1C', '#FFEBEE', 2);
+        drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#B71C1C', '#FFEBEE', 2.2);
         document.getElementById('pre-feedback').innerHTML =
-          '<span class="text-err">✗ Ese no es el objetivo. Observe bien el cuadrado en AMBOS lados.</span>';
+          '<span style="color: #B71C1C;">✗ Ese no es el objetivo. Revisa el cuadrado negro en AMBOS extremos.</span>';
       }
     }
+    
     const pct = Math.min(this.preOk, this.preNeed) / this.preNeed * 100;
     document.getElementById('pre-prog').style.width = pct + '%';
     document.getElementById('pre-cnt').textContent = `${this.preOk} / ${this.preNeed}`;
+    
     const btn2 = document.getElementById('start-btn');
     if (btn2) {
       if (this.preOk >= this.preNeed) {
         btn2.disabled = false;
         document.getElementById('pre-feedback').innerHTML =
-          '<span class="text-success fw-bold">✓ ¡Perfecto! Ya puede iniciar la prueba.</span>';
+          '<span style="color: #2E7D32; font-weight: 800; font-size: 1.15rem;">✓ ¡Práctica completada con éxito! Ya puedes iniciar la prueba.</span>';
       } else {
         btn2.disabled = true;
       }
