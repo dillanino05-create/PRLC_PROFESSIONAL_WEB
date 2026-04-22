@@ -18,8 +18,8 @@ const STIM_TYPES = {
   'D10': { is_target:false, sq_left:false, sq_right:true,  sq_top:false, sq_bottom:false, h_offset:-10, v_asym:4  },
   'D11': { is_target:false, sq_left:true,  sq_right:false, sq_top:false, sq_bottom:true,  h_offset:0,   v_asym:-3 },
   'D12': { is_target:false, sq_left:false, sq_right:false, sq_top:false, sq_bottom:false, h_offset:0,   v_asym:12 },
-  'D13': { is_target:false, sq_left:true,  sq_right:true,  sq_top:false, sq_bottom:false, h_offset:0,   v_asym:5  },
-  'D14': { is_target:false, sq_left:true,  sq_right:true,  sq_top:false, sq_bottom:false, h_offset:0,   v_asym:-5 },
+  'D13': { is_target:false, sq_left:true,  sq_right:true,  sq_top:false, sq_bottom:false, h_offset:0,   v_asym:8  },
+  'D14': { is_target:false, sq_left:true,  sq_right:true,  sq_top:false, sq_bottom:false, h_offset:0,   v_asym:-8 },
 };
 
 const DISTRACTOR_KEYS    = ['D1','D2','D3','D4','D5','D6','D7','D8','D9','D10','D11','D12','D13','D14'];
