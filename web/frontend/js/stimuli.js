@@ -2,7 +2,7 @@
 // Traducción exacta de draw_plc_stimulus() + definición de tipos
 
 const SW = 60, SH = 80;          // canvas size por estímulo en el test
-const ARM_H = 18, ARM_V_UP = 23, ARM_V_DOWN = 12, SQ = 6;
+const ARM_H = 18, ARM_V_UP = 18, ARM_V_DOWN = 18, SQ = 6;
 
 const STIM_TYPES = {
   'T':   { is_target:true,  sq_left:true,  sq_right:true,  sq_top:false, sq_bottom:false, h_offset:0,   v_asym:0  },
