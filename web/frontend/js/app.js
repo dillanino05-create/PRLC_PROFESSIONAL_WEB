@@ -737,7 +737,7 @@ const App = {
   async finishTest() {
     if (this.isSaving) return;
     this.isSaving = true;
-    this.nav('results');  // show loading state first
+    this.nav('completion'); // show completion/loading state immediately
     this.metrics = calcMetrics(this.linesData, this.clickLog, this.participant.age);
     this.metrics._age = this.participant.age;
 
@@ -802,6 +802,18 @@ const App = {
      PANTALLA 4.5: FINALIZACIÓN (Bloqueo de privacidad)
   ══════════════════════════════════════════════════════════════════════ */
   renderCompletionScreen(app) {
+    if (this.isSaving) {
+      app.innerHTML = `
+        <div id="test-screen" style="background: linear-gradient(135deg, #1A237E 0%, #283593 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <div class="card" style="text-align:center; padding:60px; max-width:400px;">
+            <div class="spinner" style="margin: 0 auto 20px;"></div>
+            <h2 style="color:#1A237E;">Procesando Datos...</h2>
+            <p style="color:#546E7A;">Calculando métricas y guardando de forma segura.</p>
+          </div>
+        </div>`;
+      return;
+    }
+
     app.innerHTML = `
       <div id="test-screen" style="background: linear-gradient(135deg, #1A237E 0%, #283593 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
         <div class="card fade-in" style="max-width: 500px; width: 100%; text-align: center; padding: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
