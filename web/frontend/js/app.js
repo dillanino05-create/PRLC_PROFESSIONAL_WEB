@@ -489,8 +489,12 @@ const App = {
     const btn = document.getElementById('start-btn');
     if (btn) { btn.disabled = true; }
 
-    // Generar 2 líneas de 8 estímulos cada una, con 2 targets forzados por línea
-    const lines = [generatePracticeLine(8), generatePracticeLine(8)];
+    // Generar 2 líneas de 8 estímulos cada una
+    // Forzamos D13 (Alto) y D14 (Bajo) para que el paciente los aprenda como distractores
+    const lines = [
+      generatePracticeLine(8, ['D13']), 
+      generatePracticeLine(8, ['D14'])
+    ];
     
     let globalIdx = 0;
     lines.forEach((line, rowIdx) => {

@@ -18,10 +18,12 @@ const STIM_TYPES = {
   'D10': { is_target:false, sq_left:false, sq_right:true,  sq_top:false, sq_bottom:false, h_offset:-10, v_asym:4  },
   'D11': { is_target:false, sq_left:true,  sq_right:false, sq_top:false, sq_bottom:true,  h_offset:0,   v_asym:-3 },
   'D12': { is_target:false, sq_left:false, sq_right:false, sq_top:false, sq_bottom:false, h_offset:0,   v_asym:12 },
+  'D13': { is_target:false, sq_left:true,  sq_right:true,  sq_top:false, sq_bottom:false, h_offset:0,   v_asym:5  },
+  'D14': { is_target:false, sq_left:true,  sq_right:true,  sq_top:false, sq_bottom:false, h_offset:0,   v_asym:-5 },
 };
 
-const DISTRACTOR_KEYS    = ['D1','D2','D3','D4','D5','D6','D7','D8','D9','D10','D11','D12'];
-const DISTRACTOR_WEIGHTS = [ 10,  10,   9,   9,   9,   8,   9,   9,   8,    8,    6,    5];
+const DISTRACTOR_KEYS    = ['D1','D2','D3','D4','D5','D6','D7','D8','D9','D10','D11','D12','D13','D14'];
+const DISTRACTOR_WEIGHTS = [ 10,  10,   9,   9,   9,   8,   9,   9,   8,    8,    6,    5,   10,   10];
 
 /**
  * Dibuja el estímulo PLC en un CanvasRenderingContext2D.
@@ -102,16 +104,20 @@ function generateTestLine(N = 47) {
 }
 
 // Generate practice line: exactly 2 targets, (n-2) varied distractors
-function generatePracticeLine(n = 10) {
-  const dists = [];
+// Ahora permite forzar llaves específicas para entrenamiento
+function generatePracticeLine(n = 10, mandatoryDists = []) {
+  const dists = [...mandatoryDists];
+  
   while (dists.length < n - 2) {
     dists.push(weightedRandom(DISTRACTOR_KEYS, DISTRACTOR_WEIGHTS));
   }
-  // Ensure >= 4 distinct distractor types
+  
+  // Ensure variety
   while (new Set(dists).size < Math.min(4, n - 2)) {
     dists[Math.floor(Math.random() * dists.length)] =
       DISTRACTOR_KEYS[Math.floor(Math.random() * DISTRACTOR_KEYS.length)];
   }
+  
   const combined = ['T', 'T', ...dists];
   shuffle(combined);
   return combined.map(k => ({ key: k, ...STIM_TYPES[k] }));
