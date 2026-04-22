@@ -4,46 +4,46 @@
 function escapeHTML(str) {
   if (typeof str !== 'string') return str;
   return str.replace(/[&<>'"]/g, tag => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-    }[tag] || tag));
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[tag] || tag));
 }
 
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-  ? '' 
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? ''
   : 'https://dalamus2405-plc-backend.hf.space';
 
 const App = {
   /* ── Estado ──────────────────────────────────────────────────────────── */
-  screen:      'login',
-  supabase:    null,
-  user:        null,
-  modelOk:     false,
+  screen: 'login',
+  supabase: null,
+  user: null,
+  modelOk: false,
   modelWakingUp: false,
   participant: null,
   historyRows: [],
-  testLines:   [],   // cada línea: array de 47 estímulos
-  linesData:   [],   // resultados por línea
-  clickLog:    [],
+  testLines: [],   // cada línea: array de 47 estímulos
+  linesData: [],   // resultados por línea
+  clickLog: [],
   currentLine: 0,
-  mlPred:      null,
-  metrics:     null,
-  evalId:      null,
-  evalFilename:null,
+  mlPred: null,
+  metrics: null,
+  evalId: null,
+  evalFilename: null,
   // Timer
   timerInterval: null,
   lineStartTime: null,
-  timerRunning:  false,
+  timerRunning: false,
   // Pre-test
-  preButtons:  [],
-  preOk:       0,
-  preNeed:     2,
+  preButtons: [],
+  preOk: 0,
+  preNeed: 2,
   // Test line state
-  charBtns:    [],
+  charBtns: [],
   currentSels: new Set(),
 
-  TOTAL_LINES:  14,
-  TIME_PER_LINE:20,
-  CHARS_PER_LINE:47,
+  TOTAL_LINES: 14,
+  TIME_PER_LINE: 20,
+  CHARS_PER_LINE: 47,
 
   /* ── Init ──────────────────────────────────────────────────────────────── */
   async init() {
@@ -57,31 +57,31 @@ const App = {
       if (session) {
         this.user = session.user;
       }
-    } catch(e) {}
+    } catch (e) { }
 
     // Si hay usuario logueado -> menú, si no -> login
     if (this.user) {
-        this.warmUpModel();
-        this.nav('menu');
+      this.warmUpModel();
+      this.nav('menu');
     } else {
-        this.nav('login');
+      this.nav('login');
     }
   },
 
   async warmUpModel() {
-      this.modelWakingUp = true;
-      if (this.screen === 'menu') this.render();
-      try {
-          const timeoutObj = new Promise((_, r) => setTimeout(() => r(new Error("Timeout")), 30000));
-          const fetchObj = fetch(API_BASE + '/api/status');
-          const r = await Promise.race([fetchObj, timeoutObj]);
-          const d = await r.json();
-          this.modelOk = d.model_available;
-      } catch (e) {
-          this.modelOk = false;
-      }
-      this.modelWakingUp = false;
-      if (this.screen === 'menu') this.render();
+    this.modelWakingUp = true;
+    if (this.screen === 'menu') this.render();
+    try {
+      const timeoutObj = new Promise((_, r) => setTimeout(() => r(new Error("Timeout")), 30000));
+      const fetchObj = fetch(API_BASE + '/api/status');
+      const r = await Promise.race([fetchObj, timeoutObj]);
+      const d = await r.json();
+      this.modelOk = d.model_available;
+    } catch (e) {
+      this.modelOk = false;
+    }
+    this.modelWakingUp = false;
+    if (this.screen === 'menu') this.render();
   },
 
   nav(screen) {
@@ -97,13 +97,13 @@ const App = {
     const app = document.getElementById('app');
     app.innerHTML = '';
     app.className = 'fade-in';
-    switch(this.screen) {
-      case 'login':   this.renderLogin(app);   break;
-      case 'menu':    this.renderMenu(app);    break;
-      case 'form':    this.renderForm(app);    break;
+    switch (this.screen) {
+      case 'login': this.renderLogin(app); break;
+      case 'menu': this.renderMenu(app); break;
+      case 'form': this.renderForm(app); break;
       case 'pretest': this.renderPreTest(app); break;
-      case 'practice':this.renderPractice(app);break;
-      case 'test':    this.renderTest(app);    break;
+      case 'practice': this.renderPractice(app); break;
+      case 'test': this.renderTest(app); break;
       case 'results': this.renderResults(app); break;
       case 'history': this.renderHistory(app); break;
     }
@@ -142,7 +142,7 @@ const App = {
 
   async doLogin(btn) {
     const email = document.getElementById('login-email').value.trim();
-    const pwd   = document.getElementById('login-pwd').value;
+    const pwd = document.getElementById('login-pwd').value;
     const errEl = document.getElementById('login-error');
     errEl.textContent = '';
 
@@ -203,11 +203,11 @@ const App = {
           <!-- Model badge -->
           <div class="model-badge ${this.modelWakingUp ? 'off' : this.modelOk ? 'ok' : 'off'}" style="width:fit-content;transition: 0.3s all;">
             <span class="dot"></span>
-            ${this.modelWakingUp 
-              ? '⏳ I.A. Despertando (Hugging Face puede tardar ~1min)' 
-              : this.modelOk
-              ? '● Módulo de perfil cognitivo activo'
-              : '○ Modelo IA no disponible — solo métricas objetivas'}
+            ${this.modelWakingUp
+        ? '⏳ I.A. Despertando (Hugging Face puede tardar ~1min)'
+        : this.modelOk
+          ? '● Módulo de perfil cognitivo activo'
+          : '○ Modelo IA no disponible — solo métricas objetivas'}
           </div>
 
           <!-- Info card -->
@@ -283,27 +283,27 @@ const App = {
           <div class="form-group">
             <label>Género</label>
             <div class="radio-group" id="rg-gender">
-              ${['Masculino','Femenino','Otro','No especificado'].map(o =>
-                `<label><input type="radio" name="gender" value="${o}" ${o==='Masculino'?'checked':''}/> ${o}</label>`
-              ).join('')}
+              ${['Masculino', 'Femenino', 'Otro', 'No especificado'].map(o =>
+      `<label><input type="radio" name="gender" value="${o}" ${o === 'Masculino' ? 'checked' : ''}/> ${o}</label>`
+    ).join('')}
             </div>
           </div>
 
           <div class="form-group">
             <label>Nivel Educativo</label>
             <div class="radio-group" id="rg-edu">
-              ${['Primaria','Secundaria','Universitario','Posgrado'].map(o =>
-                `<label><input type="radio" name="education" value="${o}" ${o==='Universitario'?'checked':''}/> ${o}</label>`
-              ).join('')}
+              ${['Primaria', 'Secundaria', 'Universitario', 'Posgrado'].map(o =>
+      `<label><input type="radio" name="education" value="${o}" ${o === 'Universitario' ? 'checked' : ''}/> ${o}</label>`
+    ).join('')}
             </div>
           </div>
 
           <div class="form-group">
             <label>Lateralidad</label>
             <div class="radio-group" id="rg-hand">
-              ${['Derecha','Izquierda','Ambidiestro'].map(o =>
-                `<label><input type="radio" name="hand" value="${o}" ${o==='Derecha'?'checked':''}/> ${o}</label>`
-              ).join('')}
+              ${['Derecha', 'Izquierda', 'Ambidiestro'].map(o =>
+      `<label><input type="radio" name="hand" value="${o}" ${o === 'Derecha' ? 'checked' : ''}/> ${o}</label>`
+    ).join('')}
             </div>
           </div>
 
@@ -317,15 +317,15 @@ const App = {
   },
 
   validateForm() {
-    const id   = document.getElementById('f-id').value.trim();
+    const id = document.getElementById('f-id').value.trim();
     const name = document.getElementById('f-name').value.trim();
-    const age  = parseInt(document.getElementById('f-age').value);
+    const age = parseInt(document.getElementById('f-age').value);
     if (!id) { Math.random(); alert('El ID del participante es obligatorio.'); return; }
     if (!name || name.length < 3) { alert('El Nombre debe tener al menos 3 caracteres.'); return; }
     if (!age || age < 5 || age > 100) { alert('Ingrese una edad válida entre 5 y 100 años.'); return; }
-    const gender     = document.querySelector('input[name="gender"]:checked')?.value    || 'No especificado';
-    const education  = document.querySelector('input[name="education"]:checked')?.value || 'Universitario';
-    const hand       = document.querySelector('input[name="hand"]:checked')?.value      || 'Derecha';
+    const gender = document.querySelector('input[name="gender"]:checked')?.value || 'No especificado';
+    const education = document.querySelector('input[name="education"]:checked')?.value || 'Universitario';
+    const hand = document.querySelector('input[name="hand"]:checked')?.value || 'Derecha';
     const occupation = document.getElementById('f-occ').value.trim();
     this.participant = { id, name, age, gender, education, hand, occupation };
     this.nav('pretest');
@@ -360,7 +360,7 @@ const App = {
               Este es el <strong>único</strong> símbolo que deberás marcar.<br/>Memorízalo bien.
             </p>
             <div style="font-size: 0.85rem; color: #546E7A; margin-top: 12px; opacity: 0.8;">
-              (Cruz con un cuadrado negro en AMBOS extremos)
+              (Cruz con un cuadrado negro en AMBOS extremos en la recta horizontal justo en su mitad, no en la vertical)
             </div>
           </div>
 
@@ -475,40 +475,40 @@ const App = {
     this.preOk = 0;
     this.preNeed = 4; // 2 lines * 2 targets each
     this.preButtons = [];
-    
+
     const prow0 = document.getElementById('p-row-0');
     const prow1 = document.getElementById('p-row-1');
     if (!prow0 || !prow1) return;
     prow0.innerHTML = '';
     prow1.innerHTML = '';
-    
+
     document.getElementById('pre-feedback').textContent = '';
     document.getElementById('pre-prog').style.width = '0%';
     document.getElementById('pre-cnt').textContent = `${0} / ${this.preNeed}`;
-    
+
     const btn = document.getElementById('start-btn');
     if (btn) { btn.disabled = true; }
 
     // Generar 2 líneas de 8 estímulos cada una
     // Forzamos D13 (Alto) y D14 (Bajo) para que el paciente los aprenda como distractores
     const lines = [
-      generatePracticeLine(8, ['D13']), 
+      generatePracticeLine(8, ['D13']),
       generatePracticeLine(8, ['D14'])
     ];
-    
+
     let globalIdx = 0;
     lines.forEach((line, rowIdx) => {
       const rowEl = rowIdx === 0 ? prow0 : prow1;
       line.forEach((sinfo) => {
         const currentIdx = globalIdx++;
         const canvas = document.createElement('canvas');
-        canvas.width  = SW + 10;
+        canvas.width = SW + 10;
         canvas.height = SH + 10;
         canvas.className = 'stim';
         canvas.style.cursor = 'pointer';
         canvas.style.borderRadius = '8px'; // Smooth UI requested
         const ctx = canvas.getContext('2d');
-        drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#1A1A2E', '#FFFFFF', 1.8);
+        drawPLCStimulus(ctx, sinfo, SW + 10, SH + 10, '#1A1A2E', '#FFFFFF', 1.8);
         canvas.addEventListener('click', () => this.preToggle(currentIdx, canvas, sinfo, ctx));
         rowEl.appendChild(canvas);
         this.preButtons.push({ canvas, sinfo, sel: false, ctx });
@@ -522,28 +522,28 @@ const App = {
     if (btn.sel) {
       btn.sel = false;
       canvas.className = 'stim';
-      drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#1A1A2E', '#FFFFFF', 1.8);
+      drawPLCStimulus(ctx, sinfo, SW + 10, SH + 10, '#1A1A2E', '#FFFFFF', 1.8);
       if (isT) this.preOk = Math.max(0, this.preOk - 1);
     } else {
       btn.sel = true;
       if (isT) {
         canvas.className = 'stim sel-ok';
-        drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#2E7D32', '#E8F5E9', 2.2);
+        drawPLCStimulus(ctx, sinfo, SW + 10, SH + 10, '#2E7D32', '#E8F5E9', 2.2);
         this.preOk++;
         document.getElementById('pre-feedback').innerHTML =
           '<span style="color: #2E7D32;">✓ ¡Correcto!</span>';
       } else {
         canvas.className = 'stim sel-wrong';
-        drawPLCStimulus(ctx, sinfo, SW+10, SH+10, '#B71C1C', '#FFEBEE', 2.2);
+        drawPLCStimulus(ctx, sinfo, SW + 10, SH + 10, '#B71C1C', '#FFEBEE', 2.2);
         document.getElementById('pre-feedback').innerHTML =
           '<span style="color: #B71C1C;">✗ Ese no es el objetivo. Revisa el cuadrado negro en AMBOS extremos.</span>';
       }
     }
-    
+
     const pct = Math.min(this.preOk, this.preNeed) / this.preNeed * 100;
     document.getElementById('pre-prog').style.width = pct + '%';
     document.getElementById('pre-cnt').textContent = `${this.preOk} / ${this.preNeed}`;
-    
+
     const btn2 = document.getElementById('start-btn');
     if (btn2) {
       if (this.preOk >= this.preNeed) {
@@ -561,25 +561,25 @@ const App = {
   ══════════════════════════════════════════════════════════════════════ */
   startTest() {
     this.currentLine = 0;
-    this.linesData   = [];
-    this.clickLog    = [];
-    this.testLines   = Array.from({length: this.TOTAL_LINES}, () => generateTestLine(this.CHARS_PER_LINE));
+    this.linesData = [];
+    this.clickLog = [];
+    this.testLines = Array.from({ length: this.TOTAL_LINES }, () => generateTestLine(this.CHARS_PER_LINE));
     this.nav('test');
   },
 
   renderTest(app) {
     if (this.currentLine >= this.TOTAL_LINES) { this.finishTest(); return; }
 
-    const ld   = this.testLines[this.currentLine];
+    const ld = this.testLines[this.currentLine];
     const split = 24;
-    const row1  = ld.slice(0, split);
-    const row2  = ld.slice(split);
+    const row1 = ld.slice(0, split);
+    const row2 = ld.slice(split);
 
     app.innerHTML = `
       <div id="test-screen">
         <!-- Header -->
         <div class="test-header">
-          <span class="line-label">LÍNEA ${this.currentLine+1} / ${this.TOTAL_LINES}</span>
+          <span class="line-label">LÍNEA ${this.currentLine + 1} / ${this.TOTAL_LINES}</span>
           <span class="count-lbl" id="count-lbl">Marcados: 0</span>
           <span class="timer-lbl" id="timer-lbl">${this.TIME_PER_LINE}.0 s</span>
         </div>
@@ -616,16 +616,16 @@ const App = {
     }
 
     // Draw stimuli
-    this.charBtns    = [];
+    this.charBtns = [];
     this.currentSels = new Set();
 
     const drawRow = (rowEl, items, startIdx) => {
       items.forEach((sinfo, relIdx) => {
         const absIdx = startIdx + relIdx;
-        const cell   = document.createElement('div');
+        const cell = document.createElement('div');
         cell.className = 'stim-cell';
         const canvas = document.createElement('canvas');
-        canvas.width  = SW;
+        canvas.width = SW;
         canvas.height = SH;
         canvas.className = 'stim';
         const ctx = canvas.getContext('2d');
@@ -642,7 +642,7 @@ const App = {
 
     // Start timer
     this.lineStartTime = performance.now();
-    this.timerRunning  = true;
+    this.timerRunning = true;
     if (this.timerInterval) clearInterval(this.timerInterval);
     this.timerInterval = setInterval(() => this.tickTimer(), 100);
   },
@@ -651,11 +651,11 @@ const App = {
     const btn = this.charBtns[idx];
     const now = performance.now();
     this.clickLog.push({
-      line:       this.currentLine + 1,
-      stim_idx:   idx,
-      is_target:  sinfo.is_target,
-      stim_key:   sinfo.key,
-      action:     btn.sel ? 'desel' : 'sel',
+      line: this.currentLine + 1,
+      stim_idx: idx,
+      is_target: sinfo.is_target,
+      stim_key: sinfo.key,
+      action: btn.sel ? 'desel' : 'sel',
       elapsed_ms: Math.round(now - this.lineStartTime)
     });
     if (btn.sel) {
@@ -675,9 +675,9 @@ const App = {
 
   tickTimer() {
     if (!this.timerRunning) return;
-    const elapsed   = (performance.now() - this.lineStartTime) / 1000;
+    const elapsed = (performance.now() - this.lineStartTime) / 1000;
     const remaining = Math.max(0, this.TIME_PER_LINE - elapsed);
-    const pct       = (remaining / this.TIME_PER_LINE) * 100;
+    const pct = (remaining / this.TIME_PER_LINE) * 100;
 
     const timerLbl = document.getElementById('timer-lbl');
     const timerBar = document.getElementById('timer-bar');
@@ -688,13 +688,13 @@ const App = {
 
     if (remaining > 10) {
       timerLbl.style.color = '#fff';
-      timerBar.className   = 'timer-bar-fill';
+      timerBar.className = 'timer-bar-fill';
     } else if (remaining > 5) {
       timerLbl.style.color = '#FFD54F';
-      timerBar.className   = 'timer-bar-fill warn';
+      timerBar.className = 'timer-bar-fill warn';
     } else {
       timerLbl.style.color = '#EF9A9A';
-      timerBar.className   = 'timer-bar-fill crit';
+      timerBar.className = 'timer-bar-fill crit';
     }
 
     if (remaining <= 0) {
@@ -710,7 +710,7 @@ const App = {
     this.timerRunning = false;
     const elapsed = (performance.now() - this.lineStartTime) / 1000;
 
-    let hits=0, oms=0, coms=0, targets=0;
+    let hits = 0, oms = 0, coms = 0, targets = 0;
     this.charBtns.forEach(b => {
       if (b.sinfo.is_target) { targets++; b.sel ? hits++ : oms++; }
       else if (b.sel) coms++;
@@ -719,10 +719,10 @@ const App = {
     this.linesData.push({
       linea: this.currentLine + 1,
       targets_total: targets,
-      aciertos:   hits,
-      omisiones:  oms,
+      aciertos: hits,
+      omisiones: oms,
       comisiones: coms,
-      tiempo_s:   +elapsed.toFixed(3),
+      tiempo_s: +elapsed.toFixed(3),
       tiempo_pct: +(Math.min(elapsed, this.TIME_PER_LINE) / this.TIME_PER_LINE * 100).toFixed(1)
     });
 
@@ -743,7 +743,7 @@ const App = {
     // ML prediction via API
     try {
       const resp = await fetch(API_BASE + '/api/predict', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           age: this.participant.age, education: this.participant.education,
           hand: this.participant.hand,
@@ -755,7 +755,7 @@ const App = {
         })
       });
       this.mlPred = await resp.json();
-    } catch(e) { this.mlPred = { model_used: false, error: 'Error de conexión' }; }
+    } catch (e) { this.mlPred = { model_used: false, error: 'Error de conexión' }; }
 
     // Save + generate Excel
     try {
@@ -763,35 +763,35 @@ const App = {
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
 
-      const saveResp  = await fetch(API_BASE + '/api/save', {
-        method:'POST', headers:{'Content-Type':'application/json', 'Authorization': `Bearer ${token}`},
+      const saveResp = await fetch(API_BASE + '/api/save', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
-          participant:   this.participant,
-          lines_data:    this.linesData,
-          click_log:     this.clickLog,
+          participant: this.participant,
+          lines_data: this.linesData,
+          click_log: this.clickLog,
           metrics: {
-            TA:this.metrics.TA, O:this.metrics.O, COM:this.metrics.COM,
-            TN:this.metrics.TN, TOT:this.metrics.TOT, CON:this.metrics.CON,
-            CP:this.metrics.CP, totalTime:this.metrics.totalTime,
-            meanTpl:this.metrics.meanTpl, stdTpl:this.metrics.stdTpl,
-            cvTime:this.metrics.cvTime, procSpeed:this.metrics.procSpeed,
-            efficiency:this.metrics.efficiency, FA:this.metrics.FA,
-            GQ:this.metrics.GQ, VAR:this.metrics.VAR,
-            estabilidad:this.metrics.estabilidad, consistency:this.metrics.consistency,
-            TRM:this.metrics.TRM, IVR:this.metrics.IVR,
-            blockHits:this.metrics.blockHits, errorPat:this.metrics.errorPat,
-            adjScore:this.metrics.adjScore, meanRt:this.metrics.meanRt,
-            medRt:this.metrics.medRt, attnStyle:this.metrics.attnStyle,
-            attnDesc:this.metrics.attnDesc
+            TA: this.metrics.TA, O: this.metrics.O, COM: this.metrics.COM,
+            TN: this.metrics.TN, TOT: this.metrics.TOT, CON: this.metrics.CON,
+            CP: this.metrics.CP, totalTime: this.metrics.totalTime,
+            meanTpl: this.metrics.meanTpl, stdTpl: this.metrics.stdTpl,
+            cvTime: this.metrics.cvTime, procSpeed: this.metrics.procSpeed,
+            efficiency: this.metrics.efficiency, FA: this.metrics.FA,
+            GQ: this.metrics.GQ, VAR: this.metrics.VAR,
+            estabilidad: this.metrics.estabilidad, consistency: this.metrics.consistency,
+            TRM: this.metrics.TRM, IVR: this.metrics.IVR,
+            blockHits: this.metrics.blockHits, errorPat: this.metrics.errorPat,
+            adjScore: this.metrics.adjScore, meanRt: this.metrics.meanRt,
+            medRt: this.metrics.medRt, attnStyle: this.metrics.attnStyle,
+            attnDesc: this.metrics.attnDesc
           },
           ml_prediction: this.mlPred,
           narrative
         })
       });
       const sd = await saveResp.json();
-      this.evalId       = sd.id;
-      this.evalStatus   = sd.status;
-    } catch(e) { console.warn('Save error:', e); }
+      this.evalId = sd.id;
+      this.evalStatus = sd.status;
+    } catch (e) { console.warn('Save error:', e); }
 
     this.isSaving = false;
     this.nav('results');
@@ -801,7 +801,7 @@ const App = {
      PANTALLA 5: RESULTADOS
   ══════════════════════════════════════════════════════════════════════ */
   renderResults(app) {
-    const m  = this.metrics;
+    const m = this.metrics;
     const ml = this.mlPred;
 
     if (!m) {
@@ -814,7 +814,7 @@ const App = {
     }
 
     const narrative = generateNarrative(m);
-    const now = new Date().toLocaleString('es', {dateStyle:'short', timeStyle:'short'});
+    const now = new Date().toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
 
     app.innerHTML = `
       <div class="plc-header">
@@ -836,12 +836,12 @@ const App = {
           <div class="section-title">Métricas Objetivas</div>
           <div class="metric-cards">
             ${[
-              ['TA  Aciertos',        m.TA,               '#E8F5E9','#2E7D32'],
-              ['O  Omisiones',        m.O,                '#FFF3E0','#E65100'],
-              ['C  Comisiones',       m.COM,              '#FFEBEE','#B71C1C'],
-              ['CP %  Concentración', m.CP.toFixed(1),    '#E8EAF6','#1A237E'],
-              ['CON  Neto',           m.CON,              '#E8EAF6','#283593'],
-            ].map(([lbl,val,bg,fg]) => `
+        ['TA  Aciertos', m.TA, '#E8F5E9', '#2E7D32'],
+        ['O  Omisiones', m.O, '#FFF3E0', '#E65100'],
+        ['C  Comisiones', m.COM, '#FFEBEE', '#B71C1C'],
+        ['CP %  Concentración', m.CP.toFixed(1), '#E8EAF6', '#1A237E'],
+        ['CON  Neto', m.CON, '#E8EAF6', '#283593'],
+      ].map(([lbl, val, bg, fg]) => `
               <div class="metric-card" style="background:${bg};">
                 <div class="val" style="color:${fg};">${val}</div>
                 <div class="lbl">${lbl}</div>
@@ -852,14 +852,14 @@ const App = {
 
           <div class="ext-metrics">
             ${[
-              ['Velocidad',         `${Math.round(m.procSpeed)} estím/min`],
-              ['Estabilidad',       `${Math.round(m.estabilidad)} %`],
-              ['TRM Monotonía',     `${m.TRM >= 0 ? '+' : ''}${m.TRM.toFixed(1)} %`],
-              ['IVR Vel–Exactitud', m.IVR.toFixed(2)],
-              ['TR medio',          `${Math.round(m.meanRt)} ms`],
-              ['Patrón Dominante',  m.attnStyle],
-              ['Redes Cognitivas',  m.focusType],
-            ].map(([lbl,val]) => `
+        ['Velocidad', `${Math.round(m.procSpeed)} estím/min`],
+        ['Estabilidad', `${Math.round(m.estabilidad)} %`],
+        ['TRM Monotonía', `${m.TRM >= 0 ? '+' : ''}${m.TRM.toFixed(1)} %`],
+        ['IVR Vel–Exactitud', m.IVR.toFixed(2)],
+        ['TR medio', `${Math.round(m.meanRt)} ms`],
+        ['Patrón Dominante', m.attnStyle],
+        ['Redes Cognitivas', m.focusType],
+      ].map(([lbl, val]) => `
               <div class="ext-card">
                 <div class="eval">${val}</div>
                 <div class="elbl">${lbl}</div>
@@ -898,10 +898,10 @@ const App = {
               Similitud con Patrones Paramétricos Base (Bayes):
             </div>
             <div class="prob-bars">
-              ${Object.entries(ml.all_probs).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v]) => `
-                <div class="prob-bar-item ${k===ml.predicted_profile?'is-pred':''}">
-                  <div class="pn">${k.replace(/_/g,' ')}</div>
-                  <div class="pv">${(v*100).toFixed(1)} %</div>
+              ${Object.entries(ml.all_probs).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `
+                <div class="prob-bar-item ${k === ml.predicted_profile ? 'is-pred' : ''}">
+                  <div class="pn">${k.replace(/_/g, ' ')}</div>
+                  <div class="pv">${(v * 100).toFixed(1)} %</div>
                 </div>`).join('')}
             </div>
           ` : `
@@ -990,7 +990,7 @@ const App = {
       });
       rows = await r.json();
       this.historyRows = rows;
-    } catch(e) {}
+    } catch (e) { }
 
     const card = document.getElementById('history-card');
     if (!rows || !rows.length) {
@@ -1022,20 +1022,20 @@ const App = {
     return rows.map(r => `
       <tr>
         <td>${r.id}</td>
-        <td>${new Date(r.created_at).toLocaleString('es',{dateStyle:'short',timeStyle:'short'})}</td>
+        <td>${new Date(r.created_at).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })}</td>
         <td>${escapeHTML(r.participant_id)}</td>
         <td><strong>${escapeHTML(r.participant_name)}</strong></td>
         <td>${r.age}</td>
-        <td><span style="font-weight:700;color:${r.CP>=75?'#2E7D32':r.CP>=50?'#E65100':'#B71C1C'}">${r.CP}</span></td>
+        <td><span style="font-weight:700;color:${r.CP >= 75 ? '#2E7D32' : r.CP >= 50 ? '#E65100' : '#B71C1C'}">${r.CP}</span></td>
         <td>${r.TA}</td>
         <td class="flex gap-2">
           <button class="btn btn-ghost btn-sm" style="background:#E8EAF6;color:#1A237E;" onclick="App.openWebReport(${r.id}, this)">👁️ Ver Web</button>
-          ${r.status === 'processing' || r.status === 'pending' ? 
-            `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
-           r.status === 'error' ?
-            `<button class="btn btn-danger btn-sm" disabled>❌ Error</button>` :
-            `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id}, this)">📥 Excel</button>`
-          }
+          ${r.status === 'processing' || r.status === 'pending' ?
+        `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
+        r.status === 'error' ?
+          `<button class="btn btn-danger btn-sm" disabled>❌ Error</button>` :
+          `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id}, this)">📥 Excel</button>`
+      }
           <button class="btn btn-danger btn-sm" onclick="App.deleteEval(${r.id}, this)">🗑</button>
         </td>
       </tr>`).join('');
@@ -1045,8 +1045,8 @@ const App = {
     const q = (query || '').toLowerCase().trim();
     let filtered = this.historyRows;
     if (q) {
-      filtered = this.historyRows.filter(r => 
-        (r.participant_name || '').toLowerCase().includes(q) || 
+      filtered = this.historyRows.filter(r =>
+        (r.participant_name || '').toLowerCase().includes(q) ||
         String(r.participant_id || '').toLowerCase().includes(q)
       );
     }
@@ -1056,9 +1056,9 @@ const App = {
 
   async downloadById(id, btn) {
     if (btn) {
-        if (btn.disabled) return;
-        btn.disabled = true;
-        btn.textContent = "Cargando...";
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = "Cargando...";
     }
     try {
       const sess = await this.supabase.auth.getSession();
@@ -1068,19 +1068,19 @@ const App = {
       });
       const d = await r.json();
       if (btn) {
-          btn.textContent = "📥 Excel";
-          btn.disabled = false;
+        btn.textContent = "📥 Excel";
+        btn.disabled = false;
       }
       if (d.url) {
         window.open(d.url, '_blank');
       } else {
         alert(d.detail || "URL no disponible");
       }
-    } catch(e) { 
-      alert("Error al contactar con la nube"); 
+    } catch (e) {
+      alert("Error al contactar con la nube");
       if (btn) {
-          btn.textContent = "📥 Excel";
-          btn.disabled = false;
+        btn.textContent = "📥 Excel";
+        btn.disabled = false;
       }
     }
   },
@@ -1091,7 +1091,7 @@ const App = {
       btn.disabled = true;
       btn.textContent = "⌛ Cargando...";
     }
-    
+
     try {
       // Pedimos todo el JSON de forma segura por RLS
       const { data, error } = await this.supabase
@@ -1099,17 +1099,17 @@ const App = {
         .select('*')
         .eq('id', id)
         .single();
-        
+
       if (error || !data) {
         alert("Error al recuperar los datos del paciente.");
         if (btn) { btn.textContent = "👁️ Ver Web"; btn.disabled = false; }
         return;
       }
-      
+
       const metrics = data.metrics_json;
       const lines = data.lines_json;
       const ml = data.ml_json;
-      
+
       // 1. Mostrar Modal
       document.getElementById('clinical-modal').classList.add('active');
       document.getElementById('modal-patient-info').innerHTML = `
@@ -1117,7 +1117,7 @@ const App = {
         | ID: <span style="color:var(--text);font-weight:400;">${data.participant_id}</span> 
         | Prueba: <span style="color:var(--text);font-weight:400;">${new Date(data.created_at).toLocaleString()}</span>
       `;
-      
+
       // 2. Semáforo Normativo basado en el Perfil de Eficiencia (CP)
       const cp = metrics.CP || 0;
       let sColor = 'yellow', sTitle = 'Atípico - Monitorear', sDesc = 'Variabilidad atencional límite.';
@@ -1126,7 +1126,7 @@ const App = {
       } else if (cp < 25) {
         sColor = 'red'; sTitle = 'Alerta Clínica'; sDesc = 'Desempeño fuera de rango poblacional.';
       }
-      
+
       document.getElementById('modal-semaforo').innerHTML = `
         <div class="semaforo-box semaforo-${sColor}">
           <div class="semaforo-indicator"></div>
@@ -1143,14 +1143,14 @@ const App = {
           </div>
         </div>
       `;
-      
+
       // 3. Renderizar Gráficas (Destruye previas auto por función)
       renderResultCharts(lines, metrics, ml);
-      
-    } catch(e) {
+
+    } catch (e) {
       alert("Error al cargar la visualización");
     }
-    
+
     if (btn) {
       btn.textContent = "👁️ Ver Web";
       btn.disabled = false;
@@ -1163,12 +1163,12 @@ const App = {
       btn.textContent = "...";
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
-      await fetch(`${API_BASE}/api/history/${id}`, { 
-        method:'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` } 
+      await fetch(`${API_BASE}/api/history/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       btn.closest('tr').remove();
-    } catch(e) { alert('Error al eliminar.'); }
+    } catch (e) { alert('Error al eliminar.'); }
   }
 };
 
