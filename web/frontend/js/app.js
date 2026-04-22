@@ -104,6 +104,7 @@ const App = {
       case 'pretest': this.renderPreTest(app); break;
       case 'practice': this.renderPractice(app); break;
       case 'test': this.renderTest(app); break;
+      case 'completion': this.renderCompletionScreen(app); break;
       case 'results': this.renderResults(app); break;
       case 'history': this.renderHistory(app); break;
     }
@@ -794,7 +795,89 @@ const App = {
     } catch (e) { console.warn('Save error:', e); }
 
     this.isSaving = false;
-    this.nav('results');
+    this.nav('completion');
+  },
+
+  /* ══════════════════════════════════════════════════════════════════════
+     PANTALLA 4.5: FINALIZACIÓN (Bloqueo de privacidad)
+  ══════════════════════════════════════════════════════════════════════ */
+  renderCompletionScreen(app) {
+    app.innerHTML = `
+      <div id="test-screen" style="background: linear-gradient(135deg, #1A237E 0%, #283593 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;">
+        <div class="card fade-in" style="max-width: 500px; width: 100%; text-align: center; padding: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
+          
+          <div style="font-size: 4rem; margin-bottom: 20px;">🎯</div>
+          <h1 style="color: #1A237E; margin-bottom: 10px;">¡Evaluación Finalizada!</h1>
+          <p style="color: #546E7A; font-size: 1.1rem; margin-bottom: 30px; line-height: 1.5;">
+            La prueba ha concluido satisfactoriamente.<br/>Los datos han sido guardados de forma segura en la nube.
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px;">
+            <button class="btn btn-secondary" style="justify-content: center; width: 100%;" onclick="App.nav('menu')">
+              🏠 Regresar al Menú Principal
+            </button>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid #ECEFF1; margin: 20px 0;"/>
+
+          <div id="unlock-section" style="background: #f8f9fa; padding: 20px; border-radius: 12px; border: 1px solid #ECEFF1;">
+            <div style="font-weight: 600; color: #1A237E; margin-bottom: 12px; font-size: 0.95rem;">
+              Panel de Resultados (Solo Profesional)
+            </div>
+            <div style="position: relative; margin-bottom: 12px;">
+              <input type="password" id="unlock-pwd" placeholder="Ingrese su contraseña..." 
+                style="width: 100%; padding: 12px 15px; border: 1.5px solid #CFD8DC; border-radius: 8px; font-family: 'Inter', sans-serif;" 
+                onkeypress="if(event.key==='Enter') App.unlockResults()"/>
+            </div>
+            <div id="unlock-error" style="color: #B71C1C; font-size: 0.85rem; margin-bottom: 12px; min-height: 1.2em;"></div>
+            <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="App.unlockResults(this)">
+              🔓 Desbloquear Informe
+            </button>
+          </div>
+
+        </div>
+      </div>
+    `;
+  },
+
+  async unlockResults(btn) {
+    const pwd = document.getElementById('unlock-pwd').value;
+    const errEl = document.getElementById('unlock-error');
+    if (!pwd) {
+      errEl.textContent = 'Ingrese la contraseña para continuar.';
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Verificando...';
+    }
+    errEl.textContent = '';
+
+    try {
+      // Re-autenticamos para verificar la contraseña del profesional actual
+      const { error } = await this.supabase.auth.signInWithPassword({
+        email: this.user.email,
+        password: pwd
+      });
+
+      if (error) {
+        errEl.textContent = 'Contraseña incorrecta. Intente de nuevo.';
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '🔓 Desbloquear Informe';
+        }
+      } else {
+        // Éxito: Mostrar resultados
+        this.nav('results');
+      }
+    } catch (e) {
+      errEl.textContent = 'Error de conexión. Reintente.';
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🔓 Desbloquear Informe';
+      }
+    }
   },
 
   /* ══════════════════════════════════════════════════════════════════════
