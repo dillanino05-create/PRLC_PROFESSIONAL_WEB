@@ -359,8 +359,8 @@ const App = {
             <p style="font-size: 1.1rem; color: #3949AB; font-weight: 500; padding: 0 16px; line-height: 1.5;">
               Este es el <strong>único</strong> símbolo que deberás marcar.<br/>Memorízalo bien.
             </p>
-            <div style="font-size: 0.85rem; color: #546E7A; margin-top: 12px; opacity: 0.8;">
-              (Cruz con un cuadrado negro en AMBOS extremos en la recta horizontal justo en su mitad, no en la vertical)
+            <div style="font-size: 0.9rem; color: #546E7A; margin-top: 15px; line-height: 1.5; background: #f8f9fa; padding: 10px; border-radius: 8px; border-left: 4px solid #1A1A2E;">
+              <strong>Referencia visual:</strong> Cruz con un cuadrado negro <u>solo</u> en los extremos <strong>izquierdo y derecho</strong>. La línea horizontal debe estar <strong>exactamente en el centro</strong> de la figura.
             </div>
           </div>
 
