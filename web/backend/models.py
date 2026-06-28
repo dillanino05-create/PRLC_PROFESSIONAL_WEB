@@ -10,6 +10,7 @@ class LineData(BaseModel):
     comisiones: int
     tiempo_s: float
     tiempo_pct: float
+    saltos_erraticos: int = 0
 
 
 class ClickLogItem(BaseModel):

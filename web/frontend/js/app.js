@@ -1113,6 +1113,11 @@ const App = {
             <div class="chart-box"><canvas id="chart-errors"></canvas></div>
             <div class="chart-box"><canvas id="chart-normal"></canvas></div>
           </div>
+          <!-- Rastreo de Saltos Erráticos (Distracción) en el modal -->
+          <div class="charts-grid" style="grid-template-columns: 1fr; margin-top: 15px;">
+            <div class="chart-box" style="height: 220px; min-height: 220px;"><canvas id="chart-jumps"></canvas></div>
+          </div>
+          <div id="modal-jumps-notes" style="margin-top: 15px; font-size: 0.95rem; background: #FFFDE7; padding: 15px; border-radius: 8px;"></div>
         </div>
       </div>
 
@@ -1284,6 +1289,19 @@ const App = {
           </div>
         </div>
       `;
+
+      // 2.5. Notas de Saltos Erráticos en el modal
+      const modalNotesEl = document.getElementById('modal-jumps-notes');
+      if (modalNotesEl) {
+        const linesWithJumps = lines ? lines.filter(l => l.saltos_erraticos > 0) : [];
+        if (linesWithJumps.length === 0) {
+          modalNotesEl.innerHTML = '<div style="color:#2E7D32; font-weight:600;">✓ El paciente mantuvo un barrido visual disciplinado en todas las líneas.</div>';
+        } else {
+          modalNotesEl.innerHTML = '<ul style="color:#BF360C; line-height: 1.6; margin: 0; padding-left: 20px;">' + 
+            linesWithJumps.map(l => '<li><strong>Línea ' + l.linea + ':</strong> Se detectó comportamiento errático (' + l.saltos_erraticos + ' saltos/retrocesos).</li>').join('') +
+            '</ul>';
+        }
+      }
 
       // 3. Renderizar Gráficas (Destruye previas auto por función)
       renderResultCharts(lines, metrics, ml);
