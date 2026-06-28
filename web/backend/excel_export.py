@@ -74,13 +74,15 @@ def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
     hits   = [l['aciertos']  for l in lines_data]
     oms    = [l['omisiones'] for l in lines_data]
     coms   = [l['comisiones']for l in lines_data]
+    jumps  = [l.get('saltos_erraticos', 0) for l in lines_data]
 
-    n_rows = 3 if (ml_pred and ml_pred.get('model_used')) else 2
-    fig = Figure(figsize=(14, n_rows * 4.5), facecolor='white', dpi=110)
+    # Forzar 3 filas para dar espacio al gráfico de Saltos Erráticos
+    n_rows = 3
+    fig = Figure(figsize=(14, 13.5), facecolor='white', dpi=110)
     fig.subplots_adjust(hspace=0.52, wspace=0.36)
 
     # 1. Curva de aciertos
-    ax1 = fig.add_subplot(n_rows, 2, 1)
+    ax1 = fig.add_subplot(3, 2, 1)
     ax1.plot(lineas, hits, color='#1565C0', lw=2.2, marker='o', ms=5, label='Aciertos Objetivo')
     ax1.fill_between(lineas, hits, alpha=0.12, color='#1565C0')
     if len(lineas) > 2:
@@ -91,7 +93,7 @@ def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
     ax1.set_xticks(lineas); ax1.grid(alpha=0.3); ax1.legend(fontsize=8)
 
     # 2. Métricas de atención
-    ax2 = fig.add_subplot(n_rows, 2, 2)
+    ax2 = fig.add_subplot(3, 2, 2)
     labels2 = ['Aciertos\n(TA)', 'Omisiones\n(O)', 'Comisiones\n(C)', 'A. Neto\n(CON)']
     values2 = [metrics['TA'], metrics['O'], metrics['COM'], metrics['CON']]
     colors2 = ['#1565C0', '#E65100', '#B71C1C', '#2E7D32']
@@ -102,22 +104,17 @@ def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
     ax2.set_title('Proporción de Ejecución Bruta', fontweight='bold', fontsize=11)
     ax2.set_ylabel('Volumen'); ax2.grid(axis='y', alpha=0.3)
 
-    # 3. Errores y Distracciones por línea
-    ax3 = fig.add_subplot(n_rows, 2, 3)
+    # 3. Distribución de fallas (O vs C)
+    ax3 = fig.add_subplot(3, 2, 3)
     x = np.array(lineas)
-    ax3.bar(x - 0.25, oms,  0.25, label='Omisión (Fallo latencia)',  color='#E65100', alpha=0.85)
-    ax3.bar(x, coms, 0.25, label='Comisión (Fallo inhibición)', color='#B71C1C', alpha=0.85)
-    
-    jumps = [l.get('saltos_erraticos', 0) for l in lines_data]
-    ax3.bar(x + 0.25, jumps, 0.25, label='Saltos Erráticos (Distracción)', color='#F57F17', alpha=0.85)
-    ax3.plot(x, jumps, color='#F57F17', lw=1.5, marker='x', alpha=0.9)
-
+    ax3.bar(x - 0.15, oms,  0.3, label='Omisión (Fallo latencia)',  color='#E65100', alpha=0.85)
+    ax3.bar(x + 0.15, coms, 0.3, label='Comisión (Fallo inhibición)', color='#B71C1C', alpha=0.85)
     ax3.set_title('Distribución de Tasas de Falla por Iteración', fontweight='bold', fontsize=11)
     ax3.set_xlabel('Línea'); ax3.set_ylabel('Cantidad de Falla')
     ax3.set_xticks(lineas); ax3.legend(fontsize=8); ax3.grid(axis='y', alpha=0.3)
 
     # 4. Curva Normativa
-    ax4 = fig.add_subplot(n_rows, 2, 4)
+    ax4 = fig.add_subplot(3, 2, 4)
     if age_v <= 18:   mu, sigma = 68, 14
     elif age_v <= 35: mu, sigma = 75, 12
     elif age_v <= 50: mu, sigma = 70, 13
@@ -133,20 +130,33 @@ def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
     ax4.set_xlabel('Proporción de Eficiencia'); ax4.set_ylabel('Distribución')
     ax4.legend(fontsize=8); ax4.grid(alpha=0.3)
 
-    # 5. Distribución MLP Objetivo
+    # 5. Saltos Visuales Erráticos (Naranja, igual al frontend)
+    # Si hay predicción de ML, toma la celda izquierda; si no, toma todo el renglón
+    if ml_pred and ml_pred.get('model_used'):
+        ax5 = fig.add_subplot(3, 2, 5)
+    else:
+        ax5 = fig.add_subplot(3, 2, (5, 6))
+    
+    ax5.plot(lineas, jumps, color='#F57F17', lw=2.2, marker='o', ms=5, label='Saltos/Retrocesos')
+    ax5.fill_between(lineas, jumps, alpha=0.12, color='#F57F17')
+    ax5.set_title('Saltos Visuales Erráticos por Línea', fontweight='bold', fontsize=11)
+    ax5.set_xlabel('Línea (Fase Temporal)'); ax5.set_ylabel('Cant. Saltos')
+    ax5.set_xticks(lineas); ax5.grid(alpha=0.3); ax5.legend(fontsize=8)
+
+    # 6. Distribución MLP Objetivo
     if ml_pred and ml_pred.get('model_used') and 'all_probs' in ml_pred:
-        ax5 = fig.add_subplot(n_rows, 2, (5, 6))
+        ax6 = fig.add_subplot(3, 2, 6)
         probs_sorted = sorted(ml_pred['all_probs'].items(), key=lambda x: x[1], reverse=True)
         prof_labels  = [k.replace('_', ' ') for k, _ in probs_sorted]
         prof_vals    = [v * 100 for _, v in probs_sorted]
         pred_key     = ml_pred.get('predicted_profile', '')
         bar_colors   = ['#3949AB' if k.replace(' ', '_') == pred_key else '#C5CAE9' for k, _ in probs_sorted]
-        bars5 = ax5.barh(prof_labels[::-1], prof_vals[::-1], color=bar_colors[::-1], edgecolor='white', height=0.6)
-        for bar, val in zip(bars5, prof_vals[::-1]):
-            ax5.text(val + 0.3, bar.get_y() + bar.get_height() / 2, f'{val:.1f}%', va='center', fontsize=9, fontweight='bold', color='#1A1A2E')
-        ax5.set_title(f'Similitud Bayesiana con Patrones Objetivos de Respuesta', fontweight='bold', fontsize=11)
-        ax5.set_xlabel('Probabilidad Matemática Algorítmica (%)'); ax5.grid(axis='x', alpha=0.3)
-        ax5.set_xlim(0, max(max(prof_vals) * 1.18, 100))
+        bars6 = ax6.barh(prof_labels[::-1], prof_vals[::-1], color=bar_colors[::-1], edgecolor='white', height=0.6)
+        for bar, val in zip(bars6, prof_vals[::-1]):
+            ax6.text(val + 0.3, bar.get_y() + bar.get_height() / 2, f'{val:.1f}%', va='center', fontsize=9, fontweight='bold', color='#1A1A2E')
+        ax6.set_title(f'Similitud Bayesiana con Patrones Objetivos de Respuesta', fontweight='bold', fontsize=11)
+        ax6.set_xlabel('Probabilidad Matemática Algorítmica (%)'); ax6.grid(axis='x', alpha=0.3)
+        ax6.set_xlim(0, max(max(prof_vals) * 1.18, 100))
 
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=110, bbox_inches='tight', facecolor='white')
@@ -308,6 +318,13 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
                 bc.add_data(er, titles_from_data=True)
                 bc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows_data))
                 ws5.add_chart(bc, 'G25')
+
+                # Gráfica de Líneas Nativa para Saltos Erráticos (igual al frontend)
+                jc = LineChart(); jc.title = 'Saltos Visuales Erráticos por Línea'; jc.style = 13; jc.height = 12; jc.width = 22
+                jr = Reference(ws5, min_col=5, min_row=4, max_row=n_rows_data)
+                jc.add_data(jr, titles_from_data=True)
+                jc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows_data))
+                ws5.add_chart(jc, 'G45')
             except Exception as e:
                 pass
 
