@@ -194,9 +194,23 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             {"Dominio Observacional Algorítmico": "Curvatura Explicada Cronométrica: " + metrics.get('attnDesc', 'N/A')}
         ])
 
+        # Generar Notas Observacionales de Barrido Visual y Distracciones
+        lines_with_jumps = [l for l in lines_data if l.get('saltos_erraticos', 0) > 0]
+        if not lines_with_jumps:
+            jumps_notes = ["🟢 Patrón de Barrido Correcto: No se detectaron saltos erráticos ni retrocesos de línea. El evaluado respetó la consigna de exploración de izquierda a derecha."]
+        else:
+            jumps_notes = []
+            for l in lines_with_jumps:
+                jumps_notes.append(f"⚠️ Línea {l['linea']}: Comportamiento errático ({l['saltos_erraticos']} saltos/retrocesos). Omitió o saltó de forma desorganizada incumpliendo la consigna.")
+        
+        df_notas = pd.DataFrame([
+            {"Notas Observacionales de Barrido Visual": note} for note in jumps_notes
+        ])
+
         df_demog.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=4, startcol=0)
         df_metricas.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=4, startcol=3)
         df_patrones.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=15, startcol=0)
+        df_notas.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=15, startcol=3)
         
         ws1 = writer.sheets['01_Resumen_Clinico']
         _add_educational_header(ws1, "Resumen Transversal Objetivo del Desempeño",
@@ -266,12 +280,18 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
 
         # ── Hoja 5: Datos Gráficas ─────────────────────────────────────────
         if lines_data:
-            gd = {'Línea': [l['linea'] for l in lines_data], 'Exactitud': [l['aciertos'] for l in lines_data], 'Omisiones': [l['omisiones'] for l in lines_data], 'Comisiones': [l['comisiones'] for l in lines_data]}
+            gd = {
+                'Línea': [l['linea'] for l in lines_data], 
+                'Exactitud': [l['aciertos'] for l in lines_data], 
+                'Omisiones': [l['omisiones'] for l in lines_data], 
+                'Comisiones': [l['comisiones'] for l in lines_data],
+                'Saltos Erráticos': [l.get('saltos_erraticos', 0) for l in lines_data]
+            }
             pd.DataFrame(gd).to_excel(writer, sheet_name='05_Arrays_Para_Graficas', index=False, startrow=4)
             ws5 = writer.sheets['05_Arrays_Para_Graficas']
             _add_educational_header(ws5, "Vectores de Construcción de Gráficas Nativas",
                                     "Esta matriz bidimensional contiene la planimetría cruda usada para renderizar las curvas interactivas nativas de Excel adjuntas a la derecha de esta tabla.")
-            _style_hdr(ws5, row=5); _set_widths(ws5, [10,12,12,12])
+            _style_hdr(ws5, row=5); _set_widths(ws5, [10,12,12,12,16])
 
             # Gráficas nativas de openpyxl
             try:
@@ -282,9 +302,9 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
                 lc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows_data))
                 ws5.add_chart(lc, 'G5')
                 
-                bc = BarChart(); bc.type = 'col'; bc.title = 'Tasa de Diferencial de Falla (O vs C)'
+                bc = BarChart(); bc.type = 'col'; bc.title = 'Tasa de Falla y Distracciones (O vs C vs SE)'
                 bc.style = 10; bc.height = 12; bc.width = 22
-                er = Reference(ws5, min_col=3, min_row=4, max_col=4, max_row=n_rows_data)
+                er = Reference(ws5, min_col=3, min_row=4, max_col=5, max_row=n_rows_data)
                 bc.add_data(er, titles_from_data=True)
                 bc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows_data))
                 ws5.add_chart(bc, 'G25')
