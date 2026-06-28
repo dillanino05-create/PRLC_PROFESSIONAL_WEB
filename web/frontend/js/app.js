@@ -240,8 +240,8 @@ const App = {
           </div>
 
           <!-- Footer -->
-          <div style="color:#7986CB;font-size:.8rem;margin-top:auto;">
-            PLC Professional v3.0 &nbsp;·&nbsp; Uso exclusivo para profesionales
+          <div style="font-size:0.8rem; color:var(--text-light); text-align:center; padding:10px;">
+            PLC Professional v3.1 &nbsp;&middot;&nbsp; Uso exclusivo para profesionales
           </div>
         </div>
       </div>`;
