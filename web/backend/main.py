@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from supabase import create_client, Client, ClientOptions
+import httpx
 
 from .models import PredictRequest, SaveRequest
 from .predictor import predictor
@@ -81,7 +82,10 @@ def get_supabase(authorization: str = Header(None)) -> dict:
     token = authorization.split(" ")[1]
     
     # Cliente configurado para actuar en nombre del psicólogo logueado (Respetando RLS)
-    opts = ClientOptions(headers={'Authorization': f'Bearer {token}'})
+    opts = ClientOptions(
+        headers={'Authorization': f'Bearer {token}'},
+        httpx_client=httpx.Client(http2=False)
+    )
     sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
     
     # Verificación del usuario contra Supabase Auth
@@ -107,7 +111,10 @@ def predict(req: PredictRequest):
     return predictor.predict(req.model_dump())
 
 def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, metrics, ml_pred, narrative):
-    opts = ClientOptions(headers={'Authorization': f'Bearer {token}'})
+    opts = ClientOptions(
+        headers={'Authorization': f'Bearer {token}'},
+        httpx_client=httpx.Client(http2=False)
+    )
     sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
     
     try:

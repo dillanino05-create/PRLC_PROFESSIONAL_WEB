@@ -1318,16 +1318,25 @@ const App = {
 
   async deleteEval(id, btn) {
     if (!confirm('¿Eliminar definitivamente esta evaluación (BD y Storage)?')) return;
+    const oldText = btn.innerHTML || "🗑️";
     try {
       btn.textContent = "...";
+      btn.disabled = true;
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
-      await fetch(`${API_BASE}/api/history/${id}`, {
+      const r = await fetch(`${API_BASE}/api/history/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!r.ok) {
+        throw new Error(`Código de respuesta: ${r.status}`);
+      }
       btn.closest('tr').remove();
-    } catch (e) { alert('Error al eliminar.'); }
+    } catch (e) { 
+      alert('Error al eliminar: ' + e.message);
+      btn.innerHTML = oldText;
+      btn.disabled = false;
+    }
   }
 };
 
