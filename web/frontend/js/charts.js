@@ -151,8 +151,6 @@ function renderResultCharts(linesData, metrics, mlPred) {
         }
       }
     });
-      }
-    });
   }
 
   // ── Chart 5: Saltos Erráticos ──────────────────────────────

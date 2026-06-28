@@ -1012,7 +1012,7 @@ const App = {
                 return '<div style="color:#2E7D32; font-weight:600;">✓ El paciente mantuvo un barrido visual disciplinado en todas las líneas.</div>';
               } else {
                 return '<ul style="color:#BF360C; line-height: 1.6; margin: 0; padding-left: 20px;">' + 
-                  linesWithJumps.map(l => \`<li><strong>Línea \${l.linea}:</strong> Se detectó comportamiento errático (\${l.saltos_erraticos} saltos/retrocesos). Posible pérdida de atención.</li>\`).join('') +
+                  linesWithJumps.map(l => '<li><strong>Línea ' + l.linea + ':</strong> Se detectó comportamiento errático (' + l.saltos_erraticos + ' saltos/retrocesos). Posible pérdida de atención.</li>').join('') +
                   '</ul>';
               }
             })()}
