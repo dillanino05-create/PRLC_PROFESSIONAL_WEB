@@ -1,0 +1,909 @@
+ISSN: 1692 -7257 - Volumen X – Número XX - 20XX  
+ 
+  
+1 
+ 
+Universidad de Pamplona  
+       I. I. D. T. A.  
+ 
+ 
+ 
+Revista Colombiana de Tecnologías de Avanzada 
+indicaciones para la presentación de Artículos  
+ 
+Colombian Journal of Advanced Technologies indications for Paperson  
+ 
+ 
+Dilan Alejandro Lamus Pabón1, Ximena Alexandra Mora Navarro2,Andrea 
+Daniela Victoria Vivas2, PhD. Edgar Alexis Diaz -Camargo2 
+ 
+1 Universidad de Pamplona , Facultad de ingenierías  y arquitecturas, Programa Mecatrónica o Grupo de Investigación, Cúcuta , 
+Norte de Santander , Colombia . 
+ 
+Correspondencia:  autor@dominio.edu.co  
+Recibido:  día mes año. Aceptado:  día mes año. Publicado:  día mes año.  
+ 
+ 
+ 
+Cómo citar: Lamus, D.A., Mora, X. A., Victoria, A. D., & Díaz -Camargo, E. (2026). Prueba líneas cruzadas PLC , “Nombre del artículo”, 
+RCTA, vol. x, n.º. x, pp. xxx -xxx, Abrev. Mes, año.  
+Recuperado de https://  
+ 
+ 
+Esta obra está bajo una licencia internacional   
+Creative Commons Atribución -NoComercial 4.0 . 
+ 
+ 
+ 
+ 
+Resumen:   
+Este artículo documenta el diseño y la implementación de la  Prueba de Líneas Cruzadas 
+(PLC), un sistema experto para la evaluación de la atención visual -espacial. Utilizando 
+como marco de referencia psicométrico el test de Brickenkamp (2002), la PLC propon e un 
+paradigma digital basado en ingeniería mecatrónica y redes neuronales. La plataforma 
+emplea una interfaz de baja latencia para la captura de datos en tiempo real, procesados 
+mediante una arquitectura asíncrona y una red neuronal de Perceptrón Multicap a (MLP). 
+El modelo alcanza una precisión del 97.5% en la clasificación de perfiles cognitivos, 
+optimizando los tiempos de corrección en un 95% y garantizando la objetividad en el 
+registro clínico de latencias (Tirola, 2021).  
+ 
+Palabras clave:   
+Prueba de Líneas Cruzadas (PLC), Atención Visual -Espacial, Redes Neuronales MLP, 
+Mecatrónica Clínica.  
+ 
+Abstract:   
+This paper documents the design and implementation of the  Crossed Lines Test (PLC), an 
+expert system for visual -spatial attention assessment. Using the Brickenkamp (2002) test 
+as a psychometric reference, the PLC proposes a digital paradigm based on mechat ronics 
+engineering and neural networks. The platform employs a low -latency interface for real -
+time data capture, processed through an asynchronous architecture and a Multilayer 
+Perceptron (MLP) neural network. The model achieves an accuracy of 97.5% in the  
+classification of cognitive profiles, optimizing scoring times by 95% and ensuring 
+objectivity in clinical latency recording (Tirola, 2021).  
+ 
+Keywords:   
+Crossed Lines Test (PLC), Visual -Spatial Attention, MLP Neural Networks, Clinical 
+Mechatronics.  
+Digital Object Identiﬁer: 
+10.24054/rcta.vXiXX.1234  
+ 
+ISSN: 1692 -7257 - Volumen X – Número XX - 20XX  
+ 
+  
+2 
+ 
+Universidad de Pamplona  
+       I. I. D. T. A.  
+ 
+ 
+1. INTRODUCCIÓN  
+ 
+En los últimos años, la evaluación de los procesos 
+cognitivos ha experimentado una transformación 
+significativa impulsada por la incorporación de 
+herramientas tecnológicas en contextos clínicos, 
+educativos y organizacionales. En particular, la 
+atención es entendida como un proceso cognitivo 
+fundamental que permite seleccionar, mantener y 
+regular la información relevante del entorno 
+(Fernández, 2014). Tradicionalmente, su evaluación 
+se ha realizado mediante pruebas psicométricas en 
+formato papel -lápiz, como el Test d2 (Brickenkamp, 
+2002), las cuales, aunque útiles, presentan 
+limitaciones en cuanto a la precisión temporal, el 
+error humano en el registro cronométrico y la 
+dificultad para analizar la variabilidad dinámica del 
+rendimiento.  
+ 
+La neuropsicología contemporánea ha comenzado a 
+integrar sistemas computarizados que mejoran la 
+exactitud en la medición de tiempos de respuesta y 
+facilitan el análisis de variables complejas como la 
+fatiga, la latencia y la estabilidad atencional (Harris 
+et al., 2024; Maggio et al., 2025). No obstante, para 
+que estas herramientas alcancen un estándar clínico 
+profesional, no basta con digitalizar una tarea; se 
+requiere una arquitectura que garantice la integridad 
+del dato desde su origen físico.  
+ 
+Bajo esta premisa, el presente trabajo propone el 
+desarrollo de la Prueba de Líneas Cruzadas (PLC), 
+un ecosistema que converge la neuropsicología con 
+la ingeniería mecatrónica a través de un Sistema de 
+Adquisición de Datos (SAD) de alta fidelidad. 
+Desde la  perspectiva de la ingeniería, la PLC se 
+fundamenta en la Interacción Humano -Computador 
+(HCI), utilizando tecnologías de bajo nivel como 
+Canvas HTML5 y arquitecturas de microservicios 
+en Python 3.10 para minimizar la latencia del 
+software y asegurar una re solución de milisegundos 
+en la captura del rastro motor.  
+ 
+Este enfoque permite que el sistema funcione como 
+un dispositivo de medición biométrica que 
+transforma la interacción del usuario en un flujo de 
+señales comportamentales procesadas mediante 
+modelos de Machine Learning. De este modo, la 
+PLC no solo automati za una prueba de 
+discriminación visual, sino que evoluciona el 
+proceso de evaluación hacia un modelo de 
+procesamiento de señales de alta precisión, 
+garantizando perfiles cognitivos automatizados y descripciones puristas del comportamiento 
+atencional (Patha k, 2022).  
+ 
+2. ATENCIÓN COMO PROCESO 
+COGNITIVO  
+ 
+La atención es un proceso cognitivo complejo que 
+permite seleccionar, organizar y mantener la 
+información relevante del entorno, facilitando la 
+adaptación del individuo a las demandas del 
+contexto (Fernández, 2014). Desde la psicología 
+cognitiva, se entien de como un mecanismo limitado 
+que regula el acceso a los recursos mentales, 
+priorizando ciertos estímulos sobre otros.  
+ 
+Michael Posner  (1990)  ha planteado que la atención 
+no es un proceso unitario, sino un sistema 
+compuesto por diferentes redes funcionales 
+encargadas de la alerta, la orientación y el control 
+ejecutivo. Estas redes trabajan de manera 
+coordinada para permitir la focalización en 
+estímulos específicos y la inhibición de información 
+irrelevante.  
+ 
+Por su parte, Anne Treisman (1980) destaca que la 
+atención desempeña un papel fundamental en la 
+integración de características perceptuales, lo que 
+permite construir representaciones coherentes del 
+entorno. En este sentido, la atención selectiva resulta 
+esencial en tareas que requieren disc riminar 
+estímulos similares en presencia de distractores.  
+ 
+2.1. Modelos de atención y control cognitivo.   
+Los modelos contemporáneos de atención han 
+incorporado el concepto de control cognitivo, 
+entendiendo como la capacidad para regular el 
+comportamiento de acuerdo con objetivos internos 
+Este control implica procesos como la inhibición de 
+respuesta automática s, la supervisión del 
+desempeño y la detección de errores (Posner & 
+Petersen, 1990).  
+ 
+Dentro de este marco, el rendimiento atencional se 
+encuentra estrechamente relacionado con la 
+capacidad de mantener la concentración a largo 
+plazo así como la estabilidad en ejecución de tareas 
+repetitivas. La variabilidad en el desempeño puede 
+reflejar fa ctores de fatiga, impulsividad o 
+dificultades en el control inhibitorio (Elosua et al., 
+2023).  
+ 
+Asimismo, los modelos de procesamiento de 
+información destacan la importancia destacan la 
+importancia del equilibrio entre velocidad y 
+ISSN: 1692 -7257 - Volumen X – Número XX - 20XX  
+ 
+  
+2 
+ 
+Universidad de Pamplona  
+       I. I. D. T. A.  
+precisión (trade -off), el cual describe cómo el 
+incremento en la rapidez de respuesta puede 
+conllevar un aumento en los errores, y viceversa, 
+aspecto clave en la interpretación de pruebas 
+atencionales (Fernández, 2014).  
+ 
+2.2. Evaluación psicométrica de la atención.  
+La evaluación de la atención se ha llevado a cabo 
+tradicionalmente mediante instrumentos 
+psicométricos diseñados para medir la capacidad de 
+discriminación de estímulos, la velocidad de 
+procesamiento y el control de errores. Entre estos 
+instrumentos destaca  el Test d2, desarrollado por 
+Rolf Brickenkamp (2002), el cual es ampliamente 
+utilizado en contextos clínicos y educativos.  
+ 
+Este tipo de pruebas se caracteriza por presentar 
+tareas de cancelación en las que el evaluado debe 
+identificar estímulos relevantes en un conjunto de 
+distractores bajo condiciones de presión temporal. A 
+partir de su ejecución, es posible obtener 
+indicador es como el número de aciertos, errores de 
+omisión, errores de comisión y el índice de 
+concentración (Brickenkamp, 2002).  
+ 
+No obstante, las pruebas tradicionales presentan 
+limitaciones asociadas al registro manual de datos y 
+a la dificultad para medir variables temporales con 
+precisión, lo que ha impulsado la búsqueda de  
+alternativas digitales que mantengan sus 
+propiedades psicométricas (Elosua et al., 2023).  
+ 
+3. DIGITALIZACIÓN DE PRUEBAS 
+PSICOLÓGICAS  
+ 
+La digitalización de las pruebas psicológicas 
+representa un avance significativo en la evaluación 
+de los procesos cognitivos, al integrar herramientas 
+tecnológicas que optimizan la medición, el registro 
+y el análisis del desempeño. Dicho proceso ha dado 
+lugar al desarrollo de la neuropsicología 
+computarizada, entendida como el uso de sistemas 
+digitales para la evaluación de funciones cognitivas 
+como la atención, la memoria  y las funciones 
+ejecutivas, este cambio ha permitido superar varias 
+de las limitacio nes asociadas a los métodos 
+tradicionales en formato papel, los cuales dependen 
+en gran medida del evaluador y presentan 
+restricciones en la precisión temporal y el 
+procesamiento de datos (Calderón Delgado, & 
+Alveiro Restrepo Ochoa, 2009; Wojcik, et al., 
+2019).  
+ 
+En este sentido, una de las principales ventajas de 
+las pruebas computarizadas es su alta precisión en la 
+presentación de estímulos y en la medición de los tiempos de respuesta, alcanzando niveles de registro 
+en milisegundos. Esta característica permite evaluar 
+con mayor sensibilidad variables como la velocidad 
+de procesamiento, la latencia de respuesta y la 
+variabilidad individual, aspectos que son difíciles  de 
+captar mediante métodos convencionales (Woo, 
+2008; Harris et al., 2024).  
+ 
+Adicionalmente, la automatización de procesos de 
+aplicación y puntuación constituyen un avance 
+significativo, ya que reduce la posibilidad de errores 
+y garantiza la estandarización de la aplicación, 
+incrementando la fiabilidad de los resultados (Harris 
+et al., 2024; Zoe, 2025). Consecuentemente, la 
+capacidad de realizar un registro masivo y continuo 
+de datos, permite analizar patrones de 
+comportamiento a lo largo del tiempo, como la 
+fatiga, la variabilidad individual y los cambios en la 
+ejecución, facilitan do las comparaciones precisas 
+entre individuos y grupos poblacionales, lo que a su 
+vez favorece  el desarrollo de modelos más exactos 
+de evaluación cognitiva (Harris, et al., 2024).  
+ 
+4. INDICADORES DE RENDIMIENTO 
+COGNITIVO  
+La evaluación de la atención mediante herramientas 
+psicométricas y computarizadas requiere la 
+utilización de indicadores de rendimiento cognitivo 
+que permitan analizar no solo la cantidad de 
+respuestas emitidas, sino también la calidad y 
+eficiencia del pro cesamiento de la información. En 
+este sentido, variables como la velocidad de 
+procesamiento, la precisión, el tiempo de reacción y 
+el control de errores constituyen dimensiones 
+fundamentales para comprender el funcionamiento 
+atencional en tareas de discrim inación visual 
+(Fernández, 2014;  Elosua et al ., 2023 ). 
+ 
+La velocidad de procesamiento se refiere a la 
+capacidad del individuo para responder de manera 
+rápida ante estímulos, siendo un indicador clave en 
+pruebas que demandan ejecución bajo presión 
+temporal. No obstante, esta variable debe 
+interpretarse en conjun to con la precisión, ya que un 
+incremento en la rapidez puede generar un aumento 
+en los errores. Este fenómeno, conocido como trade -
+off velocidad -precisión, refleja el equilibrio entre 
+eficiencia y control cognitivo, siendo un aspecto 
+central en la evaluac ión de la atención selectiva 
+(Harris et al., 2024).  
+ 
+Por su parte, el tiempo de reacción permite medir la 
+latencia entre la presentación del estímulo y la 
+respuesta del individuo, constituyendo un indicador 
+sensible a cambios en el estado atencional, la fatiga 
+y la carga cognitiva. A diferencia de las prueba s 
+ISSN: 1692 -7257 - Volumen X – Número XX - 20XX  
+ 
+  
+3 
+ 
+Universidad de Pamplona  
+       I. I. D. T. A.  
+tradicionales, los sistemas computarizados permiten 
+registrar esta variable con alta precisión, facilitando 
+el análisis de microvariaciones en el rendimiento 
+(Liang et al., 2025).  
+ 
+Adicionalmente, los errores de omisión y comisión 
+aportan información relevante sobre el control 
+atencional. Las omisiones suelen asociarse con 
+lapsos de inatención o fallas en la detección de 
+estímulos relevantes, mientras que las comisiones se 
+relacionan  con impulsividad o dificultades en la 
+inhibición de respuestas incorrectas. El análisis 
+conjunto de estos errores permite identificar 
+patrones diferenciales de funcionamiento cognitivo 
+(Genovese et al., 2025).  
+ 
+Por lo tanto, la integración de estos indicadores da 
+lugar a índices compuestos de rendimiento, como el 
+índice de concentración o eficiencia atencional, los 
+cuales permiten sintetizar el desempeño del 
+individuo en una medida global. Asimismo, el 
+análisis d e la estabilidad del rendimiento a lo largo 
+del tiempo y la detección de patrones como la 
+monotonía o la fatiga contribuyen a una 
+comprensión más dinámica del funcionamiento 
+cognitivo. En este sentido, la utilización de 
+múltiples indicadores no solo enriqu ece la 
+evaluación, sino que permite la construcción de 
+perfiles cognitivos más precisos y detallados.  
+ 
+5. INTEGRACIÓN MECATRÓNICA -
+PSICOLOGÍA  
+El objetivo primordial de esta fase de investigación 
+fue la transición de un paradigma de evaluación 
+analógico, estático y manual, hacia un ecosistema 
+dígito -comportamental dinámico. Se buscó no solo 
+establecer la validez convergente con referentes 
+psicomé tricos tradicionales, sino optimizar la 
+fidelidad de la captura de datos mediante la 
+integración de hardware y una arquitectura de 
+software basada en un back -end asíncrono.  
+ 
+Esta sinergia permite que la Prueba de Líneas 
+Cruzadas (PLC) opere como un sistema experto 
+capaz de asistir al profesional clínico en la 
+detección de micro -fluctuaciones atencionales, las 
+cuales resultan imperceptibles al ojo humano 
+durante los procesos de  corrección tradicionales en 
+formato papel y lápiz (Brickenkamp, 2002). La 
+integración mecatrónica garantiza que cada 
+interacción del usuario sea tratada como un evento 
+biométrico puro, permitiendo un análisis granular 
+de la estabilidad atencional y el con trol inhibitorio 
+bajo condiciones de presión temporal controlada. 
+De este modo, el sistema no solo automatiza la 
+tarea, sino que evoluciona hacia un modelo de procesamiento de señales comportamentales de alta 
+precisión (Pathak, 2022).  
+ 
+5.1 Diseño y Morfología de Estímulos 
+Biométricos  
+Para garantizar la validez de constructo y evitar 
+sesgos de aprendizaje, la PLC utiliza un sistema de 
+discriminación visual basado en una matriz de 
+estímulos ortogonales. Como se observa en la 
+Figura 1, el estímulo objetivo (Target) consiste en 
+una cruz equilátera con un marcador cuadrangular 
+en ambos extremos del brazo horizontal.  
+El sistema de distractores se diseñó mediante 
+variaciones paramétricas del objetivo, algunas de 
+estas son las siguientes:  
+1. Distractor 1: Marcador único en el 
+extremo izquierdo.  
+2. Distractor 2: Marcador único en el 
+extremo derecho.  
+3. Distractor 3: Ausencia de marcadores en 
+el brazo horizontal.  
+Esta configuración mecánica del estímulo obliga al 
+evaluado a realizar un proceso de barrido visual y 
+control inhibitorio constante. Desde la ingeniería, 
+cada estímulo está renderizado como un objeto 
+independiente en el Canvas HTML5, lo que 
+permite que el sistema detecte no solo si el clic fue 
+correcto, sino la coordenada exacta y la latencia de 
+respuesta frente a la morfología específica del 
+distractor.  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Fig 1. Estímulo Objetivo vs Distractores  
+Fuente: elaboración propia.  
+ 
+5.2 Arquitectura de Adquisición y Transmisión 
+de Datos  
+Desde el componente de ingeniería mecatrónica, se 
+implementó una arquitectura de software de alto 
+rendimiento basada en el estándar Canvas HTML5 
+y JavaScript de bajo nivel para la gestión de la 
+interfaz de selección de estímulos. Esta elección 
+técnica resu lta crítica para la validez del 
+ISSN: 1692 -7257 - Volumen X – Número XX - 20XX  
+ 
+  
+4 
+ 
+Universidad de Pamplona  
+       I. I. D. T. A.  
+instrumento; a diferencia de los elementos del 
+Modelo de Objetos del Documento (DOM) 
+estándar, el elemento Canvas permite una 
+frecuencia de muestreo de eventos táctiles y de clic 
+con una latencia de software minimizada, cercana a 
+los 16 ms (equivalente a 6 0 FPS).  
+ 
+Dicha optimización garantiza que la variable de 
+"Tiempo de Reacción por Ítem" capturada por el 
+sistema sea un reflejo fiel de la sinapsis motora y la 
+velocidad de procesamiento cognitivo del 
+evaluado, reduciendo significativamente el ruido 
+tecnológico o el  retraso de renderizado introducido 
+habitualmente por los navegadores convencionales 
+(Tirola, 2021). La precisión en el registro de estas 
+latencias permite una transición efectiva de los 
+métodos analógicos hacia un Sistema de 
+Adquisición de Datos (SAD) cap az de digitalizar el 
+rastro motor con alta resolución temporal.  
+ 
+5.3 Clasificación Predictiva mediante Redes 
+Neuronales MLP  
+Uno de los avances significativos en la 
+digitalización de la Prueba de Líneas Cruzadas 
+(PLC) es la integración de una Red Neuronal 
+Artificial (RNA) basada en una arquitectura de 
+Perceptrón Multicapa (MLP). El modelo, 
+desarrollado bajo un ecosistema de tens ores de alto 
+rendimiento, utiliza un vector de entrada 
+compuesto por 32 descriptores biométricos. Como 
+se detalla en la Tabla 1, estos descriptores permiten 
+un análisis multidimensional que supera la simple 
+cuantificación de aciertos y errores, incorporand o 
+variables críticas de estabilidad cronométrica y 
+fatiga cognitiva.  
+ 
+Tabla 1. Descriptores Técnicos para el Modelo de 
+Clasificación (IA)  
+ 
+Categoría  Descriptor 
+(Input)  Definición 
+Técnica  
+Demográficos  Edad / 
+Educación  Variables de 
+normalización 
+baremada.  
+Métricas Base  TA, TN, 
+CON, CP  Aciertos netos, 
+totales y perfil 
+de 
+concentración.  Categoría  Descriptor 
+(Input)  Definición 
+Técnica  
+Errores  O, C, TOT, 
+EP Omisiones, 
+comisiones y 
+patrón de error 
+(Inhibitorio vs. 
+Rastreo).  
+Cronométricos  Total Time, 
+MTL, CV  Tiempo total, 
+media por línea 
+y coeficiente de 
+variación 
+temporal.  
+Eficiencia  ProcSpeed, 
+Efficiency, 
+GQ Velocidad de 
+procesamiento y 
+cociente de 
+calidad general.  
+Fatiga  Fatigue 
+Hits, 
+Consistency  Desempeño en 
+el último tercio 
+de la prueba vs. 
+estabilidad 
+inicial.  
+Bloques  Block 1...5  Desempeño 
+segmentado en 5 
+etapas 
+cronológicas.  
+Precisión  Accuracy, 
+OR, COMR  Tasas 
+porcentuales de 
+acierto y error 
+relativo.  
+ 
+Fuente:  elaboración propia  
+ 
+La red procesa estos datos a través de capas densas 
+con funciones de activación ReLU (Rectified 
+Linear Unit), lo que permite una clasificación 
+predictiva con una precisión estadística del 97.5%. 
+Esta capacidad de procesamiento transforma al 
+sistema en una herramienta de soporte a la decisión 
+clínica, asignando automáticamente uno de los 
+ISSN: 1692 -7257 - Volumen X – Número XX - 20XX  
+ 
+  
+5 
+ 
+Universidad de Pamplona  
+       I. I. D. T. A.  
+perfiles de rendimiento estandarizados (ver Tabla 
+2). Este enfoque garantiza la objetividad del 
+proceso y reduce significativamente la variabilidad 
+inter -examinador en la interpretación de los 
+resultados.  
+ 
+Tabla 2. Clasificación de Perfiles Cognitivos 
+(MLP)  
+Código  Perfil 
+Sugerido  Descripción 
+Mecatrónica -Clínica  
+P0 Base 
+Normativa  Ejecución balanceada 
+dentro de la varianza 
+estadística.  
+P1 Latencia con 
+Omisión  Procesamiento lento 
+con fallas de rastreo.  
+P2 Alta 
+Reactividad  Velocidad alta con 
+falla en el control 
+inhibitorio 
+(Comisiones).  
+P4 Desempeño 
+Decrescente  Curva de fatiga 
+negativa pronunciada 
+en el segundo 
+segmento.  
+P6 Alta 
+Eficiencia  Convergencia de 
+velocidad máxima y 
+precisión absoluta.  
+ 
+Fuente:  elaboración propia  
+ 
+5.4 Lógica de Backend y Procesamiento 
+Asíncrono (FIFO)  
+Para asegurar la robustez del sistema en 
+condiciones de alta demanda de procesamiento, se 
+diseñó una lógica de servidor mediante el 
+framework FastAPI. El reto desde la ingeniería 
+mecatrónica consistió en la gestión eficiente de 
+recursos de cómputo limitado s para evitar 
+desbordamientos de memoria durante la generación 
+de reportes complejos. Para ello, se implementó 
+una arquitectura de Cola Secuencial FIFO (First -In, 
+First -Out) asistida por un worker  asíncrono.  
+ Esta estructura permite que, ante solicitudes 
+simultáneas de múltiples profesionales, el servidor 
+procese cada evaluación de forma secuencial. Se 
+integraron rutinas explícitas de recolección de 
+basura (Garbage Collector) tras cada inferencia de 
+la Intelige ncia Artificial, lo que preserva la 
+integridad de la memoria RAM y garantiza la 
+estabilidad del sistema durante ciclos de trabajo 
+intensos. Este enfoque de alta disponibilidad 
+asegura que el flujo de datos desde la captura hasta 
+el reporte final no se vea comprometido por 
+latencias de red o saturación del hardware (Pathak, 
+2022).  
+ 
+5.5 Fundamentación de Redes Atencionales y 
+Despatologización  
+Desde la fundamentación clínica, se aplicó el 
+modelo de redes atencionales de Sohlberg y Mateer 
+(1987) para redefinir las métricas de la prueba, 
+permitiendo una transición de la simple 
+observación a la medición objetiva de redes de 
+alerta, orientación y co ntrol ejecutivo. Un avance 
+significativo en este apartado fue la 
+despatologización del lenguaje diagnóstico dentro 
+de la interfaz y los resultados generados.  
+ 
+En el diseño de la PLC, se sustituyeron etiquetas 
+diagnósticas tradicionales y potencialmente 
+estigmatizantes por descriptores de rendimiento 
+objetivo; por ejemplo, se utiliza el término "Alta 
+Reactividad Específica" en lugar de 
+"Impulsividad". Esta perspe ctiva de diseño 
+centrado en el humano asegura que el informe final 
+funcione como una herramienta técnica de 
+descripción de procesos cognitivos y no como una 
+etiqueta limitante para el evaluado (Sohlberg, 
+2001).  
+ 
+6. Descripción funcional del ecosistema PLC  
+El funcionamiento del ecosistema PLC 
+Professional trasciende la simple automatización de 
+un test, constituyéndose como un entorno de 
+Software as a Service (SaaS) diseñado para la alta 
+disponibilidad y el rigor clínico. A continuación, se 
+detallan sus fases  operativas:  
+ 
+6.1. Gestión de Acceso y Seguridad de Datos 
+Clínicos  
+El sistema implementa un protocolo de seguridad 
+basado en JSON Web Tokens (JWT) gestionado a 
+través de Supabase Auth. Esta infraestructura 
+garantiza que la información sensible del paciente 
+esté protegida mediante políticas de Seguridad a 
+Nivel de Fila (RL S), cumpliendo con estándares 
+internacionales de protección de datos en salud. En 
+esta etapa, el profesional parametriza la evaluación 
+ISSN: 1692 -7257 - Volumen X – Número XX - 20XX  
+ 
+  
+6 
+ 
+Universidad de Pamplona  
+       I. I. D. T. A.  
+ingresando variables demográficas que el sistema 
+utiliza para la normalización de los resultados, 
+asegurando que la comparación con el grupo base 
+normativo sea estadísticamente válida (Elosua et 
+al., 2023).  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Fig 2. Control de acceso  
+Fuente: elaboración propia.  
+ 
+6.2. Captura de Eventos mediante Adquisición 
+de Alta Fidelidad  
+La fase de ejecución utiliza un motor de 
+renderizado basado en Canvas HTML5. A 
+diferencia de las aplicaciones web estándar, el uso 
+de Canvas permite una frecuencia de actualización 
+de hasta 60 FPS (cuadros por segundo), lo que 
+reduce el "jitter" o ruido te cnológico en la captura 
+de clics. Cada interacción se registra como un 
+evento con un sello de tiempo (timestamp) de 
+precisión en milisegundos, permitiendo capturar 
+micro -fluctuaciones en la atención que son 
+imperceptibles en el formato tradicional de papel  y 
+lápiz (Genovese et al., 2025).  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Fig 3. E ntorno de estímulos  
+Fuente: elaboración propia.  
+ 
+6.3. Arquitectura de Procesamiento Asíncrono 
+(Backend)  Debido a la complejidad de los cálculos 
+matemáticos y la inferencia de la IA, el backend 
+desarrollado en FastAPI utiliza una Cola 
+Secuencial FIFO (First -In, First -Out). Este diseño 
+mecatrónico de software evita el desbordamiento 
+de la memoria RAM (OOM) al procesar las 
+solicitudes de forma ordenada. Se integraron 
+rutinas de Garbage Collector para limpiar el buffer 
+tras cada reporte generado, garantizando la 
+estabilidad del sistema incluso bajo alta demanda 
+de usuarios simultáneos (Pathak, 2022).  
+ 
+6.4. Análisis Predictivo mediante Redes 
+Neuronales (MLP)  
+Una vez recolectado el vector biométrico de 32 
+variables, el motor de inteligencia artificial 
+(Perceptrón Multicapa) realiza la clasificación. El 
+sistema no emite un diagnóstico cerrado, sino que 
+identifica patrones de comportamiento (ver Tabla 
+2) mediante  funciones de activación ReLU, 
+comparando la ejecución actual con miles de 
+iteraciones previas para determinar la confianza 
+estadística del perfil hallado (Chollet, 2021).  
+ 
+6.5. Visualización Analítica y Exportación 
+Forense de Datos  
+El ciclo cierra con la generación de un Dashboard 
+Clínico interactivo. La aplicación traduce los datos 
+crudos en métricas visuales (semáforos de 
+rendimiento y curvas de fatiga) que facilitan la 
+interpretación humana. Además, la capacidad de 
+exportar un lib ro de cálculo nativo (XLSX) permite 
+al investigador acceder a la "Auditoría 
+Logarítmica" (eventos crudos), proporcionando 
+una base sólida para la defensa de resultados en 
+entornos forenses o de investigación clínica (Harris 
+et al., 2024).  
+ 
+Tabla 3. Resumen de Optimización Funcional 
+del Ecosistema  
+ 
+Fase 
+Operativa  Tecnología 
+Clave  Impacto en la 
+Evaluación  
+Autenticación  Supabase / 
+RLS Privacidad y 
+ética de datos 
+clínicos.  
+Ejecución  Canvas 
+HTML5  Resolución 
+temporal de 
+ISSN: 1692 -7257 - Volumen X – Número XX - 20XX  
+ 
+  
+7 
+ 
+Universidad de Pamplona  
+       I. I. D. T. A.  
+Fase 
+Operativa  Tecnología 
+Clave  Impacto en la 
+Evaluación  
+16ms (Alta 
+Fidelidad).  
+Procesamiento  FastAPI / 
+FIFO  Estabilidad del 
+servidor y 
+gestión de 
+memoria.  
+Interpretación  Red 
+Neuronal 
+MLP  Reducción del 
+sesgo subjetivo 
+del evaluador.  
+ 
+Fuente: elaboración propia.  
+ 
+7. CONCLUSIONES  
+La ejecución de este proyecto de investigación 
+permitió validar la viabilidad técnica y clínica de la 
+Prueba de Líneas Cruzadas (PLC) como un 
+instrumento de vanguardia en la neuropsicología 
+digital. Se concluye que la implementación de un 
+Sistema de Adquis ición de Datos (SAD) basado en 
+tecnologías web de bajo nivel (Canvas HTML5) es 
+efectiva para capturar micro -variaciones en la 
+latencia de respuesta, logrando una resolución 
+temporal de milisegundos que resulta inalcanzable 
+para los métodos analógicos de pa pel y lápiz.  
+ 
+Asimismo, la integración de la Red Neuronal de 
+Perceptrón Multicapa (MLP) demostró una alta 
+eficacia diagnóstica, alcanzando una precisión 
+estadística del 97.5% en la clasificación de perfiles 
+cognitivos. Este hallazgo subraya el potencial de 
+los sistemas expertos para reducir la variabilidad 
+inter -examinador y eliminar los sesgos subjetivos 
+durante la fase de corrección de pruebas 
+atencionales.  
+ 
+Desde la perspectiva de la ingeniería de software, 
+la arquitectura asíncrona y la gestión de colas FIFO 
+en el backend aseguraron la robustez y estabilidad 
+del ecosistema ante demandas de procesamiento 
+intensivo, optimizando los tiempos de generación 
+de rep ortes clínicos en un 95%. Finalmente, este 
+trabajo establece un precedente en la 
+despatologización del lenguaje clínico, 
+demostrando que es posible construir herramientas de alta precisión técnica que prioricen una 
+descripción objetiva y humanizada de los procesos 
+de la atención visual -espacial.  
+ 
+ 
+REFERENCIAS  
+ 
+Harris, C., Tang, Y., Birnbaum, E., Cherian, C., 
+Mendhe, D., & Chen, M. H. (2024). Digital 
+Neuropsychology beyond Computerized Cognitive 
+Assessment: Applications of Novel Digital 
+Technologies. Archives of clinical neuropsychology 
+: the official journal of the National Academy of 
+Neuropsychologists, 39(3), 290 –304. 
+https://doi.org/10.1093 /arclin/acae016  
+ 
+Liang, L., Chan, C. C. H., & Lee, T. M. C. (2025). 
+Validation of an automated digital 
+neuropsychological assessment system (DNAS). 
+Asian journal of psychiatry, 110, 104612. 
+https://doi.org/10.1016/j.ajp.2025.104612  
+ 
+Maggio, M. G., Giambò, F. M., Barbera, M., De 
+Pasquale, P., Bruno, F., Calderone, A., Quartarone, 
+A., Rizzo, A., & Calabrò, R. S. (2025). Moving 
+toward the digitalization of neuropsychological 
+tests: An exploratory study on usability and operator 
+perceptio n. Digital health, 11, 20552076251334449. 
+https://doi.org/10.1177/20552076251334449  
+ 
+Woo, E. (2008). Computerized Neuropsychological 
+Assessments. CNS Spectrums, 13(S16), 14 –17. 
+doi:10.1017/S1092852900026985  
+ 
+Wojcik, C. M., Beier, M., Costello, K., DeLuca, J., 
+Feinstein, A., Goverover, Y., Gudesblatt, M., 
+Jaworski, M., 3rd, Kalb, R., Kostich, L., LaRocca, 
+N. G., Rodgers, J. D., Benedict, R. H., & National 
+MS Society Cognition Work Team (2019). 
+Computerized neur opsychological assessment 
+devices in multiple sclerosis: A systematic review. 
+Multiple sclerosis (Houndmills, Basingstoke, 
+England), 25(14), 1848 –1869. 
+https://doi.org/10.1177/1352458519879094  
+ 
+Fernández, A. (2014). Neuropsicología de la 
+atención. Conceptos, alteraciones y  
+evaluación. Revista Argentina de Neuropsicología 
+25, 1 -28. 
+https://www.fre.uy/a/59843e4f/ATENCI%C3%93
+NXALBERTOFERN%C3%81NDEZ.pdf  
+ 
+Zoe, S. (2025). Computerized Neuropsychological 
+Assessment: Revolutionizing Cognitive Evaluation. 
+Clin Neuropsycho, 8: 298. DOI: 
+10.4172/cnoa.1000298  
+ISSN: 1692 -7257 - Volumen X – Número XX - 20XX  
+ 
+  
+8 
+ 
+Universidad de Pamplona  
+       I. I. D. T. A.  
+ 
+Elosua , P., Aguado, D., Fonseca -Pedrero, E., Abad, 
+F. J., & Santamaría, P. (2023). New Trends in 
+Digital Technology -Based Psychological and  
+Educational Assessment. Psicothema, 35(1), 50 -57. 
+https://doi.org/10.7334/psicothema2022.241  
+ 
+Genovese, A., Cappadona, R., D'Agostino, M., & 
+Bramanti, A. (2025). Moving toward the 
+digitalization of neuropsychological tests: An 
+exploratory study on usability and operator 
+perception. Neurorehabilitation, 56(2), 121 –134. 
+https://doi.org/10.1177/20552173251339028  
+ 
+Brickenkamp, R. (2002). Test D2: Test de atención 
+concentrada (2.ª ed.). TEA Ediciones.  
+ 
+Chollet, F. (2021).  Deep Learning with 
+Python  (2nd ed.). Manning Publications.  
+ 
+Pathak, M. (2022).  High Performance Python: 
+Practical Guide for Asynchronous Programming . 
+O'Reilly Media.  
+ 
+Sohlberg, M. M., & Mateer, C. A. 
+(1987).  Effectiveness of an attention -training 
+program . Journal of Clinical and Experimental 
+Neuropsychology, 9(2), 117 -130. 
+ 
+Tirola, S. (2021).  FastAPI Framework: High 
+Performance Python API Development . Packt 
+Publishing.  
+ 
+Posner, M. I., & Petersen, S. E. (1990).  The 
+attention system of the human brain. Annual 
+Review of Neuroscience , 13(1), 25 -42.  
+ 
+Treisman, A. M., & Gelade, G. (1980).  A feature -
+integration theory of attention. Cognitive 
+Psychology , 12(1), 97 -136. 
+ 

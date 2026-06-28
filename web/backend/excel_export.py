@@ -102,11 +102,16 @@ def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
     ax2.set_title('Proporción de Ejecución Bruta', fontweight='bold', fontsize=11)
     ax2.set_ylabel('Volumen'); ax2.grid(axis='y', alpha=0.3)
 
-    # 3. Errores por línea
+    # 3. Errores y Distracciones por línea
     ax3 = fig.add_subplot(n_rows, 2, 3)
     x = np.array(lineas)
-    ax3.bar(x - 0.2, oms,  0.35, label='Omisión (Fallo latencia)',  color='#E65100', alpha=0.85)
-    ax3.bar(x + 0.2, coms, 0.35, label='Comisión (Fallo inhibición)', color='#B71C1C', alpha=0.85)
+    ax3.bar(x - 0.25, oms,  0.25, label='Omisión (Fallo latencia)',  color='#E65100', alpha=0.85)
+    ax3.bar(x, coms, 0.25, label='Comisión (Fallo inhibición)', color='#B71C1C', alpha=0.85)
+    
+    jumps = [l.get('saltos_erraticos', 0) for l in lines_data]
+    ax3.bar(x + 0.25, jumps, 0.25, label='Saltos Erráticos (Distracción)', color='#F57F17', alpha=0.85)
+    ax3.plot(x, jumps, color='#F57F17', lw=1.5, marker='x', alpha=0.9)
+
     ax3.set_title('Distribución de Tasas de Falla por Iteración', fontweight='bold', fontsize=11)
     ax3.set_xlabel('Línea'); ax3.set_ylabel('Cantidad de Falla')
     ax3.set_xticks(lineas); ax3.legend(fontsize=8); ax3.grid(axis='y', alpha=0.3)
@@ -211,6 +216,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
                 "Exactitud (Marcar Blanco)": l['aciertos'],
                 "Fallo por Exclusión (Omisión)": l['omisiones'],
                 "Fallo por Inclusión (Comisión)": l['comisiones'],
+                "Distracciones (Saltos Erráticos)": l.get('saltos_erraticos', 0),
                 "Latencia Invertida (Segundos)": round(l['tiempo_s'], 2),
                 "Proporción Exactitud (%)": round((l['aciertos']/max(l['targets_total'],1))*100, 1)
             })
@@ -221,7 +227,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         _add_educational_header(ws2, "Disección Iterativa de la Ejecución (Línea por Línea)",
                                 "Desglose longitudinal de la instrumentación. Útil para ubicar focos precisos de aparición de fallos por latencia crónica o desgaste temprano. (Targets Totales = Exactitud + Omisión).")
         _style_hdr(ws2, row=5)
-        _set_widths(ws2, [12, 18, 25, 25, 25, 25, 25])
+        _set_widths(ws2, [12, 18, 25, 25, 25, 30, 25, 25])
         
         # ── Hoja 3: Glosario de Métricas ───────────────────────────────────
         glosario = [

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MecaPsi v3.1 — Ecosistema SaaS Neurocognitivo</title>
+  <meta name="description" content="MecaPsi — Sistema de Soporte a la Decisión Clínica. Plataforma SaaS para evaluación de biomarcadores cognitivos." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     LOGIN OVERLAY
+═══════════════════════════════════════ -->
+<div id="login-overlay">
+  <div class="login-card">
+
+    <!-- Logotipo -->
+    <div class="login-logo">
+      <span class="icon">⬡</span>
+      <span class="title">MecaPsi</span>
+      <span class="sub">Plataforma Neurocognitiva de Evaluación Clínica</span>
+      <span class="dss-badge">🔒 Sistema de Soporte a la Decisión · No Diagnóstico</span>
+    </div>
+
+    <!-- Campo usuario -->
+    <div class="login-field">
+      <label for="inp-user">Usuario</label>
+      <input id="inp-user" type="text" placeholder="Ingresa tu usuario" autocomplete="username" />
+    </div>
+
+    <!-- Campo contraseña -->
+    <div class="login-field">
+      <label for="inp-pass">Contraseña</label>
+      <input id="inp-pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+
+    <!-- Error -->
+    <div id="login-error" class="login-error">⚠️ Credenciales incorrectas. Verifica e intenta de nuevo.</div>
+
+    <!-- Botón -->
+    <button id="btn-login" class="btn-login">Acceder al Sistema →</button>
+
+    <!-- Footer seguridad -->
+    <div class="login-security">
+      <div class="sec-badge"><div class="sec-dot"></div>Cifrado TLS</div>
+      <div class="sec-badge"><div class="sec-dot"></div>RLS Activo</div>
+      <div class="sec-badge"><div class="sec-dot"></div>Motor IA v3</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     APP SHELL
+═══════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Banda de rol -->
+  <div id="role-banner" class="role-banner admin"></div>
+
+  <!-- ─── SIDEBAR ─── -->
+  <aside class="sidebar">
+
+    <!-- Logo -->
+    <div class="sb-logo">
+      <span class="sb-logo-icon">⬡</span>
+      <div>
+        <div class="sb-logo-title">MecaPsi <span style="font-weight:400;font-size:.75rem;color:var(--text-muted)">v3.1</span></div>
+      </div>
+      <div id="sb-role-badge" class="sb-logo-badge badge-admin">Admin</div>
+    </div>
+
+    <!-- Organización -->
+    <button class="sb-org" type="button">
+      <div id="sb-org-av" class="sb-org-av admin">MP</div>
+      <div>
+        <div id="sb-org-name" class="sb-org-name">MecaPsi Corp.</div>
+        <div id="sb-org-role" class="sb-org-role">Organización Matriz</div>
+      </div>
+    </button>
+
+    <!-- Navegación (construida dinámicamente) -->
+    <nav id="sidebar-nav"></nav>
+
+    <div class="sb-spacer"></div>
+
+    <!-- Usuario footer -->
+    <div class="sb-user">
+      <div id="sb-user-av" class="user-av admin">DI</div>
+      <div class="user-info">
+        <div id="sb-user-name" class="user-name">Dilan Inostrozza</div>
+        <div id="sb-user-role-lbl" class="user-role">Arquitecto Principal</div>
+      </div>
+      <button id="btn-logout" class="btn-logout" title="Cerrar sesión">↩</button>
+    </div>
+
+  </aside>
+
+  <!-- ─── MAIN ─── -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+
+      <!-- Sede (solo Admin) -->
+      <div id="sede-wrapper" class="sede-wrapper" style="display:none;position:relative;">
+        <button id="btn-sede" class="sede-selector">
+          <div class="sede-dot"></div>
+          <span id="sede-label">Sede Principal — Clínica Los Andes</span>
+          <span style="color:var(--outline);font-size:.75rem;margin-left:2px;">▾</span>
+        </button>
+        <div id="sede-dropdown" class="sede-dropdown">
+          <div class="sede-option" data-sede="principal">
+            <span>🏛️</span>
+            <div>
+              <div style="font-size:.8125rem;font-weight:600;">Sede Principal — Clínica Los Andes</div>
+              <div style="font-size:.6875rem;color:var(--text-muted);">Bogotá · 12 especialistas</div>
+            </div>
+          </div>
+          <div class="sede-option" data-sede="norte">
+            <span>🏥</span>
+            <div>
+              <div style="font-size:.8125rem;font-weight:600;">Sede Norte — Centro Neurológico</div>
+              <div style="font-size:.6875rem;color:var(--text-muted);">Medellín · 8 especialistas</div>
+            </div>
+          </div>
+          <div class="sede-option" data-sede="sur">
+            <span>🏢</span>
+            <div>
+              <div style="font-size:.8125rem;font-weight:600;">Sede Sur — Clínica del Valle</div>
+              <div style="font-size:.6875rem;color:var(--text-muted);">Cali · 6 especialistas</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Breadcrumb -->
+      <div class="topbar-breadcrumb">
+        <span id="tb-org" class="bc-org">MecaPsi Corp.</span>
+        <span class="bc-sep">›</span>
+        <span id="tb-page">Dashboard</span>
+      </div>
+
+      <!-- Búsqueda -->
+      <div class="topbar-search">
+        <span class="search-ico">🔍</span>
+        <input id="global-search" type="search" placeholder="Buscar paciente, prueba, reporte..." />
+      </div>
+
+      <!-- Acciones derechas -->
+      <div class="topbar-actions">
+
+        <!-- Notificaciones -->
+        <div style="position:relative;">
+          <button id="btn-notif" class="icon-btn" title="Notificaciones">
+            🔔
+            <span id="notif-badge-dot" class="notif-badge" style="display:none;"></span>
+          </button>
+          <div id="notif-panel" class="notif-panel">
+            <div class="notif-panel-hdr">
+              <span style="font-weight:700;font-size:.9375rem;">Notificaciones</span>
+              <button id="btn-mark-all" class="btn-secondary" style="font-size:.6875rem;padding:4px 10px;">Marcar todo leído</button>
+            </div>
+            <div id="notif-body" class="notif-body"></div>
+          </div>
+        </div>
+
+        <!-- Avatar / menú -->
+        <div style="position:relative;">
+          <button id="tb-av" class="topbar-av admin" title="Mi cuenta">DI</button>
+          <div id="avatar-menu" class="avatar-menu"></div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- WORKSPACE -->
+    <main id="workspace" class="workspace"></main>
+
+    <!-- FOOTER -->
+    <footer class="app-footer">
+      <span>⚠️ <strong>Disclaimer DSS:</strong> MecaPsi es un Sistema de Soporte a la Decisión Clínica. No genera diagnósticos. El psicólogo especialista interpreta y decide.</span>
+      <span style="color:var(--outline-var);">MecaPsi v3.1 Beta · RedCOLSI 2026</span>
+    </footer>
+
+  </div><!-- /main -->
+
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════
+     MODAL GLOBAL
+═══════════════════════════════════════ -->
+<div id="modal-overlay" class="modal-overlay">
+  <div class="modal-card" role="dialog" aria-modal="true">
+    <div class="modal-hdr">
+      <div id="modal-title" class="modal-title">Modal</div>
+      <button id="modal-close" class="modal-close" aria-label="Cerrar">&times;</button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+    <div id="modal-footer" class="modal-footer"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCRIPTS
+═══════════════════════════════════════ -->
+<script src="data.js"></script>
+<script src="views.js"></script>
+<script src="app.js"></script>
+<script>
+  // Login scripts initialization (handled via app.js)
+</script>
+
+</body>
+</html>

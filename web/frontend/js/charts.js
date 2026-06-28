@@ -151,5 +151,36 @@ function renderResultCharts(linesData, metrics, mlPred) {
         }
       }
     });
+      }
+    });
+  }
+
+  // ── Chart 5: Saltos Erráticos ──────────────────────────────
+  {
+    const ctx = document.getElementById('chart-jumps');
+    if (ctx) {
+      const jumps = linesData.map(l => l.saltos_erraticos || 0);
+      chartInstances.jumps = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: lineas,
+          datasets: [
+            { label:'Saltos/Retrocesos', data: jumps, borderColor:'#F57F17',
+              backgroundColor:'rgba(245,127,23,.1)', fill:true, tension:.3, pointRadius:4, pointBackgroundColor:'#F57F17', borderWidth:2 }
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins:{
+            legend:{display:false},
+            title:{display:true, text:'Saltos Visuales Erráticos por Línea', font:{size:12,weight:'bold'}, color:'#1A237E'}
+          },
+          scales:{
+            x:{ title:{display:true, text:'Línea'}, grid:{color:'rgba(0,0,0,.05)'} },
+            y:{ title:{display:true, text:'Cant. Saltos'}, beginAtZero:true, grid:{color:'rgba(0,0,0,.05)'}, ticks:{stepSize:1} }
+          }
+        }
+      });
+    }
   }
 }

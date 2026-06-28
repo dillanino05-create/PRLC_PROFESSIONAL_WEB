@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MecaPsi — Dashboard Clínico · Sandbox Visual</title>
+  <meta name="description" content="Prototipo visual del ecosistema de telemetría neurocognitiva MecaPsi. Sistema de diseño Neural Prism generado con Stitch MCP." />
+
+  <!-- Inter — única fuente permitida en este dashboard -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════════════
+       DESIGN SYSTEM: Neural Prism — generado por Stitch MCP
+       Creative North Star: "The Clinical Architect"
+       8pt grid | Inter only | #2563EB primary
+    ═══════════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* ── Paleta de superficies (Stitch tokens) ── */
+      --surface:                #f7f9fb;
+      --surface-bright:         #f7f9fb;
+      --surface-container-low:  #f2f4f6;
+      --surface-container:      #eceef0;
+      --surface-container-high: #e6e8ea;
+      --surface-container-highest: #e0e3e5;
+      --surface-lowest:         #ffffff;
+      --surface-dim:            #d8dadc;
+
+      /* ── Color primario eléctrico ── */
+      --primary:          #004ac6;
+      --primary-container:#2563eb;
+      --primary-fixed:    #dbe1ff;
+      --on-primary:       #ffffff;
+      --on-primary-container: #eeefff;
+
+      /* ── Secundario (cian médico) ── */
+      --secondary:          #006591;
+      --secondary-container:#39b8fd;
+      --secondary-fixed:    #c9e6ff;
+      --on-secondary:       #ffffff;
+
+      /* ── Terciario (naranja alerta) ── */
+      --tertiary:           #943700;
+      --tertiary-container: #bc4800;
+      --tertiary-fixed:     #ffdbcd;
+      --on-tertiary:        #ffffff;
+
+      /* ── Texto y bordes ── */
+      --on-surface:         #191c1e;
+      --on-surface-variant: #434655;
+      --outline:            #737686;
+      --outline-variant:    #c3c6d7;
+
+      /* ── Error ── */
+      --error:              #ba1a1a;
+      --error-container:    #ffdad6;
+      --on-error:           #ffffff;
+
+      /* ── Semáforo normativo ── */
+      --sem-green:  #16a34a;
+      --sem-yellow: #d97706;
+      --sem-red:    #dc2626;
+      --sem-green-bg: #dcfce7;
+      --sem-yellow-bg:#fef3c7;
+      --sem-red-bg:  #fee2e2;
+
+      /* ── Sistema espacial 8pt ── */
+      --sp-1: 8px;
+      --sp-2: 16px;
+      --sp-3: 24px;
+      --sp-4: 32px;
+      --sp-5: 40px;
+      --sp-6: 48px;
+
+      /* ── Elevación ambiente ── */
+      --shadow-card: 0 4px 24px -4px rgba(25,28,30,0.07), 0 1px 4px rgba(25,28,30,0.04);
+      --shadow-lg:   0 20px 40px -8px rgba(25,28,30,0.10);
+
+      /* ── Bordes redondeados ── */
+      --radius-sm:  8px;
+      --radius-md:  12px;
+      --radius-lg:  16px;
+      --radius-pill:9999px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--surface);
+      color: var(--on-surface);
+      min-height: 100vh;
+      display: flex;
+      font-size: 14px;
+      line-height: 1.5;
+      /* Sin ninguna fuente serif — regla absoluta */
+    }
+
+    /* ════════════════════════════════════════════
+       SIDEBAR — Glassmorphism persistente
+    ════════════════════════════════════════════ */
+    .sidebar {
+      width: 240px;
+      min-height: 100vh;
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-right: 1px solid rgba(195, 198, 215, 0.30);
+      display: flex;
+      flex-direction: column;
+      padding: var(--sp-3);
+      gap: var(--sp-1);
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 100;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-1);
+      padding: var(--sp-1) var(--sp-1) var(--sp-3) var(--sp-1);
+      margin-bottom: var(--sp-1);
+      border-bottom: 1px solid rgba(195, 198, 215, 0.25);
+    }
+
+    .sidebar-logo .logo-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .sidebar-logo .logo-text {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--primary-container);
+      letter-spacing: -0.3px;
+    }
+
+    .sidebar-logo .logo-badge {
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      background: var(--primary-fixed);
+      color: var(--primary);
+      padding: 2px 6px;
+      border-radius: var(--radius-pill);
+    }
+
+    .sidebar-section-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #4a4c5e; /* WCAG fix: ratio 5.4:1 sobre glass sidebar ✅ AA */
+      padding: var(--sp-2) var(--sp-1) var(--sp-1) var(--sp-1);
+      margin-top: var(--sp-1);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-1);
+      padding: 10px var(--sp-2);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--on-surface-variant);
+      text-decoration: none;
+      position: relative;
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+    }
+
+    .nav-item:hover {
+      background: var(--surface-container-high);
+      color: var(--on-surface);
+    }
+
+    .nav-item.active {
+      background: var(--primary-container);
+      color: var(--on-primary);
+      font-weight: 600;
+    }
+
+    .nav-item.active .nav-icon { opacity: 1; }
+
+    .nav-icon {
+      font-size: 1rem;
+      width: 20px;
+      text-align: center;
+      opacity: 0.7;
+      flex-shrink: 0;
+    }
+
+    .nav-item.active .nav-icon { opacity: 1; }
+
+    .nav-chip {
+      margin-left: auto;
+      background: rgba(255,255,255,0.2);
+      color: inherit;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+    }
+
+    .nav-item:not(.active) .nav-chip {
+      background: var(--surface-container-high);
+      color: var(--on-surface-variant);
+    }
+
+    .sidebar-spacer { flex: 1; }
+
+    .sidebar-user {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-1);
+      padding: var(--sp-1) var(--sp-1);
+      margin-top: var(--sp-2);
+      border-top: 1px solid rgba(195, 198, 215, 0.25);
+      padding-top: var(--sp-2);
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary-container) 0%, var(--secondary) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.875rem;
+      flex-shrink: 0;
+    }
+
+    .user-info { flex: 1; min-width: 0; }
+
+    .user-name {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--on-surface);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-role {
+      font-size: 0.6875rem;
+      color: var(--outline);
+      margin-top: 1px;
+    }
+
+    .btn-logout {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface-container-high);
+      color: var(--outline);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .btn-logout:hover {
+      background: var(--error-container);
+      color: var(--error);
+    }
+
+    /* ════════════════════════════════════════════
+       MAIN LAYOUT
+    ════════════════════════════════════════════ */
+    .main {
+      margin-left: 240px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ════════════════════════════════════════════
+       TOP BAR / HEADER
+    ════════════════════════════════════════════ */
+    .topbar {
+      background: rgba(247, 249, 251, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(195, 198, 215, 0.30);
+      padding: 0 var(--sp-4);
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--on-surface);
+      letter-spacing: -0.2px;
+    }
+
+    .topbar-breadcrumb {
+      font-size: 0.8125rem;
+      color: var(--outline);
+    }
+
+    .topbar-breadcrumb span { color: var(--on-surface-variant); }
+
+    .topbar-search {
+      flex: 1;
+      max-width: 360px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .topbar-search input {
+      width: 100%;
+      padding: 8px 16px 8px 36px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: var(--surface-container-high);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      color: var(--on-surface);
+      outline: none;
+      transition: box-shadow 0.2s;
+    }
+
+    .topbar-search input:focus {
+      box-shadow: 0 0 0 2px var(--primary-container);
+      background: var(--surface-lowest);
+    }
+
+    .topbar-search input::placeholder { color: var(--outline); }
+
+    .topbar-search .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--outline);
+      font-size: 0.875rem;
+      pointer-events: none;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-1);
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      color: var(--on-surface-variant);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      transition: background 0.15s;
+      position: relative;
+    }
+
+    .icon-btn:hover { background: var(--surface-container-high); }
+
+    .icon-btn .badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--error);
+      border: 2px solid var(--surface);
+    }
+
+    .topbar-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary-container) 0%, var(--secondary) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.8125rem;
+      cursor: pointer;
+      border: 2px solid var(--surface-lowest);
+      box-shadow: 0 0 0 2px var(--primary-fixed);
+    }
+
+    /* ════════════════════════════════════════════
+       WORKSPACE / CONTENT
+    ════════════════════════════════════════════ */
+    .workspace {
+      flex: 1;
+      padding: var(--sp-4) var(--sp-4) var(--sp-6) var(--sp-4);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-4);
+      max-width: 1200px;
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: var(--sp-2);
+    }
+
+    .page-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--on-surface);
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+
+    .page-subtitle {
+      font-size: 0.875rem;
+      color: var(--on-surface-variant);
+      margin-top: 4px;
+      font-weight: 400;
+    }
+
+    /* ════════════════════════════════════════════
+       BOTÓN PRIMARIO — WCAG AA target
+       Contraste: #FFFFFF sobre #2563EB = 4.60:1 ✅
+    ════════════════════════════════════════════ */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-1);
+      padding: 10px var(--sp-3);
+      background: var(--primary-container);  /* #2563EB */
+      color: var(--on-primary);              /* #FFFFFF */
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+      box-shadow: 0 1px 2px rgba(37,99,235,0.3), inset 0 1px 0 rgba(255,255,255,0.10);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary);
+      box-shadow: 0 4px 12px rgba(37,99,235,0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active { transform: translateY(0); }
+
+    /* Botón secundario: #004ac6 texto sobre #e6e8ea fondo = 6.18:1 ✅ */
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-1);
+      padding: 10px var(--sp-3);
+      background: var(--surface-container-high);
+      color: var(--primary);
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-container-highest);
+      transform: translateY(-1px);
+    }
+
+    /* ════════════════════════════════════════════
+       KPI CARDS
+    ════════════════════════════════════════════ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-3);
+    }
+
+    .kpi-card {
+      background: var(--surface-lowest);
+      border-radius: var(--radius-md);
+      padding: var(--sp-3);
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+      position: relative;
+      overflow: hidden;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .kpi-card:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-2px);
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+
+    .kpi-card.blue::before  { background: linear-gradient(90deg, var(--primary) 0%, var(--primary-container) 100%); }
+    .kpi-card.green::before { background: linear-gradient(90deg, #16a34a 0%, #4ade80 100%); }
+    .kpi-card.purple::before { background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); }
+
+    .kpi-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .kpi-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--on-surface-variant);
+    }
+
+    .kpi-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.125rem;
+    }
+
+    .kpi-icon.blue   { background: var(--primary-fixed); }
+    .kpi-icon.green  { background: var(--sem-green-bg); }
+    .kpi-icon.purple { background: #ede9fe; }
+
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--on-surface);
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+
+    .kpi-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--on-surface-variant);
+    }
+
+    .kpi-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-weight: 600;
+    }
+
+    .kpi-trend.up   { color: var(--sem-green); }
+    .kpi-trend.down { color: var(--sem-red); }
+
+    .kpi-subvalue {
+      font-size: 0.875rem;
+      color: var(--on-surface-variant);
+      font-weight: 400;
+    }
+
+    /* ════════════════════════════════════════════
+       SEMÁFORO NORMATIVO
+    ════════════════════════════════════════════ */
+    .semaforo-section {
+      background: var(--surface-lowest);
+      border-radius: var(--radius-md);
+      padding: var(--sp-3);
+      box-shadow: var(--shadow-card);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--sp-3);
+    }
+
+    .section-title {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--on-surface);
+      letter-spacing: -0.2px;
+    }
+
+    .section-desc {
+      font-size: 0.75rem;
+      color: var(--on-surface-variant);
+      margin-top: 2px;
+    }
+
+    .semaforo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-2);
+    }
+
+    .sem-card {
+      border-radius: var(--radius-sm);
+      padding: var(--sp-2) var(--sp-2);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-1);
+      transition: transform 0.15s;
+    }
+
+    .sem-card:hover { transform: translateY(-1px); }
+
+    .sem-card.green  { background: var(--sem-green-bg); }
+    .sem-card.yellow { background: var(--sem-yellow-bg); }
+    .sem-card.red    { background: var(--sem-red-bg); }
+
+    .sem-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .sem-card.green  .sem-dot { background: var(--sem-green);  box-shadow: 0 0 8px rgba(22,163,74,0.5); }
+    .sem-card.yellow .sem-dot { background: var(--sem-yellow); box-shadow: 0 0 8px rgba(217,119,6,0.5); }
+    .sem-card.red    .sem-dot { background: var(--sem-red);    box-shadow: 0 0 8px rgba(220,38,38,0.5); }
+
+    .sem-label {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sem-card.green  .sem-label { color: var(--sem-green); }
+    .sem-card.yellow .sem-label { color: var(--sem-yellow); }
+    .sem-card.red    .sem-label { color: var(--sem-red); }
+
+    .sem-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--on-surface);
+      margin-top: 2px;
+    }
+
+    .sem-pct {
+      font-size: 0.75rem;
+      color: var(--on-surface-variant);
+    }
+
+    .sem-bar-track {
+      margin-top: var(--sp-2);
+      height: 8px;
+      border-radius: 4px;
+      background: var(--surface-container-high);
+      overflow: hidden;
+      display: flex;
+      gap: 2px;
+    }
+
+    .sem-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    /* ════════════════════════════════════════════
+       TABLA DE ACTIVIDAD RECIENTE
+    ════════════════════════════════════════════ */
+    .table-section {
+      background: var(--surface-lowest);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: var(--sp-3) var(--sp-3) 0 var(--sp-3);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      padding: var(--sp-2) var(--sp-3);
+      text-align: left;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--on-surface-variant);
+      background: var(--surface-container-low);
+      white-space: nowrap;
+    }
+
+    thead th:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    thead th:last-child  { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+
+    tbody tr {
+      transition: background 0.12s;
+      cursor: pointer;
+    }
+
+    tbody tr:hover td { background: var(--surface-container-low); }
+
+    tbody td {
+      padding: var(--sp-2) var(--sp-3);
+      font-size: 0.875rem;
+      color: var(--on-surface);
+      border-bottom: 1px solid rgba(195, 198, 215, 0.2);
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    .td-name { font-weight: 600; }
+
+    .td-date {
+      color: var(--on-surface-variant);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Profile Chips ── */
+    .profile-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+
+    .chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .chip-p0  { background: var(--sem-green-bg);   color: #14532d; }  .chip-p0  .chip-dot { background: var(--sem-green); }
+    .chip-p1  { background: var(--secondary-fixed); color: #004666; }  .chip-p1  .chip-dot { background: var(--secondary); }
+    .chip-p2  { background: var(--sem-yellow-bg);   color: #78350f; }  .chip-p2  .chip-dot { background: var(--sem-yellow); }
+    .chip-p3  { background: #ede9fe;                color: #4c1d95; }  .chip-p3  .chip-dot { background: #7c3aed; }
+    .chip-p6  { background: var(--primary-fixed);   color: var(--primary); } .chip-p6 .chip-dot { background: var(--primary-container); }
+    .chip-p7  { background: var(--sem-red-bg);      color: #7f1d1d; }  .chip-p7  .chip-dot { background: var(--sem-red); }
+
+    /* ── Confidence bar ── */
+    .confidence-cell { min-width: 120px; }
+
+    .conf-row {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-1);
+    }
+
+    .conf-bar {
+      flex: 1;
+      height: 6px;
+      background: var(--surface-container-high);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .conf-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary-container) 0%, var(--secondary-container) 100%);
+      border-radius: 3px;
+    }
+
+    .conf-text {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--on-surface);
+      min-width: 38px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Action buttons ── */
+    .action-row {
+      display: flex;
+      gap: var(--sp-1);
+      padding: 2px 0;
+    }
+
+    /* Botón de acción mini: contraste #004ac6 sobre #e6e8ea = 6.18:1 ✅ WCAG AA */
+    .btn-action {
+      padding: 5px 12px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-action:hover { transform: translateY(-1px); }
+
+    .btn-action.download {
+      background: var(--primary-fixed);
+      color: var(--primary);
+    }
+
+    .btn-action.download:hover { background: var(--primary-fixed-dim, #b4c5ff); }
+
+    .btn-action.view {
+      background: var(--surface-container-high);
+      color: var(--on-surface-variant);
+    }
+
+    .btn-action.view:hover { background: var(--surface-container-highest); color: var(--on-surface); }
+
+    /* ════════════════════════════════════════════
+       BANNER INFORMATIVO — Stitch Design System
+    ════════════════════════════════════════════ */
+    .info-banner {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%);
+      border-radius: var(--radius-md);
+      padding: var(--sp-3) var(--sp-4);
+      color: var(--on-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      box-shadow: 0 8px 24px rgba(37,99,235,0.3);
+    }
+
+    .info-banner-icon { font-size: 2rem; flex-shrink: 0; }
+
+    .info-banner-title {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .info-banner-desc {
+      font-size: 0.8125rem;
+      opacity: 0.85;
+      font-weight: 400;
+    }
+
+    .info-banner-tag {
+      margin-left: auto;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: var(--radius-pill);
+      padding: 4px 12px;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      white-space: nowrap;
+    }
+
+    /* ════════════════════════════════════════════
+       UTILITIES
+    ════════════════════════════════════════════ */
+    .flex         { display: flex; }
+    .items-center { align-items: center; }
+    .gap-2        { gap: var(--sp-2); }
+    .text-muted   { color: var(--on-surface-variant); font-size: 0.8125rem; }
+    .fw-600       { font-weight: 600; }
+
+    /* Scrollbar minimalista */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 3px; }
+
+    /* Animación de entrada */
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .kpi-card, .semaforo-section, .table-section, .info-banner {
+      animation: fadeSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .kpi-card:nth-child(1) { animation-delay: 0.05s; }
+    .kpi-card:nth-child(2) { animation-delay: 0.10s; }
+    .kpi-card:nth-child(3) { animation-delay: 0.15s; }
+    .semaforo-section       { animation-delay: 0.20s; }
+    .table-section          { animation-delay: 0.25s; }
+    .info-banner            { animation-delay: 0.30s; }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════
+       SIDEBAR — Glassmorphism persistente
+  ══════════════════════════════════════════ -->
+  <aside class="sidebar" role="navigation" aria-label="Navegación principal">
+    <div class="sidebar-logo">
+      <span class="logo-icon" role="img" aria-label="MecaPsi">🧠</span>
+      <div>
+        <div class="logo-text">MecaPsi</div>
+      </div>
+      <span class="logo-badge">Beta</span>
+    </div>
+
+    <span class="sidebar-section-label">Principal</span>
+
+    <button class="nav-item active" id="nav-dashboard" aria-current="page">
+      <span class="nav-icon" aria-hidden="true">📊</span>
+      Dashboard
+    </button>
+
+    <button class="nav-item" id="nav-pacientes">
+      <span class="nav-icon" aria-hidden="true">👥</span>
+      Pacientes
+      <span class="nav-chip">247</span>
+    </button>
+
+    <button class="nav-item" id="nav-pruebas">
+      <span class="nav-icon" aria-hidden="true">🧪</span>
+      Pruebas PLC
+    </button>
+
+    <span class="sidebar-section-label">Análisis</span>
+
+    <button class="nav-item" id="nav-reportes">
+      <span class="nav-icon" aria-hidden="true">📁</span>
+      Reportes
+      <span class="nav-chip">3</span>
+    </button>
+
+    <button class="nav-item" id="nav-tendencias">
+      <span class="nav-icon" aria-hidden="true">📈</span>
+      Tendencias IA
+    </button>
+
+    <span class="sidebar-section-label">Sistema</span>
+
+    <button class="nav-item" id="nav-config">
+      <span class="nav-icon" aria-hidden="true">⚙️</span>
+      Configuración
+    </button>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar" aria-hidden="true">DG</div>
+      <div class="user-info">
+        <div class="user-name">Dr. García</div>
+        <div class="user-role">Psicólogo Clínico</div>
+      </div>
+      <button class="btn-logout" title="Cerrar sesión" aria-label="Cerrar sesión">↩</button>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════
+       MAIN CONTENT
+  ══════════════════════════════════════════ -->
+  <main class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar" role="banner">
+      <div>
+        <div class="topbar-title">Dashboard</div>
+        <div class="topbar-breadcrumb">MecaPsi › <span>Vista General</span></div>
+      </div>
+
+      <div class="topbar-search">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input type="search" id="search-paciente" placeholder="Buscar paciente, cédula..." aria-label="Buscar paciente" />
+      </div>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btn-notifications" aria-label="Notificaciones (3 nuevas)">
+          🔔
+          <span class="badge" role="status" aria-label="3 notificaciones"></span>
+        </button>
+        <button class="icon-btn" id="btn-help" aria-label="Ayuda">❓</button>
+        <div class="topbar-avatar" role="img" aria-label="Perfil Dr. García" tabindex="0">DG</div>
+      </div>
+    </header>
+
+    <!-- WORKSPACE -->
+    <div class="workspace">
+
+      <!-- Page Header -->
+      <div class="page-header">
+        <div>
+          <div class="page-title">Bienvenido, Dr. García</div>
+          <div class="page-subtitle">Resumen de actividad clínica · Abril 2026</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn-secondary" id="btn-export-all">⬇ Exportar Resumen</button>
+          <button class="btn-primary" id="btn-new-eval">+ Nueva Evaluación</button>
+        </div>
+      </div>
+
+      <!-- KPI CARDS -->
+      <div class="kpi-grid" role="region" aria-label="Indicadores clave de desempeño">
+
+        <article class="kpi-card blue">
+          <div class="kpi-header">
+            <span class="kpi-label">Total Pacientes</span>
+            <div class="kpi-icon blue" aria-hidden="true">👥</div>
+          </div>
+          <div class="kpi-value" aria-label="247 pacientes">247</div>
+          <div class="kpi-meta">
+            <span class="kpi-trend up" aria-label="Aumento">▲ 12</span>
+            <span>este mes</span>
+          </div>
+        </article>
+
+        <article class="kpi-card green">
+          <div class="kpi-header">
+            <span class="kpi-label">Pruebas Realizadas</span>
+            <div class="kpi-icon green" aria-hidden="true">🧪</div>
+          </div>
+          <div class="kpi-value" aria-label="1432 pruebas">1,432</div>
+          <div class="kpi-meta">
+            <span class="kpi-trend up" aria-label="Aumento">▲ 48</span>
+            <span>esta semana</span>
+          </div>
+        </article>
+
+        <article class="kpi-card purple">
+          <div class="kpi-header">
+            <span class="kpi-label">Perfil Dominante</span>
+            <div class="kpi-icon purple" aria-hidden="true">🏆</div>
+          </div>
+          <div class="kpi-value" style="font-size:1.375rem; letter-spacing:-0.5px;">P0</div>
+          <div class="kpi-subvalue">Base Normativa · 41.3% de la muestra</div>
+        </article>
+
+      </div>
+
+      <!-- SEMÁFORO NORMATIVO -->
+      <section class="semaforo-section" aria-label="Distribución normativa de perfiles">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Distribución Normativa</div>
+            <div class="section-desc">Clasificación de todos los pacientes evaluados según el modelo MLP (97% precisión)</div>
+          </div>
+          <button class="btn-secondary" id="btn-ver-distribucion" style="font-size:0.8125rem; padding:7px 14px;">Ver detalles</button>
+        </div>
+
+        <div class="semaforo-grid">
+          <div class="sem-card green">
+            <div class="sem-dot" aria-hidden="true"></div>
+            <div>
+              <div class="sem-label">Rendimiento Normal</div>
+              <div class="sem-value">102</div>
+              <div class="sem-pct">41.3% de pacientes</div>
+            </div>
+          </div>
+          <div class="sem-card yellow">
+            <div class="sem-dot" aria-hidden="true"></div>
+            <div>
+              <div class="sem-label">Requiere Seguimiento</div>
+              <div class="sem-value">87</div>
+              <div class="sem-pct">35.2% de pacientes</div>
+            </div>
+          </div>
+          <div class="sem-card red">
+            <div class="sem-dot" aria-hidden="true"></div>
+            <div>
+              <div class="sem-label">Atención Prioritaria</div>
+              <div class="sem-value">58</div>
+              <div class="sem-pct">23.5% de pacientes</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sem-bar-track" role="progressbar" aria-label="Distribución visual">
+          <div class="sem-bar-fill" style="width:41.3%; background:var(--sem-green); border-radius:4px 0 0 4px;"></div>
+          <div class="sem-bar-fill" style="width:35.2%; background:var(--sem-yellow);"></div>
+          <div class="sem-bar-fill" style="width:23.5%; background:var(--sem-red); border-radius:0 4px 4px 0;"></div>
+        </div>
+      </section>
+
+      <!-- TABLA ACTIVIDAD RECIENTE -->
+      <section class="table-section" aria-label="Evaluaciones recientes">
+        <div class="table-header">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Evaluaciones Recientes</div>
+              <div class="section-desc">Últimas 5 sesiones PLC registradas</div>
+            </div>
+            <button class="btn-secondary" id="btn-ver-todo" style="font-size:0.8125rem; padding:7px 14px;">Ver todas →</button>
+          </div>
+        </div>
+
+        <table aria-label="Tabla de evaluaciones recientes">
+          <thead>
+            <tr>
+              <th scope="col">Paciente</th>
+              <th scope="col">Fecha</th>
+              <th scope="col">Perfil Detectado</th>
+              <th scope="col" class="confidence-cell">Confianza IA</th>
+              <th scope="col">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-name">Ramírez, Carlos A.</td>
+              <td class="td-date">17 Abr 2026</td>
+              <td><span class="profile-chip chip-p0"><span class="chip-dot" aria-hidden="true"></span>P0 · Base Normativa</span></td>
+              <td class="confidence-cell">
+                <div class="conf-row">
+                  <div class="conf-bar"><div class="conf-fill" style="width:98.5%;"></div></div>
+                  <span class="conf-text">98.5%</span>
+                </div>
+              </td>
+              <td><div class="action-row">
+                <button class="btn-action download" id="btn-dl-1">⬇ Excel</button>
+                <button class="btn-action view" id="btn-view-1">👁 Ver</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td class="td-name">López, María F.</td>
+              <td class="td-date">16 Abr 2026</td>
+              <td><span class="profile-chip chip-p2"><span class="chip-dot" aria-hidden="true"></span>P2 · Alta Reactividad</span></td>
+              <td class="confidence-cell">
+                <div class="conf-row">
+                  <div class="conf-bar"><div class="conf-fill" style="width:91.2%;"></div></div>
+                  <span class="conf-text">91.2%</span>
+                </div>
+              </td>
+              <td><div class="action-row">
+                <button class="btn-action download" id="btn-dl-2">⬇ Excel</button>
+                <button class="btn-action view" id="btn-view-2">👁 Ver</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td class="td-name">Hernández, José L.</td>
+              <td class="td-date">15 Abr 2026</td>
+              <td><span class="profile-chip chip-p6"><span class="chip-dot" aria-hidden="true"></span>P6 · Alta Eficiencia</span></td>
+              <td class="confidence-cell">
+                <div class="conf-row">
+                  <div class="conf-bar"><div class="conf-fill" style="width:99.1%;"></div></div>
+                  <span class="conf-text">99.1%</span>
+                </div>
+              </td>
+              <td><div class="action-row">
+                <button class="btn-action download" id="btn-dl-3">⬇ Excel</button>
+                <button class="btn-action view" id="btn-view-3">👁 Ver</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td class="td-name">Torres, Ana P.</td>
+              <td class="td-date">14 Abr 2026</td>
+              <td><span class="profile-chip chip-p7"><span class="chip-dot" aria-hidden="true"></span>P7 · Restricción Resp.</span></td>
+              <td class="confidence-cell">
+                <div class="conf-row">
+                  <div class="conf-bar"><div class="conf-fill" style="width:74.3%;"></div></div>
+                  <span class="conf-text">74.3%</span>
+                </div>
+              </td>
+              <td><div class="action-row">
+                <button class="btn-action download" id="btn-dl-4">⬇ Excel</button>
+                <button class="btn-action view" id="btn-view-4">👁 Ver</button>
+              </div></td>
+            </tr>
+            <tr>
+              <td class="td-name">Gómez, Pedro R.</td>
+              <td class="td-date">13 Abr 2026</td>
+              <td><span class="profile-chip chip-p3"><span class="chip-dot" aria-hidden="true"></span>P3 · Varianza Bilateral</span></td>
+              <td class="confidence-cell">
+                <div class="conf-row">
+                  <div class="conf-bar"><div class="conf-fill" style="width:83.7%;"></div></div>
+                  <span class="conf-text">83.7%</span>
+                </div>
+              </td>
+              <td><div class="action-row">
+                <button class="btn-action download" id="btn-dl-5">⬇ Excel</button>
+                <button class="btn-action view" id="btn-view-5">👁 Ver</button>
+              </div></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- BANNER STITCH -->
+      <div class="info-banner" role="note">
+        <span class="info-banner-icon" aria-hidden="true">🎨</span>
+        <div>
+          <div class="info-banner-title">Sistema de Diseño: Neural Prism</div>
+          <div class="info-banner-desc">Generado con Stitch MCP · #2563EB primario · Inter exclusivo · Rejilla 8pt estricta · Glassmorphism blur(12px) · WCAG AA verificado</div>
+        </div>
+        <span class="info-banner-tag">Sandbox v1.0</span>
+      </div>
+
+    </div><!-- /workspace -->
+  </main><!-- /main -->
+
+  <script>
+    // ── Navegación del Sidebar ────────────────────────────────
+    document.querySelectorAll('.nav-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(b => {
+          b.classList.remove('active');
+          b.removeAttribute('aria-current');
+        });
+        btn.classList.add('active');
+        btn.setAttribute('aria-current', 'page');
+      });
+    });
+
+    // ── Simulación de interacciones ──────────────────────────
+    document.getElementById('btn-new-eval')?.addEventListener('click', () => {
+      alert('🧪 MecaPsi\n\nRedirigiendo a la Prueba PLC...\n\n(Esta función está implementada en la app principal)');
+    });
+
+    document.querySelectorAll('.btn-action.download').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        btn.textContent = '✅ Listo';
+        setTimeout(() => { btn.textContent = '⬇ Excel'; }, 2000);
+      });
+    });
+  </script>
+
+</body>
+</html>

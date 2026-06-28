@@ -712,10 +712,32 @@ const App = {
     const elapsed = (performance.now() - this.lineStartTime) / 1000;
 
     let hits = 0, oms = 0, coms = 0, targets = 0;
-    this.charBtns.forEach(b => {
+    
+    // 1. Encontrar el último estímulo clickeado
+    let maxIdx = -1;
+    this.charBtns.forEach((b, idx) => {
+      if (b.sel) maxIdx = idx;
+    });
+
+    // 2. Calificar solo hasta donde llegó la persona
+    let evaluados = maxIdx >= 0 ? maxIdx + 1 : 0;
+    
+    for (let i = 0; i < evaluados; i++) {
+      const b = this.charBtns[i];
       if (b.sinfo.is_target) { targets++; b.sel ? hits++ : oms++; }
       else if (b.sel) coms++;
-    });
+    }
+
+    // 3. Click-Tracker: Comportamiento errático (saltos de derecha a izquierda)
+    let jumps = 0;
+    let lastIdx = -1;
+    let lineClicks = this.clickLog.filter(c => c.line === this.currentLine + 1 && c.action === 'sel');
+    for (let c of lineClicks) {
+       if (lastIdx !== -1 && c.stim_idx < lastIdx) {
+          jumps++; // Rompió la regla de izquierda a derecha (retroceso visual)
+       }
+       lastIdx = c.stim_idx;
+    }
 
     this.linesData.push({
       linea: this.currentLine + 1,
@@ -723,6 +745,8 @@ const App = {
       aciertos: hits,
       omisiones: oms,
       comisiones: coms,
+      evaluados: evaluados,
+      saltos_erraticos: jumps,
       tiempo_s: +elapsed.toFixed(3),
       tiempo_pct: +(Math.min(elapsed, this.TIME_PER_LINE) / this.TIME_PER_LINE * 100).toFixed(1)
     });
@@ -740,6 +764,7 @@ const App = {
     this.nav('completion'); // show completion/loading state immediately
     this.metrics = calcMetrics(this.linesData, this.clickLog, this.participant.age);
     this.metrics._age = this.participant.age;
+    this.metrics._linesDataRef = this.linesData;
 
     // ML prediction via API
     try {
@@ -970,6 +995,27 @@ const App = {
             <div class="chart-box"><canvas id="chart-metrics"></canvas></div>
             <div class="chart-box"><canvas id="chart-errors"></canvas></div>
             <div class="chart-box"><canvas id="chart-normal"></canvas></div>
+          </div>
+        </div>
+
+        <!-- B.2) Notas de Comportamiento Visual -->
+        <div class="card mb-4" style="border-left: 4px solid #F57F17;">
+          <div class="section-title">Rastreo de Atención y Distracción</div>
+          <p style="font-size:0.9rem; color:#546E7A; margin-bottom: 16px;">Registro de pérdida de barrido visual (saltos erráticos o retrocesos de derecha a izquierda).</p>
+          <div class="charts-grid" style="grid-template-columns: 1fr;">
+             <div class="chart-box" style="height: 220px; min-height: 220px;"><canvas id="chart-jumps"></canvas></div>
+          </div>
+          <div id="jumps-notes" style="margin-top: 20px; font-size: 0.95rem; background: #FFFDE7; padding: 15px; border-radius: 8px;">
+            ${(function(){
+              const linesWithJumps = m._linesDataRef ? m._linesDataRef.filter(l => l.saltos_erraticos > 0) : [];
+              if (linesWithJumps.length === 0) {
+                return '<div style="color:#2E7D32; font-weight:600;">✓ El paciente mantuvo un barrido visual disciplinado en todas las líneas.</div>';
+              } else {
+                return '<ul style="color:#BF360C; line-height: 1.6; margin: 0; padding-left: 20px;">' + 
+                  linesWithJumps.map(l => \`<li><strong>Línea \${l.linea}:</strong> Se detectó comportamiento errático (\${l.saltos_erraticos} saltos/retrocesos). Posible pérdida de atención.</li>\`).join('') +
+                  '</ul>';
+              }
+            })()}
           </div>
         </div>
 
