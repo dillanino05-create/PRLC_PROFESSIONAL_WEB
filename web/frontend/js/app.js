@@ -575,10 +575,20 @@ const App = {
     // Pedir la cámara INMEDIATAMENTE en el gesto del botón (sin modal intermedio)
     // Un modal intermedio consume el gesto de usuario y bloquea getUserMedia en Chrome/Safari
     let cameraStream = null;
+    let cameraError = "";
     try {
       cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     } catch (e) {
       console.warn("Cámara denegada o no disponible:", e);
+      if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
+        cameraError = "Permiso bloqueado en el navegador. Por favor permite la cámara en los ajustes del sitio (icono de candado o cámara en la barra de direcciones).";
+      } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
+        cameraError = "No se detectó ninguna cámara física conectada al dispositivo.";
+      } else if (e.name === "NotReadableError" || e.name === "TrackStartError") {
+        cameraError = "La cámara está siendo usada por otra aplicación (Zoom, Teams, etc.).";
+      } else {
+        cameraError = `Error del sistema: ${e.message || e.name}`;
+      }
       cameraStream = null;
     }
 
@@ -593,7 +603,10 @@ const App = {
           <div class="section-title" style="margin-bottom: 15px;">Autorización de Grabación</div>
           ${withCamera
             ? `<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px;margin-bottom:16px;color:#2E7D32;font-weight:600;">✅ Cámara activada correctamente</div>`
-            : `<div style="background:#FFF3E0;border:1px solid #FFCC80;border-radius:10px;padding:12px;margin-bottom:16px;color:#E65100;font-weight:600;">⚠️ Cámara no disponible — solo se grabará la pantalla</div>`
+            : `<div style="background:#FFF3E0;border:1px solid #FFCC80;border-radius:10px;padding:12px;margin-bottom:16px;color:#E65100;font-weight:600;font-size:0.85rem;text-align:left;line-height:1.4;">
+                ⚠️ Cámara no disponible — solo se grabará la pantalla
+                <div style="font-weight:400;color:#BF360C;margin-top:6px;font-size:0.8rem;"><b>Motivo:</b> ${cameraError}</div>
+               </div>`
           }
           <p style="color: var(--text-light); line-height: 1.6; margin-bottom: 24px; font-size: 0.95rem;">
             La prueba también puede grabar la pantalla para registrar el barrido visual completo.
