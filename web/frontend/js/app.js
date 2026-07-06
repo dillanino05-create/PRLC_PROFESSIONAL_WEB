@@ -634,16 +634,24 @@ const App = {
 
     // 2. Pedir compartir la pestaña actual SEGUNDO
     try {
-      screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          displaySurface: "browser",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 15 }
-        },
-        audio: false,
-        preferCurrentTab: true
-      });
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            displaySurface: "browser",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 15 }
+          },
+          audio: false,
+          preferCurrentTab: true
+        });
+      } catch (advancedError) {
+        console.warn("Fallo con opciones avanzadas de pestaña, intentando fallback compatible (Safari/Opera):", advancedError);
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false
+        });
+      }
     } catch (e) {
       console.warn("Permiso de pantalla denegado por el usuario.");
       // Si cancela pantalla, liberamos la cámara
@@ -708,6 +716,14 @@ const App = {
     screenVideo.autoplay = true;
     screenVideo.playsInline = true;
     screenVideo.muted = true;
+    screenVideo.style.position = 'fixed';
+    screenVideo.style.left = '-9999px';
+    screenVideo.style.top = '-9999px';
+    screenVideo.style.width = '1px';
+    screenVideo.style.height = '1px';
+    screenVideo.style.opacity = '0';
+    screenVideo.style.pointerEvents = 'none';
+    document.body.appendChild(screenVideo);
     screenVideo.play().catch(e => console.warn(e));
 
     const cameraVideo = document.createElement('video');
@@ -715,7 +731,18 @@ const App = {
     cameraVideo.autoplay = true;
     cameraVideo.playsInline = true;
     cameraVideo.muted = true;
+    cameraVideo.style.position = 'fixed';
+    cameraVideo.style.left = '-9999px';
+    cameraVideo.style.top = '-9999px';
+    cameraVideo.style.width = '1px';
+    cameraVideo.style.height = '1px';
+    cameraVideo.style.opacity = '0';
+    cameraVideo.style.pointerEvents = 'none';
+    document.body.appendChild(cameraVideo);
     cameraVideo.play().catch(e => console.warn(e));
+
+    this.screenVideoElement = screenVideo;
+    this.cameraVideoElement = cameraVideo;
 
     this.recordingActive = true;
 
@@ -734,7 +761,7 @@ const App = {
       lastDrawTime = timestamp - (elapsed % fpsInterval);
 
       // Dibujar captura de pantalla
-      if (screenVideo.readyState === screenVideo.HAVE_ENOUGH_DATA) {
+      if (screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
         ctx.drawImage(screenVideo, 0, 0, 1280, 720);
       } else {
         ctx.fillStyle = '#F5F7FA';
@@ -742,7 +769,7 @@ const App = {
       }
 
       // Dibujar webcam (overlay estilo streamer en la esquina superior derecha)
-      if (cameraVideo.readyState === cameraVideo.HAVE_ENOUGH_DATA) {
+      if (cameraVideo.readyState >= 2 && cameraVideo.videoWidth > 0) {
         const w = 240;
         const h = 180;
         const x = 1280 - w - 20;
@@ -811,6 +838,16 @@ const App = {
           }
           if (this.cameraStream) {
             this.cameraStream.getTracks().forEach(t => t.stop());
+          }
+
+          // Remover elementos de video del DOM
+          if (this.screenVideoElement) {
+            this.screenVideoElement.remove();
+            this.screenVideoElement = null;
+          }
+          if (this.cameraVideoElement) {
+            this.cameraVideoElement.remove();
+            this.cameraVideoElement = null;
           }
 
           const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
