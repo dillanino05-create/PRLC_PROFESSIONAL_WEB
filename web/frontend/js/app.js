@@ -421,7 +421,7 @@ const App = {
               </label>
             </div>
 
-            <button disabled id="btn-practica" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; padding: 16px; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(40, 53, 147, 0.2);" onclick="App.nav('practice')">
+            <button disabled id="btn-practica" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; padding: 16px; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(40, 53, 147, 0.2);" onclick="App.requestPermissionsAndGoToPractice()">
               Entendido, ir a la práctica &nbsp;→
             </button>
           </div>
@@ -571,23 +571,66 @@ const App = {
   /* ══════════════════════════════════════════════════════════════════════
      PANTALLA 4: TEST (14 líneas × 47 estímulos)
   ══════════════════════════════════════════════════════════════════════ */
-  async startTest() {
-    // 1. Solicitar permisos de pantalla (Obligatorio para auditar clics y test)
-    let screenStream, cameraStream;
-    try {
-      screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { width: 1280, height: 720, frameRate: 25 },
-        audio: false
-      });
-    } catch (e) {
-      alert("Para realizar la evaluación clínica, es necesario que permitas compartir la pantalla/pestaña.");
+  requestPermissionsAndGoToPractice() {
+    // Modal de autorización de grabación clínica
+    const modalHtml = `
+      <div id="recording-permission-modal" class="modal-overlay active" style="z-index: 100000;">
+        <div class="modal-clinical" style="max-width: 500px; text-align: center; padding: 30px;">
+          <div style="font-size: 3rem; margin-bottom: 15px;">📹</div>
+          <div class="section-title" style="margin-bottom: 15px;">Autorización de Grabación</div>
+          <p style="color: var(--text-light); line-height: 1.6; margin-bottom: 24px; font-size: 0.95rem;">
+            Con el fin de auditar el barrido visual y las expresiones faciales durante la sesión, la prueba puede grabar la pantalla y la cámara web.
+            <br/><br/>
+            La cámara se grabará en segundo plano y <b>no se mostrará en pantalla</b> durante la prueba para evitar distracciones.
+          </p>
+          <div style="display: flex; gap: 15px; justify-content: center;">
+            <button class="btn btn-secondary" onclick="App.confirmRecordingPermission(false)" style="padding: 10px 20px;">No Grabar</button>
+            <button class="btn btn-primary btn-accent" onclick="App.confirmRecordingPermission(true)" style="padding: 10px 20px;">Grabar Sesión</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = modalHtml;
+    document.body.appendChild(tempDiv.firstElementChild);
+  },
+
+  async confirmRecordingPermission(grant) {
+    const modal = document.getElementById('recording-permission-modal');
+    if (modal) modal.remove();
+
+    if (!grant) {
+      this.screenStream = null;
+      this.cameraStream = null;
+      this.nav('practice');
       return;
     }
 
-    // 2. Solicitar permisos de webcam (Opcional para observar al paciente)
+    let screenStream = null;
+    let cameraStream = null;
+
     try {
+      // Pedir compartir pantalla/pestaña
+      screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 15 },
+          displaySurface: "monitor"
+        },
+        audio: false
+      });
+    } catch (e) {
+      console.warn("Permiso de pantalla denegado por el usuario.");
+      alert("Para poder grabar, debes autorizar el uso compartido de la pantalla. Se iniciará sin grabación.");
+      this.nav('practice');
+      return;
+    }
+
+    try {
+      // Pedir cámara
       cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 320, height: 240 },
+        video: { width: 320, height: 240, frameRate: 15 },
         audio: false
       });
     } catch (e) {
@@ -598,9 +641,13 @@ const App = {
     this.screenStream = screenStream;
     this.cameraStream = cameraStream;
 
-    // Inicializar mezclador y grabación en Canvas
+    // Iniciar grabación en segundo plano de manera silenciosa
     this.startRecording();
 
+    this.nav('practice');
+  },
+
+  startTest() {
     this.currentLine = 0;
     this.linesData = [];
     this.clickLog = [];
@@ -611,32 +658,58 @@ const App = {
   startRecording() {
     this.recordedChunks = [];
     
-    // Canvas y contexto 2D para la composición de video
+    // Si NO hay stream de cámara, grabamos el stream de pantalla directamente para máximo rendimiento y latencia cero (0% CPU)
+    if (!this.cameraStream) {
+      const stream = this.screenStream;
+      let options = { mimeType: 'video/webm;codecs=vp8' };
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: 'video/webm' };
+      }
+      try {
+        this.mediaRecorder = new MediaRecorder(stream, options);
+      } catch (e) {
+        this.mediaRecorder = new MediaRecorder(stream);
+      }
+      this.mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          this.recordedChunks.push(e.data);
+        }
+      };
+      this.mediaRecorder.start(1000);
+      return;
+    }
+
+    // Mezcla de pantalla + webcam con Canvas optimizado a 15 FPS
     const canvas = document.createElement('canvas');
     canvas.width = 1280;
     canvas.height = 720;
     const ctx = canvas.getContext('2d');
 
-    // Reproductor invisible para la pantalla
     const screenVideo = document.createElement('video');
     screenVideo.srcObject = this.screenStream;
     screenVideo.muted = true;
     screenVideo.play().catch(e => console.warn(e));
 
-    // Reproductor invisible para la cámara (webcam)
-    let cameraVideo = null;
-    if (this.cameraStream) {
-      cameraVideo = document.createElement('video');
-      cameraVideo.srcObject = this.cameraStream;
-      cameraVideo.muted = true;
-      cameraVideo.play().catch(e => console.warn(e));
-    }
+    const cameraVideo = document.createElement('video');
+    cameraVideo.srcObject = this.cameraStream;
+    cameraVideo.muted = true;
+    cameraVideo.play().catch(e => console.warn(e));
 
     this.recordingActive = true;
 
-    // Bucle para dibujar pantalla y webcam sobre el Canvas a 25fps
-    const drawFrame = () => {
+    // Control estricto de FPS para evitar sobrecargar CPU en pantallas de alta tasa de refresco (ej. 144Hz)
+    const fps = 15;
+    const fpsInterval = 1000 / fps;
+    let lastDrawTime = performance.now();
+
+    const drawFrame = (timestamp) => {
       if (!this.recordingActive) return;
+      requestAnimationFrame(drawFrame);
+
+      const elapsed = timestamp - lastDrawTime;
+      if (elapsed < fpsInterval) return;
+
+      lastDrawTime = timestamp - (elapsed % fpsInterval);
 
       // Dibujar captura de pantalla
       if (screenVideo.readyState === screenVideo.HAVE_ENOUGH_DATA) {
@@ -646,8 +719,8 @@ const App = {
         ctx.fillRect(0, 0, 1280, 720);
       }
 
-      // Dibujar webcam (overlay redondeado arriba a la derecha, estilo streamer)
-      if (cameraVideo && cameraVideo.readyState === cameraVideo.HAVE_ENOUGH_DATA) {
+      // Dibujar webcam (overlay estilo streamer en la esquina superior derecha)
+      if (cameraVideo.readyState === cameraVideo.HAVE_ENOUGH_DATA) {
         const w = 240;
         const h = 180;
         const x = 1280 - w - 20;
@@ -677,14 +750,12 @@ const App = {
         ctx.drawImage(cameraVideo, x, y, w, h);
         ctx.restore();
       }
-
-      requestAnimationFrame(drawFrame);
     };
 
     requestAnimationFrame(drawFrame);
 
-    // Capturar stream del canvas
-    const stream = canvas.captureStream(25);
+    // Capturar stream del canvas a 15 fps estables
+    const stream = canvas.captureStream(15);
     
     let options = { mimeType: 'video/webm;codecs=vp8' };
     if (!MediaRecorder.isTypeSupported(options.mimeType)) {
@@ -703,7 +774,7 @@ const App = {
       }
     };
 
-    this.mediaRecorder.start(1000); // Guardar en chunks cada 1 segundo
+    this.mediaRecorder.start(1000);
   },
 
   stopRecording() {
@@ -1271,12 +1342,7 @@ const App = {
           `}
         </div>
 
-        <div class="card mb-4" style="background-color: #FFF9C4; border: 1px solid #FBC02D;">
-          <div style="font-weight:700; color:#BF360C; font-size:0.95rem; margin-bottom:6px;">NOTA METODOLÓGICA CLINÍCA</div>
-          <div style="font-size:0.85rem; color:#BF360C; line-height:1.5;">
-            Los datos representados en este informe (tablas, gráficas y textos automáticos) describen parámetros puramente observacionales capturados por el sistema. <b>El software NO diagnostica ni califica cognitivamente al usuario.</b> La ponderación e interpretación psicométrica recae estrictamente sobre el criterio y entrenamiento clínico del profesional evaluador basándose en estas volumetrías biológicas.
-          </div>
-        </div>
+
 
         <!-- D) Narrativa técnica -->
         <div class="card mb-4">
