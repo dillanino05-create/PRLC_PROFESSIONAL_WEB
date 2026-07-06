@@ -609,27 +609,8 @@ const App = {
     let screenStream = null;
     let cameraStream = null;
 
+    // 1. Pedir cámara PRIMERO (mientras el gesto del usuario está activo y fresco)
     try {
-      // Pedir compartir la pestaña actual (evita la pantalla completa y la ventana gigante, minimizando distracciones)
-      screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          displaySurface: "browser",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 15 }
-        },
-        audio: false,
-        preferCurrentTab: true
-      });
-    } catch (e) {
-      console.warn("Permiso de pantalla denegado por el usuario.");
-      alert("Para poder grabar, debes autorizar el uso compartido de la pestaña. Se iniciará sin grabación.");
-      this.nav('practice');
-      return;
-    }
-
-    try {
-      // Pedir cámara con restricciones flexibles y tolerantes
       cameraStream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 320 },
@@ -649,6 +630,30 @@ const App = {
         console.error("Cámara denegada o no disponible definitivamente:", err2);
         cameraStream = null;
       }
+    }
+
+    // 2. Pedir compartir la pestaña actual SEGUNDO
+    try {
+      screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          displaySurface: "browser",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 15 }
+        },
+        audio: false,
+        preferCurrentTab: true
+      });
+    } catch (e) {
+      console.warn("Permiso de pantalla denegado por el usuario.");
+      // Si cancela pantalla, liberamos la cámara
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+      }
+      alert("Para poder grabar la sesión, debes autorizar el uso compartido de la pestaña.");
+      this.nav('practice');
+      return;
     }
 
     this.screenStream = screenStream;
@@ -700,11 +705,15 @@ const App = {
 
     const screenVideo = document.createElement('video');
     screenVideo.srcObject = this.screenStream;
+    screenVideo.autoplay = true;
+    screenVideo.playsInline = true;
     screenVideo.muted = true;
     screenVideo.play().catch(e => console.warn(e));
 
     const cameraVideo = document.createElement('video');
     cameraVideo.srcObject = this.cameraStream;
+    cameraVideo.autoplay = true;
+    cameraVideo.playsInline = true;
     cameraVideo.muted = true;
     cameraVideo.play().catch(e => console.warn(e));
 
