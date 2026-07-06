@@ -59,6 +59,17 @@ const App = {
       }
     } catch (e) { }
 
+    // Registrador de ondas de clic (Ripples) para la grabación visomotriz
+    document.addEventListener('click', (e) => {
+      if (this.screen !== 'test' && this.screen !== 'practice') return;
+      const ripple = document.createElement('div');
+      ripple.className = 'click-ripple';
+      ripple.style.left = `${e.pageX}px`;
+      ripple.style.top = `${e.pageY}px`;
+      document.body.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 500);
+    });
+
     // Si hay usuario logueado -> menú, si no -> login
     if (this.user) {
       this.warmUpModel();
@@ -377,7 +388,7 @@ const App = {
                 Metodología
               </strong>
               <p style="color: #546E7A; line-height: 1.6; margin: 0; padding-left: 32px;">
-                La prueba se resuelve por líneas, siempre de <strong>izquierda a derecha</strong>. Al terminar una línea, comienza la siguiente desde el extremo izquierdo de la fila de abajo.
+                La prueba se resuelve por páginas, siempre de <strong>izquierda a derecha</strong>. Al terminar una página, comienza la siguiente automáticamente.
               </p>
             </div>
 
@@ -387,7 +398,7 @@ const App = {
                 Tiempo
               </strong>
               <p style="color: #546E7A; line-height: 1.6; margin: 0; padding-left: 32px;">
-                Cuentas con <strong>20 segundos</strong> por cada línea de estímulos. El sistema cambiará de línea automáticamente al agotarse el tiempo.
+                Cuentas con <strong>20 segundos</strong> por cada página de estímulos. El sistema cambiará de página automáticamente al agotarse el tiempo.
               </p>
             </div>
 
@@ -560,12 +571,164 @@ const App = {
   /* ══════════════════════════════════════════════════════════════════════
      PANTALLA 4: TEST (14 líneas × 47 estímulos)
   ══════════════════════════════════════════════════════════════════════ */
-  startTest() {
+  async startTest() {
+    // 1. Solicitar permisos de pantalla (Obligatorio para auditar clics y test)
+    let screenStream, cameraStream;
+    try {
+      screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { width: 1280, height: 720, frameRate: 25 },
+        audio: false
+      });
+    } catch (e) {
+      alert("Para realizar la evaluación clínica, es necesario que permitas compartir la pantalla/pestaña.");
+      return;
+    }
+
+    // 2. Solicitar permisos de webcam (Opcional para observar al paciente)
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 320, height: 240 },
+        audio: false
+      });
+    } catch (e) {
+      console.log("Cámara denegada o no disponible. Se grabará únicamente la pantalla.");
+      cameraStream = null;
+    }
+
+    this.screenStream = screenStream;
+    this.cameraStream = cameraStream;
+
+    // Inicializar mezclador y grabación en Canvas
+    this.startRecording();
+
     this.currentLine = 0;
     this.linesData = [];
     this.clickLog = [];
     this.testLines = Array.from({ length: this.TOTAL_LINES }, () => generateTestLine(this.CHARS_PER_LINE));
     this.nav('test');
+  },
+
+  startRecording() {
+    this.recordedChunks = [];
+    
+    // Canvas y contexto 2D para la composición de video
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+
+    // Reproductor invisible para la pantalla
+    const screenVideo = document.createElement('video');
+    screenVideo.srcObject = this.screenStream;
+    screenVideo.muted = true;
+    screenVideo.play().catch(e => console.warn(e));
+
+    // Reproductor invisible para la cámara (webcam)
+    let cameraVideo = null;
+    if (this.cameraStream) {
+      cameraVideo = document.createElement('video');
+      cameraVideo.srcObject = this.cameraStream;
+      cameraVideo.muted = true;
+      cameraVideo.play().catch(e => console.warn(e));
+    }
+
+    this.recordingActive = true;
+
+    // Bucle para dibujar pantalla y webcam sobre el Canvas a 25fps
+    const drawFrame = () => {
+      if (!this.recordingActive) return;
+
+      // Dibujar captura de pantalla
+      if (screenVideo.readyState === screenVideo.HAVE_ENOUGH_DATA) {
+        ctx.drawImage(screenVideo, 0, 0, 1280, 720);
+      } else {
+        ctx.fillStyle = '#F5F7FA';
+        ctx.fillRect(0, 0, 1280, 720);
+      }
+
+      // Dibujar webcam (overlay redondeado arriba a la derecha, estilo streamer)
+      if (cameraVideo && cameraVideo.readyState === cameraVideo.HAVE_ENOUGH_DATA) {
+        const w = 240;
+        const h = 180;
+        const x = 1280 - w - 20;
+        const y = 20;
+
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(x - 2, y - 2, w + 4, h + 4, 10);
+        } else {
+          ctx.rect(x - 2, y - 2, w + 4, h + 4);
+        }
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, w, h, 8);
+        } else {
+          ctx.rect(x, y, w, h);
+        }
+        ctx.clip();
+        ctx.drawImage(cameraVideo, x, y, w, h);
+        ctx.restore();
+      }
+
+      requestAnimationFrame(drawFrame);
+    };
+
+    requestAnimationFrame(drawFrame);
+
+    // Capturar stream del canvas
+    const stream = canvas.captureStream(25);
+    
+    let options = { mimeType: 'video/webm;codecs=vp8' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+      options = { mimeType: 'video/webm' };
+    }
+
+    try {
+      this.mediaRecorder = new MediaRecorder(stream, options);
+    } catch (e) {
+      this.mediaRecorder = new MediaRecorder(stream);
+    }
+
+    this.mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        this.recordedChunks.push(e.data);
+      }
+    };
+
+    this.mediaRecorder.start(1000); // Guardar en chunks cada 1 segundo
+  },
+
+  stopRecording() {
+    return new Promise((resolve) => {
+      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+        this.mediaRecorder.onstop = () => {
+          this.recordingActive = false;
+          
+          // Apagar cámara y compartición de pantalla
+          if (this.screenStream) {
+            this.screenStream.getTracks().forEach(t => t.stop());
+          }
+          if (this.cameraStream) {
+            this.cameraStream.getTracks().forEach(t => t.stop());
+          }
+
+          const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+          this.recordedVideoBlob = blob;
+          resolve(blob);
+        };
+        this.mediaRecorder.stop();
+      } else {
+        resolve(null);
+      }
+    });
   },
 
   renderTest(app) {
@@ -580,7 +743,7 @@ const App = {
       <div id="test-screen">
         <!-- Header -->
         <div class="test-header">
-          <span class="line-label">LÍNEA ${this.currentLine + 1} / ${this.TOTAL_LINES}</span>
+          <span class="line-label">PÁGINA ${this.currentLine + 1} / ${this.TOTAL_LINES}</span>
           <span class="count-lbl" id="count-lbl">Marcados: 0</span>
           <span class="timer-lbl" id="timer-lbl">${this.TIME_PER_LINE}.0 s</span>
         </div>
@@ -762,6 +925,10 @@ const App = {
     if (this.isSaving) return;
     this.isSaving = true;
     this.nav('completion'); // show completion/loading state immediately
+    
+    // 1. Detener la grabación de video y obtener el Blob
+    const videoBlob = await this.stopRecording();
+    
     this.metrics = calcMetrics(this.linesData, this.clickLog, this.participant.age);
     this.metrics._age = this.participant.age;
     this.metrics._linesDataRef = this.linesData;
@@ -808,7 +975,9 @@ const App = {
             blockHits: this.metrics.blockHits, errorPat: this.metrics.errorPat,
             adjScore: this.metrics.adjScore, meanRt: this.metrics.meanRt,
             medRt: this.metrics.medRt, attnStyle: this.metrics.attnStyle,
-            attnDesc: this.metrics.attnDesc
+            attnDesc: this.metrics.attnDesc, focusType: this.metrics.focusType,
+            isIncomplete: this.metrics.isIncomplete, lastLine: this.metrics.lastLine,
+            lastChar: this.metrics.lastChar
           },
           ml_prediction: this.mlPred,
           narrative
@@ -817,6 +986,49 @@ const App = {
       const sd = await saveResp.json();
       this.evalId = sd.id;
       this.evalStatus = sd.status;
+
+      // 2. Si se grabó video, subirlo al bucket exports y actualizar el registro en base de datos
+      if (videoBlob && this.evalId) {
+        const videoName = `recording_${this.evalId}.webm`;
+        const { data, error } = await this.supabase.storage
+          .from('exports')
+          .upload(videoName, videoBlob, {
+            contentType: 'video/webm',
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (!error) {
+          const updatedMetrics = {
+            TA: this.metrics.TA, O: this.metrics.O, COM: this.metrics.COM,
+            TN: this.metrics.TN, TOT: this.metrics.TOT, CON: this.metrics.CON,
+            CP: this.metrics.CP, totalTime: this.metrics.totalTime,
+            meanTpl: this.metrics.meanTpl, stdTpl: this.metrics.stdTpl,
+            cvTime: this.metrics.cvTime, procSpeed: this.metrics.procSpeed,
+            efficiency: this.metrics.efficiency, FA: this.metrics.FA,
+            GQ: this.metrics.GQ, VAR: this.metrics.VAR,
+            estabilidad: this.metrics.estabilidad, consistency: this.metrics.consistency,
+            TRM: this.metrics.TRM, IVR: this.metrics.IVR,
+            blockHits: this.metrics.blockHits, errorPat: this.metrics.errorPat,
+            adjScore: this.metrics.adjScore, meanRt: this.metrics.meanRt,
+            medRt: this.metrics.medRt, attnStyle: this.metrics.attnStyle,
+            attnDesc: this.metrics.attnDesc, focusType: this.metrics.focusType,
+            isIncomplete: this.metrics.isIncomplete, lastLine: this.metrics.lastLine,
+            lastChar: this.metrics.lastChar,
+            video_path: videoName
+          };
+          
+          await this.supabase
+            .from('evaluations')
+            .update({ metrics_json: updatedMetrics })
+            .eq('id', this.evalId);
+            
+          this.metrics = updatedMetrics;
+          this.metrics._linesDataRef = this.linesData;
+        } else {
+          console.error("Error al guardar video en Supabase Storage:", error);
+        }
+      }
     } catch (e) { console.warn('Save error:', e); }
 
     this.isSaving = false;
@@ -939,8 +1151,14 @@ const App = {
     app.innerHTML = `
       <div class="plc-header">
         <div>
-          <h1>PLC Professional — Resultados</h1>
-          <div class="sub">${this.participant.name} &nbsp;·&nbsp; ID: ${this.participant.id} &nbsp;·&nbsp; ${now}</div>
+          <h1 style="display:flex;align-items:center;gap:10px;">
+            PLC Professional — Resultados
+            ${m.isIncomplete ? `<span class="badge" style="background:#C62828;color:#fff;font-size:0.75rem;padding:4px 8px;border-radius:12px;vertical-align:middle;">⚠️ INCOMPLETA</span>` : ''}
+          </h1>
+          <div class="sub">
+            ${this.participant.name} &nbsp;·&nbsp; ID: ${this.participant.id} &nbsp;·&nbsp; ${now}
+            ${m.isIncomplete ? ` &nbsp;·&nbsp; <span style="color:#C62828;font-weight:700;">Detención en Pág. ${m.lastLine}, Estímulo ${m.lastChar}</span>` : ''}
+          </div>
         </div>
         <div class="flex gap-2">
           <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')">🏠 Menú</button>
@@ -1121,6 +1339,17 @@ const App = {
         </div>
       </div>
 
+      <!-- Modal de Video (Inyectado) -->
+      <div id="video-modal" class="modal-overlay">
+        <div class="modal-video">
+          <button class="modal-close" onclick="App.closeVideoModal()">×</button>
+          <div class="section-title" id="video-modal-title">🎥 Grabación de la Sesión</div>
+          <div class="video-container">
+            <video id="player-video" controls></video>
+          </div>
+        </div>
+      </div>
+
       <div class="page fade-in">
         <div class="card" id="history-card">
           <div style="text-align:center;padding:20px;color:#546E7A;">Cargando...</div>
@@ -1176,6 +1405,7 @@ const App = {
         <td>${r.TA}</td>
         <td class="flex gap-2">
           <button class="btn btn-ghost btn-sm" style="background:#E8EAF6;color:#1A237E;" onclick="App.openWebReport(${r.id}, this)">👁️ Ver Web</button>
+          ${r.video_path ? `<button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;" onclick="App.playVideo(${r.id}, this)">🎥 Video</button>` : ''}
           ${r.status === 'processing' || r.status === 'pending' ?
         `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
         r.status === 'error' ?
@@ -1256,12 +1486,18 @@ const App = {
       const lines = data.lines_json;
       const ml = data.ml_json;
 
+      const lastAttemptedIndex = lines ? lines.map(l => l.evaluados || 0).reduce((maxIdx, val, idx) => val > 0 ? idx : maxIdx, -1) : -1;
+      const isIncomplete = lastAttemptedIndex >= 0 && (lastAttemptedIndex + 1) < lines.length;
+      const lastLine = lastAttemptedIndex >= 0 ? lines[lastAttemptedIndex].linea : 0;
+      const lastChar = lastAttemptedIndex >= 0 ? lines[lastAttemptedIndex].evaluados : 0;
+
       // 1. Mostrar Modal
       document.getElementById('clinical-modal').classList.add('active');
       document.getElementById('modal-patient-info').innerHTML = `
         Paciente: <span style="color:var(--text);font-weight:400;">${data.participant_name}</span> 
         | ID: <span style="color:var(--text);font-weight:400;">${data.participant_id}</span> 
         | Prueba: <span style="color:var(--text);font-weight:400;">${new Date(data.created_at).toLocaleString()}</span>
+        ${isIncomplete ? `<br/><span style="color:#C62828;font-weight:700;">⚠️ APLICACIÓN INCOMPLETA (Detención anticipada en Página ${lastLine}, Estímulo ${lastChar})</span>` : ''}
       `;
 
       // 2. Semáforo Normativo basado en el Perfil de Eficiencia (CP)
@@ -1337,6 +1573,51 @@ const App = {
       btn.innerHTML = oldText;
       btn.disabled = false;
     }
+  },
+
+  async playVideo(id, btn) {
+    if (btn) {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = "⌛ Video";
+    }
+
+    try {
+      const sess = await this.supabase.auth.getSession();
+      const token = sess.data.session ? sess.data.session.access_token : '';
+      const r = await fetch(`${API_BASE}/api/video/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const d = await r.json();
+      
+      if (btn) {
+        btn.textContent = "🎥 Video";
+        btn.disabled = false;
+      }
+      
+      if (d.url) {
+        const modal = document.getElementById('video-modal');
+        const player = document.getElementById('player-video');
+        player.src = d.url;
+        modal.classList.add('active');
+      } else {
+        alert(d.detail || "No se pudo recuperar la grabación.");
+      }
+    } catch (e) {
+      alert("Error al cargar la grabación");
+      if (btn) {
+        btn.textContent = "🎥 Video";
+        btn.disabled = false;
+      }
+    }
+  },
+
+  closeVideoModal() {
+    const modal = document.getElementById('video-modal');
+    const player = document.getElementById('player-video');
+    player.pause();
+    player.src = "";
+    modal.classList.remove('active');
   }
 };
 

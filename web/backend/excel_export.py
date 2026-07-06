@@ -46,7 +46,7 @@ def _set_widths(ws, widths, start_col=1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
 def _add_educational_header(ws, title: str, description: str, disclaimer: bool = False):
-    """Añade cabecera educativa clínica en filas 1-3. El contenido principal comienza en fila 5."""
+    """Añade cabecera educativa clínica en filas 1-2. El contenido principal comienza en fila 5."""
     ws.merge_cells('A1:E1')
     ws['A1'] = title
     ws['A1'].font = Font(bold=True, size=14, color='1A237E')
@@ -57,14 +57,6 @@ def _add_educational_header(ws, title: str, description: str, disclaimer: bool =
     ws['A2'].fill = EDU_FILL
     ws['A2'].alignment = Alignment(wrap_text=True, vertical='center')
     ws.row_dimensions[2].height = 40
-    
-    if disclaimer:
-        ws.merge_cells('A3:H3')
-        ws['A3'] = "NOTA CLÍNICA: Este sistema describe parámetros paramétricos puramente observacionales. No emite diagnósticos interpretativos. La ponderación nosológica recae enteramente bajo criterio del profesional de la salud evaluador."
-        ws['A3'].font = DSCL_FONT
-        ws['A3'].fill = DSCL_FILL
-        ws['A3'].alignment = Alignment(wrap_text=True, vertical='center')
-        ws.row_dimensions[3].height = 30
 
 # ── Generación de imagen con las 4 gráficas ────────────────────────────────────
 def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
@@ -172,6 +164,13 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
 
     with pd.ExcelWriter(fp, engine='openpyxl') as writer:
         
+        # Punto de finalización de la prueba
+        attempted_lines = [l for l in lines_data if l.get('evaluados', 0) > 0]
+        last_line = attempted_lines[-1]['linea'] if attempted_lines else 0
+        last_char = attempted_lines[-1]['evaluados'] if attempted_lines else 0
+        app_status = "Completada" if last_line == 14 else f"Incompleta (Detención en Pág. {last_line})"
+        final_point = f"Página {last_line}, Estímulo {last_char}" if last_line > 0 else "Ninguno"
+
         # ── Hoja 1: Resumen Clínico ───────────────────────────────────────────
         df_demog = pd.DataFrame([
             {"Parámetro": "ID Paciente", "Dato": participant['id']},
@@ -179,7 +178,9 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             {"Parámetro": "Edad Cronométrica", "Dato": participant['age']},
             {"Parámetro": "Género Registrado", "Dato": participant.get('gender','')},
             {"Parámetro": "Educación Aprobada", "Dato": participant.get('education','')},
-            {"Parámetro": "Ocupación Cruda", "Dato": participant.get('occupation','')}
+            {"Parámetro": "Ocupación Cruda", "Dato": participant.get('occupation','')},
+            {"Parámetro": "Estado de Aplicación", "Dato": app_status},
+            {"Parámetro": "Punto de Finalización", "Dato": final_point}
         ])
         
         # Mapeo descriptivo algoritmico

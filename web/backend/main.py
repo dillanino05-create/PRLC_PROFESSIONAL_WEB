@@ -229,21 +229,54 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'status': r.get('status', 'completed'),
                 'CP': round(m.get('CP', 0), 1) if 'CP' in m else 0,
                 'TA': m.get('TA', 0),
+                'video_path': m.get('video_path', '')
             })
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get('/api/video/{eval_id}')
+async def get_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
+    sb = auth_ctx["client"]
+    uid = auth_ctx["user_id"]
+    # Defensa IDOR: Verificamos propiedad del registro antes de firmar la URL del video
+    res = sb.table("evaluations").select("metrics_json").eq("id", eval_id).eq("user_id", uid).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Evaluación no encontrada")
+    
+    metrics = res.data[0].get("metrics_json") or {}
+    video_path = metrics.get("video_path")
+    if not video_path:
+        raise HTTPException(status_code=404, detail="Esta evaluación no cuenta con una grabación de video asociada.")
+        
+    try:
+        # Enlace firmado válido por 5 minutos (300s) para reproducir la sesión
+        signed_res = sb.storage.from_("exports").create_signed_url(video_path, 300)
+        secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
+        return {"url": secure_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"No se pudo firmar el archivo de video: {str(e)}")
+
 @app.delete('/api/history/{eval_id}')
 def delete_eval(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     
-    # 1. Recuperar path y borrar excel en la nube
-    res = sb.table("evaluations").select("excel_path").eq("id", eval_id).execute()
-    if res.data and res.data[0].get("excel_path"):
-        filename = res.data[0]["excel_path"]
-        sb.storage.from_("exports").remove([filename])
+    # 1. Recuperar paths y borrar archivos en Supabase Storage
+    res = sb.table("evaluations").select("excel_path, metrics_json").eq("id", eval_id).execute()
+    files_to_remove = []
+    if res.data:
+        if res.data[0].get("excel_path"):
+            files_to_remove.append(res.data[0]["excel_path"])
+        metrics = res.data[0].get("metrics_json") or {}
+        if metrics.get("video_path"):
+            files_to_remove.append(metrics["video_path"])
             
-    # 2. Borrar del registro base de datos
+    if files_to_remove:
+        try:
+            sb.storage.from_("exports").remove(files_to_remove)
+        except Exception as e:
+            print(f"Error borrando archivos en storage: {e}")
+            
+    # 2. Borrar del registro en base de datos
     sb.table("evaluations").delete().eq("id", eval_id).execute()
     return {'ok': True}
