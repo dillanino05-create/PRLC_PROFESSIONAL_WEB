@@ -610,32 +610,45 @@ const App = {
     let cameraStream = null;
 
     try {
-      // Pedir compartir pantalla/pestaña
+      // Pedir compartir la pestaña actual (evita la pantalla completa y la ventana gigante, minimizando distracciones)
       screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
+          displaySurface: "browser",
           width: { ideal: 1280 },
           height: { ideal: 720 },
-          frameRate: { ideal: 15 },
-          displaySurface: "monitor"
+          frameRate: { ideal: 15 }
         },
-        audio: false
+        audio: false,
+        preferCurrentTab: true
       });
     } catch (e) {
       console.warn("Permiso de pantalla denegado por el usuario.");
-      alert("Para poder grabar, debes autorizar el uso compartido de la pantalla. Se iniciará sin grabación.");
+      alert("Para poder grabar, debes autorizar el uso compartido de la pestaña. Se iniciará sin grabación.");
       this.nav('practice');
       return;
     }
 
     try {
-      // Pedir cámara
+      // Pedir cámara con restricciones flexibles y tolerantes
       cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 320, height: 240, frameRate: 15 },
+        video: {
+          width: { ideal: 320 },
+          height: { ideal: 240 },
+          frameRate: { ideal: 15 }
+        },
         audio: false
       });
     } catch (e) {
-      console.log("Cámara denegada o no disponible. Se grabará únicamente la pantalla.");
-      cameraStream = null;
+      console.warn("Fallo con restricciones ideales de cámara, intentando fallback genérico:", e);
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      } catch (err2) {
+        console.error("Cámara denegada o no disponible definitivamente:", err2);
+        cameraStream = null;
+      }
     }
 
     this.screenStream = screenStream;
