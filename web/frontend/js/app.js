@@ -571,21 +571,37 @@ const App = {
   /* ══════════════════════════════════════════════════════════════════════
      PANTALLA 4: TEST (14 líneas × 47 estímulos)
   ══════════════════════════════════════════════════════════════════════ */
-  requestPermissionsAndGoToPractice() {
-    // Modal de autorización de grabación clínica
+  async requestPermissionsAndGoToPractice() {
+    // Pedir la cámara INMEDIATAMENTE en el gesto del botón (sin modal intermedio)
+    // Un modal intermedio consume el gesto de usuario y bloquea getUserMedia en Chrome/Safari
+    let cameraStream = null;
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    } catch (e) {
+      console.warn("Cámara denegada o no disponible:", e);
+      cameraStream = null;
+    }
+
+    this._pendingCameraStream = cameraStream;
+
+    // Ahora mostrar el modal para decidir si grabar pantalla también
+    const withCamera = cameraStream !== null;
     const modalHtml = `
       <div id="recording-permission-modal" class="modal-overlay active" style="z-index: 100000;">
         <div class="modal-clinical" style="max-width: 500px; text-align: center; padding: 30px;">
           <div style="font-size: 3rem; margin-bottom: 15px;">📹</div>
           <div class="section-title" style="margin-bottom: 15px;">Autorización de Grabación</div>
+          ${withCamera
+            ? `<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px;margin-bottom:16px;color:#2E7D32;font-weight:600;">✅ Cámara activada correctamente</div>`
+            : `<div style="background:#FFF3E0;border:1px solid #FFCC80;border-radius:10px;padding:12px;margin-bottom:16px;color:#E65100;font-weight:600;">⚠️ Cámara no disponible — solo se grabará la pantalla</div>`
+          }
           <p style="color: var(--text-light); line-height: 1.6; margin-bottom: 24px; font-size: 0.95rem;">
-            Con el fin de auditar el barrido visual y las expresiones faciales durante la sesión, la prueba puede grabar la pantalla y la cámara web.
-            <br/><br/>
-            La cámara se grabará en segundo plano y <b>no se mostrará en pantalla</b> durante la prueba para evitar distracciones.
+            La prueba también puede grabar la pantalla para registrar el barrido visual completo.
+            La cámara se graba <b>en segundo plano</b>, sin mostrarse en pantalla durante la evaluación.
           </p>
           <div style="display: flex; gap: 15px; justify-content: center;">
-            <button class="btn btn-secondary" onclick="App.confirmRecordingPermission(false)" style="padding: 10px 20px;">No Grabar</button>
-            <button class="btn btn-primary btn-accent" onclick="App.confirmRecordingPermission(true)" style="padding: 10px 20px;">Grabar Sesión</button>
+            <button class="btn btn-secondary" onclick="App.confirmScreenPermission(false)" style="padding: 10px 20px;">Solo Práctica</button>
+            <button class="btn btn-primary btn-accent" onclick="App.confirmScreenPermission(true)" style="padding: 10px 20px;">Grabar Pantalla también</button>
           </div>
         </div>
       </div>
@@ -595,80 +611,51 @@ const App = {
     document.body.appendChild(tempDiv.firstElementChild);
   },
 
-  async confirmRecordingPermission(grant) {
+  async confirmScreenPermission(grantScreen) {
     const modal = document.getElementById('recording-permission-modal');
     if (modal) modal.remove();
 
-    if (!grant) {
-      this.screenStream = null;
-      this.cameraStream = null;
-      this.nav('practice');
-      return;
-    }
+    const cameraStream = this._pendingCameraStream || null;
+    this._pendingCameraStream = null;
 
     let screenStream = null;
-    let cameraStream = null;
 
-    // 1. Pedir cámara PRIMERO (mientras el gesto del usuario está activo y fresco)
-    try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 320 },
-          height: { ideal: 240 },
-          frameRate: { ideal: 15 }
-        },
-        audio: false
-      });
-    } catch (e) {
-      console.warn("Fallo con restricciones ideales de cámara, intentando fallback genérico:", e);
+    if (grantScreen) {
       try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
-      } catch (err2) {
-        console.error("Cámara denegada o no disponible definitivamente:", err2);
-        cameraStream = null;
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              displaySurface: "browser",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              frameRate: { ideal: 15 }
+            },
+            audio: false,
+            preferCurrentTab: true
+          });
+        } catch (advancedError) {
+          console.warn("Fallback a getDisplayMedia básico (Safari/Opera/Firefox):", advancedError);
+          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        }
+      } catch (e) {
+        console.warn("Permiso de pantalla denegado.");
+        if (cameraStream) {
+          cameraStream.getTracks().forEach(t => t.stop());
+        }
+        alert("No se pudo activar la grabación de pantalla. Se iniciará sin grabación.");
+        this.screenStream = null;
+        this.cameraStream = null;
+        this.nav('practice');
+        return;
       }
-    }
-
-    // 2. Pedir compartir la pestaña actual SEGUNDO
-    try {
-      try {
-        screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            displaySurface: "browser",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 15 }
-          },
-          audio: false,
-          preferCurrentTab: true
-        });
-      } catch (advancedError) {
-        console.warn("Fallo con opciones avanzadas de pestaña, intentando fallback compatible (Safari/Opera):", advancedError);
-        screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: false
-        });
-      }
-    } catch (e) {
-      console.warn("Permiso de pantalla denegado por el usuario.");
-      // Si cancela pantalla, liberamos la cámara
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(t => t.stop());
-        cameraStream = null;
-      }
-      alert("Para poder grabar la sesión, debes autorizar el uso compartido de la pestaña.");
-      this.nav('practice');
-      return;
     }
 
     this.screenStream = screenStream;
     this.cameraStream = cameraStream;
 
-    // Iniciar grabación en segundo plano de manera silenciosa
-    this.startRecording();
+    if (screenStream) {
+      this.startRecording();
+    }
 
     this.nav('practice');
   },
