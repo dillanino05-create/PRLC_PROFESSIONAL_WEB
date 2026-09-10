@@ -46,8 +46,10 @@ stateDiagram-v2
    - Temporizador estricto de **20 segundos por página**. Al expirar, pasa automáticamente a la siguiente línea.
    - Detección de saltos erráticos y retrocesos (violación del barrido visual de izquierda a derecha).
 
-2. **Doble Grabación (Streamer Mode):**
-   - Grabación opcional de pantalla con recuadro flotante (PiP) de la cámara web del paciente usando MediaStream y Canvas offscreen para no afectar el rendimiento gráfico del test.
+2. **Protocolo de Grabación y Permisos Pre-Test:**
+   - **Pregunta Previa de Cámara:** Antes de iniciar, el sistema consulta explícitamente al evaluador/paciente si desea activar la cámara web. Si se autoriza, se captura en segundo plano para evitar distracciones visuales; si se declina, se continúa sin cámara.
+   - **Compartir Pantalla Obligatorio ("Sí o Sí"):** La captura de pantalla es un requisito obligatorio del protocolo clínico para registrar el barrido visual completo y la resolución de ítems. Si el usuario cancela o deniega el selector del navegador, el sistema bloquea el avance a la práctica, muestra una alerta explicativa y exige reintentar hasta obtener el stream de pantalla.
+   - **Mezcla de Streams (PiP / 15 FPS):** Canvas offscreen que combina pantalla y webcam para optimizar consumo de CPU y generar el video WebM consolidado.
 
 3. **Caché y Desconexión:**
    - Si la red falla temporalmente, las evaluaciones se retienen en memoria hasta reintentar la subida.

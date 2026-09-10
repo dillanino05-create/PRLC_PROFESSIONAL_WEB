@@ -442,13 +442,14 @@ async def admin_stats(_admin: dict = Depends(verify_superadmin)):
     top_profile = max(profile_map, key=profile_map.get) if profile_map else 'N/A'
 
     # 4. Formatear lista de evaluaciones recientes (hasta 50)
+    # NOTA DE PRIVACIDAD: participant_id se enmascara como '******' para el SuperAdmin para proteger la identidad del paciente
     recent = []
     for r in evals_data[:50]:
         ml = r.get('ml_json') or {}
         recent.append({
             'id': r['id'],
             'created_at': r.get('created_at'),
-            'participant_id': r.get('participant_id', '—'),
+            'participant_id': '******',
             'age': r.get('age'),
             'profile': (ml.get('predicted_profile') or 'N/A').replace('_', ' '),
             'confidence': ml.get('confidence_percent', 'N/A'),

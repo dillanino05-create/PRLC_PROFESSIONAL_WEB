@@ -582,49 +582,26 @@ const App = {
      PANTALLA 4: TEST (14 líneas × 47 estímulos)
   ══════════════════════════════════════════════════════════════════════ */
   async requestPermissionsAndGoToPractice() {
-    // Pedir la cámara INMEDIATAMENTE en el gesto del botón (sin modal intermedio)
-    // Un modal intermedio consume el gesto de usuario y bloquea getUserMedia en Chrome/Safari
-    let cameraStream = null;
-    let cameraError = "";
-    try {
-      cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    } catch (e) {
-      console.warn("Cámara denegada o no disponible:", e);
-      if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
-        cameraError = "Permiso bloqueado en el navegador. Por favor permite la cámara en los ajustes del sitio (icono de candado o cámara en la barra de direcciones).";
-      } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
-        cameraError = "No se detectó ninguna cámara física conectada al dispositivo.";
-      } else if (e.name === "NotReadableError" || e.name === "TrackStartError") {
-        cameraError = "La cámara está siendo usada por otra aplicación (Zoom, Teams, etc.).";
-      } else {
-        cameraError = `Error del sistema: ${e.message || e.name}`;
-      }
-      cameraStream = null;
-    }
+    // 1. Preguntar explícitamente si el usuario desea activar la cámara antes de solicitar cualquier permiso
+    const existingCamModal = document.getElementById('camera-choice-modal');
+    if (existingCamModal) existingCamModal.remove();
 
-    this._pendingCameraStream = cameraStream;
-
-    // Ahora mostrar el modal para decidir si grabar pantalla también
-    const withCamera = cameraStream !== null;
     const modalHtml = `
-      <div id="recording-permission-modal" class="modal-overlay active" style="z-index: 100000;">
-        <div class="modal-clinical" style="max-width: 500px; text-align: center; padding: 30px;">
-          <div style="font-size: 3rem; margin-bottom: 15px;">📹</div>
-          <div class="section-title" style="margin-bottom: 15px;">Autorización de Grabación</div>
-          ${withCamera
-            ? `<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px;margin-bottom:16px;color:#2E7D32;font-weight:600;">✅ Cámara activada correctamente</div>`
-            : `<div style="background:#FFF3E0;border:1px solid #FFCC80;border-radius:10px;padding:12px;margin-bottom:16px;color:#E65100;font-weight:600;font-size:0.85rem;text-align:left;line-height:1.4;">
-                ⚠️ Cámara no disponible — solo se grabará la pantalla
-                <div style="font-weight:400;color:#BF360C;margin-top:6px;font-size:0.8rem;"><b>Motivo:</b> ${cameraError}</div>
-               </div>`
-          }
+      <div id="camera-choice-modal" class="modal-overlay active" style="z-index: 100000;">
+        <div class="modal-clinical" style="max-width: 480px; text-align: center; padding: 30px;">
+          <div style="font-size: 3rem; margin-bottom: 12px;">📷</div>
+          <div class="section-title" style="margin-bottom: 14px;">Activación de Cámara Web</div>
           <p style="color: var(--text-light); line-height: 1.6; margin-bottom: 24px; font-size: 0.95rem;">
-            La prueba también puede grabar la pantalla para registrar el barrido visual completo.
-            La cámara se graba <b>en segundo plano</b>, sin mostrarse en pantalla durante la evaluación.
+            ¿Deseas activar la cámara web para esta evaluación?<br/><br/>
+            Si la activas, se registrará <b>en segundo plano</b> para el análisis de atención visual del participante.
           </p>
-          <div style="display: flex; gap: 15px; justify-content: center;">
-            <button class="btn btn-secondary" onclick="App.confirmScreenPermission(false)" style="padding: 10px 20px;">Solo Práctica</button>
-            <button class="btn btn-primary btn-accent" onclick="App.confirmScreenPermission(true)" style="padding: 10px 20px;">Grabar Pantalla también</button>
+          <div style="display: flex; gap: 14px; justify-content: center;">
+            <button class="btn btn-secondary" onclick="App.handleCameraChoice(false)" style="padding: 12px 20px;">
+              🚫 No usar cámara
+            </button>
+            <button class="btn btn-primary btn-accent" onclick="App.handleCameraChoice(true)" style="padding: 12px 24px;">
+              📷 Sí, activar cámara
+            </button>
           </div>
         </div>
       </div>
@@ -634,52 +611,133 @@ const App = {
     document.body.appendChild(tempDiv.firstElementChild);
   },
 
-  async confirmScreenPermission(grantScreen) {
-    const modal = document.getElementById('recording-permission-modal');
-    if (modal) modal.remove();
+  async handleCameraChoice(wantCamera) {
+    const camModal = document.getElementById('camera-choice-modal');
+    if (camModal) camModal.remove();
 
-    const cameraStream = this._pendingCameraStream || null;
-    this._pendingCameraStream = null;
+    let cameraStream = null;
+    let cameraStatus = 'declined';
+    let cameraError = '';
 
-    let screenStream = null;
-
-    if (grantScreen) {
+    if (wantCamera) {
       try {
-        try {
-          screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              displaySurface: "browser",
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              frameRate: { ideal: 15 }
-            },
-            audio: false,
-            preferCurrentTab: true
-          });
-        } catch (advancedError) {
-          console.warn("Fallback a getDisplayMedia básico (Safari/Opera/Firefox):", advancedError);
-          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-        }
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        cameraStatus = 'ok';
       } catch (e) {
-        console.warn("Permiso de pantalla denegado.");
-        if (cameraStream) {
-          cameraStream.getTracks().forEach(t => t.stop());
+        console.warn("Cámara denegada o no disponible:", e);
+        cameraStatus = 'error';
+        if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
+          cameraError = "Permiso bloqueado en el navegador. Revisa el icono de cámara o candado en la barra de direcciones.";
+        } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
+          cameraError = "No se detectó ninguna cámara física conectada.";
+        } else if (e.name === "NotReadableError" || e.name === "TrackStartError") {
+          cameraError = "La cámara está siendo usada por otra aplicación (Zoom, Teams, etc.).";
+        } else {
+          cameraError = e.message || e.name;
         }
-        alert("No se pudo activar la grabación de pantalla. Se iniciará sin grabación.");
-        this.screenStream = null;
-        this.cameraStream = null;
-        this.nav('practice');
-        return;
+        cameraStream = null;
       }
     }
 
-    this.screenStream = screenStream;
-    this.cameraStream = cameraStream;
+    this._pendingCameraStream = cameraStream;
+    this.showMandatoryScreenModal(cameraStatus, cameraError);
+  },
 
-    if (screenStream) {
-      this.startRecording();
+  showMandatoryScreenModal(cameraStatus, cameraError) {
+    const existingScreenModal = document.getElementById('mandatory-screen-modal');
+    if (existingScreenModal) existingScreenModal.remove();
+
+    let cameraBadge = '';
+    if (cameraStatus === 'ok') {
+      cameraBadge = `<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px;margin-bottom:16px;color:#2E7D32;font-weight:600;font-size:0.9rem;">✅ Cámara web activada en segundo plano</div>`;
+    } else if (cameraStatus === 'error') {
+      cameraBadge = `
+        <div style="background:#FFF3E0;border:1px solid #FFCC80;border-radius:10px;padding:12px;margin-bottom:16px;color:#E65100;font-weight:600;font-size:0.85rem;text-align:left;line-height:1.4;">
+          ⚠️ Cámara no disponible — ${escapeHTML(cameraError)}
+        </div>`;
+    } else {
+      cameraBadge = `<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px;margin-bottom:16px;color:#90A4AE;font-size:0.85rem;">ℹ️ Cámara desactivada a petición del usuario</div>`;
     }
 
+    const modalHtml = `
+      <div id="mandatory-screen-modal" class="modal-overlay active" style="z-index: 100000;">
+        <div class="modal-clinical" style="max-width: 500px; text-align: center; padding: 30px;">
+          <div style="font-size: 3rem; margin-bottom: 12px;">🖥️</div>
+          <div class="section-title" style="margin-bottom: 14px;">Compartir Pantalla Obligatorio</div>
+          
+          ${cameraBadge}
+
+          <div id="screen-share-alert" style="display:none;background:#FFEBEE;border:1.5px solid #EF5350;border-radius:10px;padding:14px;margin-bottom:16px;color:#C62828;font-size:0.9rem;text-align:left;line-height:1.4;">
+            ⚠️ <b>Compartir pantalla es un requisito obligatorio ("sí o sí"):</b><br/>
+            Para registrar el barrido visual y validar la autenticidad psicométrica del test, debes seleccionar tu pantalla o pestaña y presionar <b>Compartir</b>.
+          </div>
+
+          <p style="color: var(--text-light); line-height: 1.6; margin-bottom: 24px; font-size: 0.95rem;">
+            Por protocolo clínico, la prueba <b>debe registrar la pantalla</b> durante toda la evaluación. Haz clic en el botón y selecciona tu pantalla en la ventana del navegador.
+          </p>
+
+          <button id="btn-mandatory-screen" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; padding: 16px; font-size: 1.05rem; box-shadow: 0 4px 12px rgba(40, 53, 147, 0.25);" onclick="App.executeMandatoryScreenShare()">
+            🖥️ Compartir Pantalla y Continuar &nbsp;→
+          </button>
+        </div>
+      </div>
+    `;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = modalHtml;
+    document.body.appendChild(tempDiv.firstElementChild);
+  },
+
+  async executeMandatoryScreenShare() {
+    const alertEl = document.getElementById('screen-share-alert');
+    const btnShare = document.getElementById('btn-mandatory-screen');
+    if (alertEl) alertEl.style.display = 'none';
+    if (btnShare) {
+      btnShare.disabled = true;
+      btnShare.innerHTML = '⏳ Esperando selección en el navegador...';
+    }
+
+    let screenStream = null;
+    try {
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            displaySurface: "browser",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 15 }
+          },
+          audio: false,
+          preferCurrentTab: true
+        });
+      } catch (advancedError) {
+        console.warn("Fallback a getDisplayMedia básico (Safari/Opera/Firefox):", advancedError);
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      }
+    } catch (e) {
+      console.warn("Permiso de pantalla denegado/cancelado:", e);
+      if (alertEl) alertEl.style.display = 'block';
+      if (btnShare) {
+        btnShare.disabled = false;
+        btnShare.innerHTML = '🔄 Reintentar Compartir Pantalla (Obligatorio)';
+      }
+      return; // OBLIGATORIO: no avanza a la práctica sin compartir pantalla
+    }
+
+    // Éxito: cerrar modal y enlazar streams
+    const modal = document.getElementById('mandatory-screen-modal');
+    if (modal) modal.remove();
+
+    this.screenStream = screenStream;
+    this.cameraStream = this._pendingCameraStream || null;
+    this._pendingCameraStream = null;
+
+    if (screenStream && screenStream.getVideoTracks().length > 0) {
+      screenStream.getVideoTracks()[0].onended = () => {
+        console.warn("El usuario detuvo la compartición de pantalla.");
+      };
+    }
+
+    this.startRecording();
     this.nav('practice');
   },
 
@@ -2025,7 +2083,7 @@ const App = {
           recentEl.innerHTML = `
             <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
               <thead><tr style="border-bottom:1px solid rgba(255,255,255,.1);position:sticky;top:0;background:#141C33;z-index:2;">
-                ${['# ID','Fecha','ID Participante','Edad','Perfil IA','Confianza','Estado'].map(h =>
+                ${['# ID','Fecha','ID Participante (Protegido)','Edad','Perfil IA','Confianza','Estado'].map(h =>
                   `<th style="padding:10px;text-align:left;color:#7B8CDE;font-weight:600;">${h}</th>`
                 ).join('')}
               </tr></thead>
@@ -2034,7 +2092,7 @@ const App = {
                   <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
                     <td style="padding:10px;color:#90A4AE;">${row.id}</td>
                     <td style="padding:10px;color:#C5CAE9;">${row.created_at ? new Date(row.created_at).toLocaleDateString('es') : '—'}</td>
-                    <td style="padding:10px;color:#C5CAE9;font-family:monospace;font-size:.85rem;">${escapeHTML(String(row.participant_id || '—'))}</td>
+                    <td style="padding:10px;color:#90A4AE;font-family:monospace;font-size:.9rem;letter-spacing:2px;font-weight:700;" title="ID Protegido por confidencialidad clínica">******</td>
                     <td style="padding:10px;color:#C5CAE9;">${row.age || '—'}</td>
                     <td style="padding:10px;color:#7B8CDE;font-weight:600;">${escapeHTML(row.profile)}</td>
                     <td style="padding:10px;color:#90A4AE;">${row.confidence}</td>

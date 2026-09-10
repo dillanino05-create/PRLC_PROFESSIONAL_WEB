@@ -49,8 +49,9 @@ sequenceDiagram
    - **Gráfico de Barras:** Evolución del volumen de evaluaciones por fecha (histórico completo).
    - **Gráfico de Dona:** Distribución porcentual de los perfiles predichos por la IA (Control Sano, TDAH, Impulsivo, etc.).
 
-4. **Tabla de Evaluaciones Clínicas Globales:**
-   - Historial de hasta 50 evaluaciones recientes con scroll interno, ID del participante, edad, diagnóstico y nivel de confianza de la IA.
+4. **Tabla de Evaluaciones Clínicas Globales (Anonimizada):**
+   - Historial de hasta 50 evaluaciones recientes con scroll interno, fecha, edad, diagnóstico y nivel de confianza de la IA.
+   - **Enmascaramiento de Privacidad Clínica (HIPAA/GDPR):** El identificador del paciente se muestra y transmite de forma estricta como `******` (`ID Participante (Protegido)`), garantizando que el SuperAdmin no exponga datos de identificación personal (PII) ni vulnere la confidencialidad clínica entre el psicólogo y su paciente.
 
 5. **Banner de Diagnóstico de Credenciales:**
    - Detecta si `SUPABASE_SERVICE_KEY` tiene configurada la clave `anon` por error en lugar de `service_role`, alertando de inmediato a Dilan sobre la acción a tomar.
