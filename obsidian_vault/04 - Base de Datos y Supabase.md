@@ -82,4 +82,3 @@ Supabase almacena el rol dentro del campo `raw_user_meta_data`:
 - [[01 - Arquitectura de Despliegue]]
 - [[03 - Backend y Modelos de Inteligencia Artificial]]
 - [[07 - SuperAdmin Dashboard]]
-

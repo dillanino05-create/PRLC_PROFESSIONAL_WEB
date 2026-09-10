@@ -7,6 +7,7 @@ Una de las innovaciones clave de **PLC Professional** es la extracción de **bio
 ## 🔬 Fundamento Fisiológico y Clínico
 
 En sujetos con **TDAH**, ansiedad clínica, fatiga psicomotora o trastornos neurológicos, los movimientos de la mano reflejan:
+
 1. **Micromovimientos involuntarios de alta frecuencia (Jitter motor):** Temblor fino en la trayectoria del cursor.
 2. **Correcciones bruscas de trayectoria:** Cambios angulares repentinos causados por impulsividad o pérdida momentánea del foco de atención.
 
@@ -50,4 +51,3 @@ graph TD
 - [[02 - Frontend y Experiencia de Usuario]]
 - [[05 - Test d2 y Metricas Clinicas]]
 - [[08 - Exportacion y Reportes Excel]]
-

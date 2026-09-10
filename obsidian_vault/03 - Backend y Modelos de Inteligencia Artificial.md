@@ -7,7 +7,7 @@ El backend de **PLC Professional** está desarrollado en **Python (FastAPI)** y 
 ## 🛰️ Endpoints de la API (`web/backend/main.py`)
 
 | Método | Ruta | Autenticación | Función |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `GET` | `/api/status` | Pública | Comprueba disponibilidad del modelo Keras y versión activa (`v3.2`). |
 | `POST` | `/api/predict` | Pública / Interna | Ejecuta inferencia sobre el vector de 16 variables psicométricas. |
 | `POST` | `/api/evaluations/save` | `Bearer Token` | Guarda la evaluación en Supabase y programa la generación del Excel en background. |
@@ -67,4 +67,3 @@ flowchart TD
 - [[05 - Test d2 y Metricas Clinicas]]
 - [[07 - SuperAdmin Dashboard]]
 - [[08 - Exportacion y Reportes Excel]]
-

@@ -38,4 +38,3 @@ graph TD
 
 - [[00 - INDICE GENERAL DEL SISTEMA]]
 - [[01 - Arquitectura de Despliegue]]
-

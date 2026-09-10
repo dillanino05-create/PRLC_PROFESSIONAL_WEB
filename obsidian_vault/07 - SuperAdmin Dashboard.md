@@ -73,4 +73,3 @@ Para garantizar que las métricas nunca queden en 0:
 - [[01 - Arquitectura de Despliegue]]
 - [[03 - Backend y Modelos de Inteligencia Artificial]]
 - [[04 - Base de Datos y Supabase]]
-

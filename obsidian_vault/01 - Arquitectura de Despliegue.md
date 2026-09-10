@@ -83,4 +83,3 @@ flowchart LR
 - [[03 - Backend y Modelos de Inteligencia Artificial]]
 - [[04 - Base de Datos y Supabase]]
 - [[07 - SuperAdmin Dashboard]]
-

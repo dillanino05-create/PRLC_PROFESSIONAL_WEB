@@ -63,4 +63,3 @@ stateDiagram-v2
 - [[05 - Test d2 y Metricas Clinicas]]
 - [[06 - Biomarcadores Digitales y Tremor]]
 - [[07 - SuperAdmin Dashboard]]
-

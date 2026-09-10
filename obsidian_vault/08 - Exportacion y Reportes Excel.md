@@ -43,4 +43,3 @@ Cuando el frontend envía `POST /api/evaluations/save`, la respuesta HTTP retorn
 - [[03 - Backend y Modelos de Inteligencia Artificial]]
 - [[05 - Test d2 y Metricas Clinicas]]
 - [[06 - Biomarcadores Digitales y Tremor]]
-

@@ -50,4 +50,3 @@ Si el evaluado se detiene antes de completar las 14 páginas (por ejemplo, fatig
 - [[03 - Backend y Modelos de Inteligencia Artificial]]
 - [[06 - Biomarcadores Digitales y Tremor]]
 - [[08 - Exportacion y Reportes Excel]]
-
