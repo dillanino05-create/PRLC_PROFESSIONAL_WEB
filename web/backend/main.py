@@ -1,5 +1,7 @@
 import os
 import gc
+import json
+import base64
 import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -114,7 +116,7 @@ def verify_superadmin(authorization: str = Header(None)) -> dict:
     metadata = res.user.user_metadata or {}
     if metadata.get('role') != 'superadmin':
         raise HTTPException(status_code=403, detail="Acceso restringido: Solo SuperAdmin puede acceder a este recurso")
-    return {"user_id": res.user.id}
+    return {"user_id": res.user.id, "token": token}
 
 
 # ── Archivos Estáticos ─────────────────────────────────────────────────────────
@@ -307,117 +309,164 @@ def delete_eval(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
 # ════════════════════════════════════════════════════════════════════════════════
 #  SUPERADMIN — Dashboard Global (bypass RLS usando Service Role Key)
 # ════════════════════════════════════════════════════════════════════════════════
+def parse_jwt_role(token_str: str) -> str:
+    try:
+        parts = token_str.strip().split(".")
+        if len(parts) >= 2:
+            pad = 4 - len(parts[1]) % 4
+            data = json.loads(base64.urlsafe_b64decode(parts[1] + ("=" * pad)))
+            return data.get("role", "desconocido")
+    except Exception:
+        pass
+    return "desconocido"
+
 @app.get('/api/admin/stats')
 async def admin_stats(_admin: dict = Depends(verify_superadmin)):
     """Estadísticas globales de la plataforma para el SuperAdmin.
-    Requiere SUPABASE_SERVICE_KEY configurada como variable de entorno.
+    Verifica la clave de servicio y consulta usuarios y evaluaciones mediante múltiples vías.
     """
+    key_role = parse_jwt_role(SUPABASE_SERVICE_KEY)
+    service_key_ok = bool(SUPABASE_SERVICE_KEY and key_role == "service_role")
+    admin_token = _admin.get("token", "")
+
+    diagnostic_msg = ""
     if not SUPABASE_SERVICE_KEY:
-        raise HTTPException(
-            status_code=503,
-            detail="Service Key no configurada. Añade SUPABASE_SERVICE_KEY en Hugging Face Spaces → Settings → Secrets."
-        )
-    try:
-        # Cliente Admin: NO está limitado por RLS — acceso total a todas las filas
-        admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False))
-        sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+        diagnostic_msg = "Falta SUPABASE_SERVICE_KEY en Hugging Face Spaces → Settings → Secrets."
+    elif key_role == "anon":
+        diagnostic_msg = "Has configurado la clave ANON (pública) en lugar de la clave SERVICE_ROLE (secreta). En Supabase ve a Settings → API y copia la clave 'service_role' secreta."
+    
+    registered_users = []
+    user_eval_counts = {}
+    evals_data = []
 
-        # 1. Total evaluaciones (histórico completo)
-        total_res = sb_admin.table('evaluations').select('id', count='exact').execute()
-        total_evals = total_res.count or 0
+    # 1. Obtener todas las evaluaciones (Vía A: Service Key, Vía B: Token SuperAdmin)
+    eval_headers_to_try = []
+    if SUPABASE_SERVICE_KEY:
+        eval_headers_to_try.append({"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"})
+    if admin_token:
+        eval_headers_to_try.append({"apikey": SUPABASE_KEY, "Authorization": f"Bearer {admin_token}"})
 
-        # 2. Conteo de evaluaciones por cada psicólogo (user_id)
-        user_eval_counts = {}
+    with httpx.Client(timeout=12.0) as client:
+        for headers in eval_headers_to_try:
+            try:
+                r_evals = client.get(
+                    f"{SUPABASE_URL}/rest/v1/evaluations?select=id,created_at,participant_id,age,ml_json,status,user_id&order=id.desc",
+                    headers=headers
+                )
+                if r_evals.status_code == 200:
+                    evals_data = r_evals.json()
+                    if evals_data:
+                        break
+            except Exception as e:
+                print("Error consultando evaluaciones REST:", e)
+
+    # Si REST falló pero tenemos cliente SDK, intentar con SDK
+    if not evals_data and SUPABASE_SERVICE_KEY:
         try:
-            all_evals_res = sb_admin.table('evaluations').select('id, user_id').execute()
-            for ev in (all_evals_res.data or []):
-                uid = ev.get('user_id')
-                if uid:
-                    user_eval_counts[uid] = user_eval_counts.get(uid, 0) + 1
+            admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False))
+            sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+            res_sdk = sb_admin.table('evaluations').select('id, created_at, participant_id, age, ml_json, status, user_id').order('id', desc=True).execute()
+            evals_data = res_sdk.data or []
         except Exception as e:
-            print("Error mapping eval counts:", e)
+            print("Error consultando evaluaciones SDK:", e)
 
-        # 3. Lista de psicólogos registrados (Supabase Auth Admin)
-        registered_users = []
+    # Conteo de evaluaciones por user_id
+    for ev in evals_data:
+        uid = ev.get('user_id')
+        if uid:
+            user_eval_counts[uid] = user_eval_counts.get(uid, 0) + 1
+
+    # 2. Obtener lista de usuarios de Supabase Auth
+    # Intentar endpoint Admin Auth con Service Key
+    if SUPABASE_SERVICE_KEY:
         try:
-            auth_res = sb_admin.auth.admin.list_users()
-            user_list = getattr(auth_res, 'users', auth_res)
-            for u in user_list:
-                uid = getattr(u, 'id', '')
-                meta = getattr(u, 'user_metadata', {}) or {}
-                registered_users.append({
-                    'id': uid,
-                    'email': getattr(u, 'email', 'Sin correo'),
-                    'created_at': getattr(u, 'created_at', ''),
-                    'last_sign_in_at': getattr(u, 'last_sign_in_at', None),
-                    'role': meta.get('role', 'psicólogo clínico'),
-                    'evaluations_count': user_eval_counts.get(uid, 0)
-                })
+            with httpx.Client(timeout=12.0) as client:
+                r_users = client.get(
+                    f"{SUPABASE_URL}/auth/v1/admin/users?per_page=100",
+                    headers={
+                        "apikey": SUPABASE_SERVICE_KEY,
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"
+                    }
+                )
+                if r_users.status_code == 200:
+                    raw_users = r_users.json().get("users", [])
+                    for u in raw_users:
+                        uid = u.get("id", "")
+                        meta = u.get("user_metadata") or {}
+                        registered_users.append({
+                            "id": uid,
+                            "email": u.get("email", "Sin correo"),
+                            "created_at": u.get("created_at", ""),
+                            "last_sign_in_at": u.get("last_sign_in_at"),
+                            "role": meta.get("role", "psicólogo clínico"),
+                            "evaluations_count": user_eval_counts.get(uid, 0)
+                        })
         except Exception as e:
-            print("Error listing auth users:", e)
-            # Fallback en caso de que list_users tenga alguna restricción
-            for uid, count in user_eval_counts.items():
-                registered_users.append({
-                    'id': uid,
-                    'email': f'Usuario {uid[:8]}...',
-                    'created_at': '',
-                    'last_sign_in_at': None,
-                    'role': 'psicólogo clínico',
-                    'evaluations_count': count
-                })
+            print("Error consultando usuarios Auth REST:", e)
 
-        total_psychologists = len(registered_users) if registered_users else len(user_eval_counts)
-
-        # 4. Evaluaciones por día (todo el histórico disponible)
-        daily_res = sb_admin.table('evaluations').select('created_at').execute()
-        daily_map: dict = {}
-        for r in (daily_res.data or []):
-            created = r.get('created_at')
-            if created:
-                day = created[:10]
-                daily_map[day] = daily_map.get(day, 0) + 1
-        daily_sorted = sorted(daily_map.items())
-        today_key   = datetime.now().strftime('%Y-%m-%d')
-        today_count = daily_map.get(today_key, 0)
-
-        # 5. Distribución de perfiles ML en toda la plataforma
-        ml_res = sb_admin.table('evaluations').select('ml_json').execute()
-        profile_map: dict = {}
-        for r in (ml_res.data or []):
-            ml = r.get('ml_json') or {}
-            profile = ml.get('predicted_profile')
-            if profile:
-                profile_map[profile] = profile_map.get(profile, 0) + 1
-        top_profile = max(profile_map, key=profile_map.get) if profile_map else 'N/A'
-
-        # 6. Evaluaciones recientes (hasta 50 registros)
-        recent_res = sb_admin.table('evaluations').select(
-            'id, created_at, participant_id, age, ml_json, status, user_id'
-        ).order('id', desc=True).limit(50).execute()
-        recent = []
-        for r in (recent_res.data or []):
-            ml = r.get('ml_json') or {}
-            recent.append({
-                'id': r['id'],
-                'created_at': r['created_at'],
-                'participant_id': r.get('participant_id', '—'),
-                'age': r.get('age'),
-                'profile': (ml.get('predicted_profile') or 'N/A').replace('_', ' '),
-                'confidence': ml.get('confidence_percent', 'N/A'),
-                'status': r.get('status', 'completed'),
-                'user_id': r.get('user_id', '')
+    # Si no se obtuvieron usuarios vía Auth API, poblar desde evaluaciones
+    if not registered_users and user_eval_counts:
+        for uid, count in user_eval_counts.items():
+            registered_users.append({
+                "id": uid,
+                "email": f"Usuario {uid[:8]}...",
+                "created_at": "",
+                "last_sign_in_at": None,
+                "role": "psicólogo clínico",
+                "evaluations_count": count
             })
 
-        return {
-            'total_evaluations':    total_evals,
-            'unique_psychologists': total_psychologists,
-            'today_count':          today_count,
-            'top_profile':          top_profile.replace('_', ' ') if top_profile != 'N/A' else 'N/A',
-            'registered_users':     registered_users,
-            'daily_distribution':   [{'date': d, 'count': c} for d, c in daily_sorted],
-            'profile_distribution': [{'profile': k.replace('_', ' '), 'count': v}
-                                     for k, v in sorted(profile_map.items(), key=lambda x: -x[1])],
-            'recent_evaluations':   recent
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas globales: {str(e)}")
+    # 3. Métricas agregadas y distribuciones
+    total_evals = len(evals_data)
+    total_psychologists = len(registered_users) if registered_users else len(user_eval_counts)
+
+    daily_map = {}
+    profile_map = {}
+    today_key = datetime.now().strftime('%Y-%m-%d')
+    today_count = 0
+
+    for ev in evals_data:
+        created = ev.get('created_at')
+        if created:
+            day = created[:10]
+            daily_map[day] = daily_map.get(day, 0) + 1
+            if day == today_key:
+                today_count += 1
+        
+        ml = ev.get('ml_json') or {}
+        prof = ml.get('predicted_profile')
+        if prof:
+            profile_map[prof] = profile_map.get(prof, 0) + 1
+
+    daily_sorted = sorted(daily_map.items())
+    top_profile = max(profile_map, key=profile_map.get) if profile_map else 'N/A'
+
+    # 4. Formatear lista de evaluaciones recientes (hasta 50)
+    recent = []
+    for r in evals_data[:50]:
+        ml = r.get('ml_json') or {}
+        recent.append({
+            'id': r['id'],
+            'created_at': r.get('created_at'),
+            'participant_id': r.get('participant_id', '—'),
+            'age': r.get('age'),
+            'profile': (ml.get('predicted_profile') or 'N/A').replace('_', ' '),
+            'confidence': ml.get('confidence_percent', 'N/A'),
+            'status': r.get('status', 'completed'),
+            'user_id': r.get('user_id', '')
+        })
+
+    return {
+        'total_evaluations':    total_evals,
+        'unique_psychologists': total_psychologists,
+        'today_count':          today_count,
+        'top_profile':          top_profile.replace('_', ' ') if top_profile != 'N/A' else 'N/A',
+        'registered_users':     registered_users,
+        'daily_distribution':   [{'date': d, 'count': c} for d, c in daily_sorted],
+        'profile_distribution': [{'profile': k.replace('_', ' '), 'count': v}
+                                 for k, v in sorted(profile_map.items(), key=lambda x: -x[1])],
+        'recent_evaluations':   recent,
+        'service_key_status':   'ok' if service_key_ok else 'warning',
+        'key_role_detected':    key_role,
+        'diagnostic_message':   diagnostic_msg
+    }

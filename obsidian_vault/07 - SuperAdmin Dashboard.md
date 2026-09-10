@@ -52,6 +52,16 @@ sequenceDiagram
 4. **Tabla de Evaluaciones Clínicas Globales:**
    - Historial de hasta 50 evaluaciones recientes con scroll interno, ID del participante, edad, diagnóstico y nivel de confianza de la IA.
 
+5. **Banner de Diagnóstico de Credenciales:**
+   - Detecta si `SUPABASE_SERVICE_KEY` tiene configurada la clave `anon` por error en lugar de `service_role`, alertando de inmediato a Dilan sobre la acción a tomar.
+
+---
+
+## 🔑 Doble Vía de Consulta Resiliente
+Para garantizar que las métricas nunca queden en 0:
+1. **Vía Principal:** `SUPABASE_SERVICE_KEY` con permisos de bypass total de RLS y acceso al Auth Admin API (`/auth/v1/admin/users`).
+2. **Vía Secundaria (Fallback):** Token de sesión del SuperAdmin (`_admin['token']`), respaldado por la política de RLS en PostgreSQL para rol `superadmin`.
+
 ---
 
 ## 🔗 Enlaces Relacionados en la Bóveda

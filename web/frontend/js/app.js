@@ -1804,13 +1804,16 @@ const App = {
               🛡️ Panel SuperAdmin
             </div>
             <div style="color:#7B8CDE;font-size:1rem;margin-top:8px;-webkit-text-fill-color:#7B8CDE;">
-              MeCapSy · Consola de Administración Global · Dilan A. Lamus Pabón
+              MecaPsi · Consola de Administración Global · Dilan A. Lamus Pabón
             </div>
           </div>
           <button class="btn btn-ghost btn-sm" style="background:rgba(255,255,255,.1);color:#C5CAE9;border-color:rgba(255,255,255,.2);" onclick="App.nav('menu')">
             ← Volver al Menú
           </button>
         </div>
+
+        <!-- Diagnostic Alert Banner (si hay problemas con las credenciales de Supabase) -->
+        <div id="admin-diagnostic-banner"></div>
 
         <!-- KPI Cards (se pueblan via loadAdminStats) -->
         <div id="admin-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:36px;">
@@ -1824,7 +1827,7 @@ const App = {
         <!-- Charts -->
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:32px;" class="admin-charts-grid">
           <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;">
-            <div style="font-weight:600;margin-bottom:16px;color:#C5CAE9;font-size:1.05rem;">📈 Evaluaciones por Día — Últimos 30 días</div>
+            <div style="font-weight:600;margin-bottom:16px;color:#C5CAE9;font-size:1.05rem;">📈 Evaluaciones por Día (Histórico Global)</div>
             <canvas id="admin-daily-chart"></canvas>
           </div>
           <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;">
@@ -1884,6 +1887,23 @@ const App = {
       }
 
       const d = await r.json();
+
+      // ── Banner de Diagnóstico ──────────────────────────────
+      const diagBannerEl = document.getElementById('admin-diagnostic-banner');
+      if (diagBannerEl) {
+        if (d.diagnostic_message) {
+          diagBannerEl.innerHTML = `
+            <div style="background:rgba(255,167,38,0.15);border:1.5px solid #FFA726;border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px;color:#FFE0B2;">
+              <div style="font-size:1.8rem;">⚠️</div>
+              <div style="font-size:0.95rem;line-height:1.4;">
+                <strong style="color:#FFA726;">Aviso de Configuración de Supabase:</strong><br/>
+                ${escapeHTML(d.diagnostic_message)}
+              </div>
+            </div>`;
+        } else {
+          diagBannerEl.innerHTML = '';
+        }
+      }
 
       // ── KPI Cards ──────────────────────────────────────────
       const kpis = [

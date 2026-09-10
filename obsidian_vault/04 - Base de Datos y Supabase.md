@@ -44,6 +44,19 @@ flowchart TD
     Bypass --> AdminStats["SuperAdmin: Consulta todas las evaluaciones y cuentas globales"]
 ```
 
+### Política SQL de Acceso para SuperAdmin en Supabase
+Para permitir que las consultas del SuperAdmin funcionen tanto por backend como por cliente:
+```sql
+CREATE POLICY "SuperAdmin puede ver todas las evaluaciones" 
+ON public.evaluations 
+FOR SELECT 
+TO authenticated 
+USING (
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'superadmin' 
+  OR auth.uid() = user_id
+);
+```
+
 ---
 
 ## 👥 Gestión de Roles en `auth.users`
