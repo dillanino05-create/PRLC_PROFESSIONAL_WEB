@@ -8,9 +8,13 @@ class LineData(BaseModel):
     aciertos: int
     omisiones: int
     comisiones: int
+    evaluados: int = 0          # Cuántos estímulos evaluó el paciente en esa línea
     tiempo_s: float
     tiempo_pct: float
     saltos_erraticos: int = 0
+    # ── Biomarcadores Digitales: Cinemática del Cursor ──────────────────────────
+    tremor_score: float = 0.0   # Índice de variabilidad cinemática (Jitter)
+    tremor_flag: bool = False    # True si supera el umbral clínico de alerta
 
 
 class ClickLogItem(BaseModel):
@@ -75,6 +79,13 @@ class MetricsData(BaseModel):
     medRt: float
     attnStyle: str
     attnDesc: str
+    # ── Campos de estado que el frontend ya enviaba pero faltaban en el modelo ──
+    focusType: str = ""
+    isIncomplete: bool = False
+    lastLine: int = 0
+    lastChar: int = 0
+    # ── Biomarcadores Digitales agregados ──────────────────────────────────────
+    tremor_lines: Optional[List[int]] = None   # Nº de páginas con tremor detectado
 
 
 class SaveRequest(BaseModel):

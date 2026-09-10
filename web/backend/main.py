@@ -2,7 +2,7 @@ import os
 import gc
 import asyncio
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
 import matplotlib.pyplot as plt
@@ -72,8 +72,10 @@ app.add_middleware(
 )
 
 # ── Supabase Setup ─────────────────────────────────────────────────────────────
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://lfyaiwbtfgoiczyyzlwh.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjc1MTEsImV4cCI6MjA5MDY0MzUxMX0.ZfVceXuYWQKEZimgRLt9kGkSGpq8FO7kRgKbL-Ta-3M")
+SUPABASE_URL         = os.getenv("SUPABASE_URL", "https://lfyaiwbtfgoiczyyzlwh.supabase.co")
+SUPABASE_KEY         = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjc1MTEsImV4cCI6MjA5MDY0MzUxMX0.ZfVceXuYWQKEZimgRLt9kGkSGpq8FO7kRgKbL-Ta-3M")
+# Service Role Key: bypass de RLS para consultas de SuperAdmin. Configura en HF Spaces → Settings → Secrets
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 def get_supabase(authorization: str = Header(None)) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
@@ -94,6 +96,26 @@ def get_supabase(authorization: str = Header(None)) -> dict:
          raise HTTPException(status_code=401, detail="Usuario inválido")
          
     return {"client": sb, "user_id": res.user.id}
+
+
+def verify_superadmin(authorization: str = Header(None)) -> dict:
+    """Dependencia FastAPI: verifica que el JWT pertenezca a un usuario con role='superadmin' en user_metadata."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Falta autorización")
+    token = authorization.split(" ")[1]
+    opts = ClientOptions(
+        headers={'Authorization': f'Bearer {token}'},
+        httpx_client=httpx.Client(http2=False)
+    )
+    sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
+    res = sb.auth.get_user(token)
+    if not res or not res.user:
+        raise HTTPException(status_code=401, detail="Usuario inválido o sesión expirada")
+    metadata = res.user.user_metadata or {}
+    if metadata.get('role') != 'superadmin':
+        raise HTTPException(status_code=403, detail="Acceso restringido: Solo SuperAdmin puede acceder a este recurso")
+    return {"user_id": res.user.id}
+
 
 # ── Archivos Estáticos ─────────────────────────────────────────────────────────
 app.mount('/static', StaticFiles(directory=str(FRONTEND_DIR)), name='static')
@@ -280,3 +302,81 @@ def delete_eval(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     # 2. Borrar del registro en base de datos
     sb.table("evaluations").delete().eq("id", eval_id).execute()
     return {'ok': True}
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+#  SUPERADMIN — Dashboard Global (bypass RLS usando Service Role Key)
+# ════════════════════════════════════════════════════════════════════════════════
+@app.get('/api/admin/stats')
+async def admin_stats(_admin: dict = Depends(verify_superadmin)):
+    """Estadísticas globales de la plataforma para el SuperAdmin.
+    Requiere SUPABASE_SERVICE_KEY configurada como variable de entorno.
+    """
+    if not SUPABASE_SERVICE_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Service Key no configurada. Añade SUPABASE_SERVICE_KEY en Hugging Face Spaces → Settings → Secrets."
+        )
+    try:
+        # Cliente Admin: NO está limitado por RLS — acceso total a todas las filas
+        admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False))
+        sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+
+        # 1. Total evaluaciones
+        total_res = sb_admin.table('evaluations').select('id', count='exact').execute()
+        total_evals = total_res.count or 0
+
+        # 2. Psicólogos únicos (conteo de user_id distintos)
+        users_res = sb_admin.table('evaluations').select('user_id').execute()
+        unique_users = len(set(r['user_id'] for r in (users_res.data or [])))
+
+        # 3. Evaluaciones por día (últimos 30 días)
+        cutoff = (datetime.now() - timedelta(days=30)).isoformat()
+        daily_res = sb_admin.table('evaluations').select('created_at').gte('created_at', cutoff).execute()
+        daily_map: dict = {}
+        for r in (daily_res.data or []):
+            day = r['created_at'][:10]
+            daily_map[day] = daily_map.get(day, 0) + 1
+        daily_sorted = sorted(daily_map.items())
+        today_key   = datetime.now().strftime('%Y-%m-%d')
+        today_count = daily_map.get(today_key, 0)
+
+        # 4. Distribución de perfiles ML en toda la plataforma
+        ml_res = sb_admin.table('evaluations').select('ml_json').execute()
+        profile_map: dict = {}
+        for r in (ml_res.data or []):
+            ml = r.get('ml_json') or {}
+            profile = ml.get('predicted_profile')
+            if profile:
+                profile_map[profile] = profile_map.get(profile, 0) + 1
+        top_profile = max(profile_map, key=profile_map.get) if profile_map else 'N/A'
+
+        # 5. Últimas 10 evaluaciones (metadatos anónimos)
+        recent_res = sb_admin.table('evaluations').select(
+            'id, created_at, participant_id, age, ml_json, status'
+        ).order('id', desc=True).limit(10).execute()
+        recent = []
+        for r in (recent_res.data or []):
+            ml = r.get('ml_json') or {}
+            recent.append({
+                'id': r['id'],
+                'created_at': r['created_at'],
+                'participant_id': r.get('participant_id', '—'),
+                'age': r.get('age'),
+                'profile': (ml.get('predicted_profile') or 'N/A').replace('_', ' '),
+                'confidence': ml.get('confidence_percent', 'N/A'),
+                'status': r.get('status', 'completed')
+            })
+
+        return {
+            'total_evaluations':    total_evals,
+            'unique_psychologists': unique_users,
+            'today_count':          today_count,
+            'top_profile':          top_profile.replace('_', ' ') if top_profile != 'N/A' else 'N/A',
+            'daily_distribution':   [{'date': d, 'count': c} for d, c in daily_sorted],
+            'profile_distribution': [{'profile': k.replace('_', ' '), 'count': v}
+                                     for k, v in sorted(profile_map.items(), key=lambda x: -x[1])],
+            'recent_evaluations':   recent
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener estadísticas globales: {str(e)}")

@@ -218,10 +218,28 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             {"Notas Observacionales de Barrido Visual": note} for note in jumps_notes
         ])
 
+        # Notas de Biomarcadores Motores Digitales (Tremor del Cursor)
+        tremor_lines = [l for l in lines_data if l.get('tremor_flag', False)]
+        if tremor_lines:
+            tremor_note_rows = [
+                f"🔴 Pág. {l['linea']}: Variabilidad cinématica anormal del cursor (Tremor Score: {l.get('tremor_score', 0):.2f}). "
+                f"Posible indicador de tensión motriz, temblor fisiológico o interferencia ambiental."
+                for l in tremor_lines
+            ]
+        else:
+            tremor_note_rows = [
+                "✅ Cinématica motriz dentro de rangos normales en todas las páginas. "
+                "No se detectaron patrones de variabilidad de cursor sugestivos de temblor."
+            ]
+        df_tremor = pd.DataFrame([
+            {"🧠 Biomarcadores Motores Digitales (Jitter del Cursor)": n} for n in tremor_note_rows
+        ])
+
         df_demog.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=4, startcol=0)
         df_metricas.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=4, startcol=3)
         df_patrones.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=15, startcol=0)
         df_notas.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=15, startcol=3)
+        df_tremor.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=26, startcol=0)
         
         ws1 = writer.sheets['01_Resumen_Clinico']
         _add_educational_header(ws1, "Resumen Transversal Objetivo del Desempeño",
@@ -238,12 +256,16 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             d2.append({
                 "Nº Línea": l['linea'],
                 "Estímulos Blancos": l['targets_total'],
+                "Evaluados hasta donde llegó": l.get('evaluados', l['targets_total']),
                 "Exactitud (Marcar Blanco)": l['aciertos'],
                 "Fallo por Exclusión (Omisión)": l['omisiones'],
                 "Fallo por Inclusión (Comisión)": l['comisiones'],
-                "Distracciones (Saltos Erráticos)": l.get('saltos_erraticos', 0),
+                "Distracciones (Saltos Eráticos)": l.get('saltos_erraticos', 0),
                 "Latencia Invertida (Segundos)": round(l['tiempo_s'], 2),
-                "Proporción Exactitud (%)": round((l['aciertos']/max(l['targets_total'],1))*100, 1)
+                "Proporción Exactitud (%)": round((l['aciertos']/max(l['targets_total'],1))*100, 1),
+                # ── Biomarcadores Digitales (Cinématica del Cursor) ────────────────
+                "Tremor Score (Jitter Motor)": round(l.get('tremor_score', 0.0), 2),
+                "⚠️ Indicador Temblor Motor": "SÍ — Variabilidad cinématica elevada" if l.get('tremor_flag', False) else "Normal"
             })
         df_l = pd.DataFrame(d2)
         df_l.to_excel(writer, sheet_name='02_Analisis_Lineas', index=False, startrow=4)
@@ -252,7 +274,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         _add_educational_header(ws2, "Disección Iterativa de la Ejecución (Línea por Línea)",
                                 "Desglose longitudinal de la instrumentación. Útil para ubicar focos precisos de aparición de fallos por latencia crónica o desgaste temprano. (Targets Totales = Exactitud + Omisión).")
         _style_hdr(ws2, row=5)
-        _set_widths(ws2, [12, 18, 25, 25, 25, 30, 25, 25])
+        _set_widths(ws2, [10, 18, 28, 22, 25, 25, 28, 24, 22, 26, 36])
         
         # ── Hoja 3: Glosario de Métricas ───────────────────────────────────
         glosario = [

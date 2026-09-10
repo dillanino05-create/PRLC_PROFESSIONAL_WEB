@@ -41,6 +41,11 @@ const App = {
   charBtns: [],
   currentSels: new Set(),
 
+  // ── Biomarcadores de Cinématica del Cursor (Tremor/Jitter) ────────────────────
+  mouseTrackPerLine: [],      // [[{x,y,t}, …], …] una subarray por línea
+  _mouseMoveThrottleTs: 0,    // timestamp del último evento registrado
+  _mouseMoveHandler: null,    // ref a la función listener para poder removerla
+
   TOTAL_LINES: 14,
   TIME_PER_LINE: 20,
   CHARS_PER_LINE: 47,
@@ -118,6 +123,7 @@ const App = {
       case 'completion': this.renderCompletionScreen(app); break;
       case 'results': this.renderResults(app); break;
       case 'history': this.renderHistory(app); break;
+      case 'superadmin': this.renderSuperAdmin(app); break;
     }
   },
 
@@ -245,6 +251,10 @@ const App = {
             <button class="btn btn-ghost btn-lg" onclick="App.nav('history')">
               📋 &nbsp; Historial
             </button>
+            ${this.user?.user_metadata?.role === 'superadmin' ? `
+            <button class="btn btn-ghost btn-lg" style="background:rgba(255,215,0,.18);color:#FFD700;border:1.5px solid rgba(255,215,0,.5);" onclick="App.nav('superadmin')">
+              🛡️ &nbsp; Panel Admin
+            </button>` : ''}
             <button class="btn btn-danger btn-lg" onclick="App.doLogout()">
               Cerrar Sesión
             </button>
@@ -934,6 +944,29 @@ const App = {
     drawRow(document.getElementById('row-0'), row1, 0);
     drawRow(document.getElementById('row-1'), row2, split);
 
+    // ── Biomarcadores Motor: inicializar tracking del cursor para esta línea ───────
+    this.mouseTrackPerLine[this.currentLine] = [];
+    this._mouseMoveThrottleTs = 0;
+    const _stimAreaEl = document.getElementById('stim-area');
+    if (_stimAreaEl) {
+      // Remover handler anterior si existe (defensa ante llamadas rápidas)
+      if (this._mouseMoveHandler) {
+        _stimAreaEl.removeEventListener('mousemove', this._mouseMoveHandler);
+      }
+      this._mouseMoveHandler = (e) => {
+        const _now = performance.now();
+        if (_now - this._mouseMoveThrottleTs < 16) return; // Throttle a ~60fps
+        this._mouseMoveThrottleTs = _now;
+        const _rect = _stimAreaEl.getBoundingClientRect();
+        this.mouseTrackPerLine[this.currentLine].push({
+          x: e.clientX - _rect.left,
+          y: e.clientY - _rect.top,
+          t: _now
+        });
+      };
+      _stimAreaEl.addEventListener('mousemove', this._mouseMoveHandler, { passive: true });
+    }
+
     // Start timer
     this.lineStartTime = performance.now();
     this.timerRunning = true;
@@ -1032,6 +1065,14 @@ const App = {
        lastIdx = c.stim_idx;
     }
 
+    // 4. Biomarcadores Motor: limpiar listener y calcular tremor del cursor
+    const _saEl = document.getElementById('stim-area');
+    if (_saEl && this._mouseMoveHandler) {
+      _saEl.removeEventListener('mousemove', this._mouseMoveHandler);
+      this._mouseMoveHandler = null;
+    }
+    const tremorResult = computeTremorScore(this.mouseTrackPerLine[this.currentLine] || []);
+
     this.linesData.push({
       linea: this.currentLine + 1,
       targets_total: targets,
@@ -1040,6 +1081,8 @@ const App = {
       comisiones: coms,
       evaluados: evaluados,
       saltos_erraticos: jumps,
+      tremor_score: tremorResult.score,
+      tremor_flag: tremorResult.flag,
       tiempo_s: +elapsed.toFixed(3),
       tiempo_pct: +(Math.min(elapsed, this.TIME_PER_LINE) / this.TIME_PER_LINE * 100).toFixed(1)
     });
@@ -1107,7 +1150,8 @@ const App = {
             medRt: this.metrics.medRt, attnStyle: this.metrics.attnStyle,
             attnDesc: this.metrics.attnDesc, focusType: this.metrics.focusType,
             isIncomplete: this.metrics.isIncomplete, lastLine: this.metrics.lastLine,
-            lastChar: this.metrics.lastChar
+            lastChar: this.metrics.lastChar,
+            tremor_lines: this.linesData.filter(l => l.tremor_flag).map(l => l.linea)
           },
           ml_prediction: this.mlPred,
           narrative
@@ -1145,6 +1189,7 @@ const App = {
             attnDesc: this.metrics.attnDesc, focusType: this.metrics.focusType,
             isIncomplete: this.metrics.isIncomplete, lastLine: this.metrics.lastLine,
             lastChar: this.metrics.lastChar,
+            tremor_lines: this.linesData.filter(l => l.tremor_flag).map(l => l.linea),
             video_path: videoName
           };
           
@@ -1743,7 +1788,187 @@ const App = {
     player.pause();
     player.src = "";
     modal.classList.remove('active');
+  },
+
+  /* ══════════════════════════════════════════════════════════════════════
+     PANTALLA 7: SUPERADMIN DASHBOARD
+  ══════════════════════════════════════════════════════════════════════ */
+  renderSuperAdmin(app) {
+    app.innerHTML = `
+      <div id="admin-screen" style="min-height:100vh;background:linear-gradient(135deg,#0D1B2A 0%,#1A1A3E 60%,#0D1B2A 100%);color:#fff;padding:40px;box-sizing:border-box;">
+
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:40px;flex-wrap:wrap;gap:16px;">
+          <div>
+            <div style="font-size:2.4rem;font-weight:800;letter-spacing:-1px;background:linear-gradient(90deg,#7B8CDE,#C5CAE9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
+              🛡️ Panel SuperAdmin
+            </div>
+            <div style="color:#7B8CDE;font-size:1rem;margin-top:8px;-webkit-text-fill-color:#7B8CDE;">
+              MeCapSy · Consola de Administración Global · Dilan A. Lamus Pabón
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="background:rgba(255,255,255,.1);color:#C5CAE9;border-color:rgba(255,255,255,.2);" onclick="App.nav('menu')">
+            ← Volver al Menú
+          </button>
+        </div>
+
+        <!-- KPI Cards (se pueblan via loadAdminStats) -->
+        <div id="admin-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:36px;">
+          ${[1,2,3,4].map(() => `
+            <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:28px 20px;text-align:center;">
+              <div class="spinner" style="margin:0 auto 12px;border-color:rgba(123,140,222,0.25);border-top-color:#7B8CDE;width:24px;height:24px;border-width:3px;"></div>
+              <div style="color:#546E7A;font-size:0.85rem;">Cargando...</div>
+            </div>`).join('')}
+        </div>
+
+        <!-- Charts -->
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:32px;" class="admin-charts-grid">
+          <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;">
+            <div style="font-weight:600;margin-bottom:16px;color:#C5CAE9;font-size:1.05rem;">📈 Evaluaciones por Día — Últimos 30 días</div>
+            <canvas id="admin-daily-chart"></canvas>
+          </div>
+          <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;">
+            <div style="font-weight:600;margin-bottom:16px;color:#C5CAE9;font-size:1.05rem;">🧠 Distribución de Perfiles Cognitivos</div>
+            <canvas id="admin-profile-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Recent evaluations -->
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;">
+          <div style="font-weight:600;margin-bottom:20px;color:#C5CAE9;font-size:1.05rem;">📋 Evaluaciones Recientes — últimas 10 (IDs de participantes anónimos)</div>
+          <div id="admin-recent-table">
+            <div style="color:#546E7A;text-align:center;padding:20px;">Cargando tabla...</div>
+          </div>
+        </div>
+
+      </div>`;
+
+    requestAnimationFrame(() => this.loadAdminStats());
+  },
+
+  async loadAdminStats() {
+    try {
+      const sess  = await this.supabase.auth.getSession();
+      const token = sess.data.session ? sess.data.session.access_token : '';
+      const r     = await fetch(API_BASE + '/api/admin/stats', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!r.ok) {
+        const err = await r.json();
+        const kpisEl = document.getElementById('admin-kpis');
+        if (kpisEl) kpisEl.innerHTML = `<div style="color:#EF9A9A;padding:20px;grid-column:1/-1;">⚠️ ${escapeHTML(err.detail || 'Error al cargar')}</div>`;
+        return;
+      }
+
+      const d = await r.json();
+
+      // ── KPI Cards ──────────────────────────────────────────
+      const kpis = [
+        { icon: '📊', label: 'Total Evaluaciones',   value: d.total_evaluations },
+        { icon: '👨‍⚕️', label: 'Psicólogos Activos',    value: d.unique_psychologists },
+        { icon: '📅', label: 'Evaluaciones Hoy',     value: d.today_count },
+        { icon: '🧠', label: 'Perfil Más Frecuente',  value: d.top_profile }
+      ];
+      const kpisEl = document.getElementById('admin-kpis');
+      if (kpisEl) kpisEl.innerHTML = kpis.map(k => `
+        <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:28px 20px;text-align:center;transition:transform .2s,box-shadow .2s;"
+             onmouseover="this.style.transform='translateY(-4px)';this.style.boxShadow='0 8px 24px rgba(123,140,222,.25)'"
+             onmouseout="this.style.transform='';this.style.boxShadow=''">
+          <div style="font-size:2.4rem;margin-bottom:10px;">${k.icon}</div>
+          <div style="font-size:2rem;font-weight:800;color:#7B8CDE;line-height:1.1;word-break:break-word;">${k.value}</div>
+          <div style="color:#90A4AE;font-size:0.9rem;margin-top:8px;">${k.label}</div>
+        </div>
+      `).join('');
+
+      // ── Gráfica diaria (barras) ─────────────────────────────────
+      const dailyCtx = document.getElementById('admin-daily-chart');
+      if (dailyCtx && window.Chart) {
+        if (d.daily_distribution && d.daily_distribution.length > 0) {
+          new Chart(dailyCtx, {
+            type: 'bar',
+            data: {
+              labels: d.daily_distribution.map(e => e.date.slice(5)), // MM-DD
+              datasets: [{
+                label: 'Evaluaciones',
+                data: d.daily_distribution.map(e => e.count),
+                backgroundColor: 'rgba(123,140,222,0.55)',
+                borderColor: '#7B8CDE', borderWidth: 1, borderRadius: 4
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { labels: { color: '#C5CAE9' } } },
+              scales: {
+                x: { ticks: { color: '#90A4AE', maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { ticks: { color: '#90A4AE' }, grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true }
+              }
+            }
+          });
+        } else {
+          dailyCtx.closest('div').innerHTML += '<p style="color:#546E7A;text-align:center;padding:20px;">Sin datos en los últimos 30 días.</p>';
+        }
+      }
+
+      // ── Gráfica de perfiles (dona) ────────────────────────────────
+      const profileCtx = document.getElementById('admin-profile-chart');
+      if (profileCtx && window.Chart && d.profile_distribution && d.profile_distribution.length > 0) {
+        const COLORS = ['#3949AB','#E53935','#F57F17','#2E7D32','#6A1B9A','#00838F','#558B2F','#AD1457'];
+        new Chart(profileCtx, {
+          type: 'doughnut',
+          data: {
+            labels: d.profile_distribution.map(e => e.profile),
+            datasets: [{
+              data: d.profile_distribution.map(e => e.count),
+              backgroundColor: COLORS.slice(0, d.profile_distribution.length),
+              borderWidth: 2, borderColor: '#0D1B2A'
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#C5CAE9', font: { size: 11 }, padding: 10 } }
+            }
+          }
+        });
+      }
+
+      // ── Tabla reciente ─────────────────────────────────────────────
+      const recentEl = document.getElementById('admin-recent-table');
+      if (recentEl) {
+        if (!d.recent_evaluations || !d.recent_evaluations.length) {
+          recentEl.innerHTML = '<p style="color:#90A4AE;padding:20px;">Sin evaluaciones recientes.</p>';
+        } else {
+          recentEl.innerHTML = `
+            <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+              <thead><tr style="border-bottom:1px solid rgba(255,255,255,.1);">
+                ${['# ID','Fecha','ID Participante','Edad','Perfil IA','Confianza','Estado'].map(h =>
+                  `<th style="padding:10px;text-align:left;color:#7B8CDE;font-weight:600;">${h}</th>`
+                ).join('')}
+              </tr></thead>
+              <tbody>
+                ${d.recent_evaluations.map(row => `
+                  <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
+                    <td style="padding:10px;color:#90A4AE;">${row.id}</td>
+                    <td style="padding:10px;color:#C5CAE9;">${new Date(row.created_at).toLocaleDateString('es')}</td>
+                    <td style="padding:10px;color:#C5CAE9;font-family:monospace;font-size:.85rem;">${escapeHTML(String(row.participant_id || '—'))}</td>
+                    <td style="padding:10px;color:#C5CAE9;">${row.age || '—'}</td>
+                    <td style="padding:10px;color:#7B8CDE;font-weight:600;">${escapeHTML(row.profile)}</td>
+                    <td style="padding:10px;color:#90A4AE;">${row.confidence}</td>
+                    <td style="padding:10px;"><span style="padding:3px 10px;border-radius:20px;font-size:.8rem;background:${row.status==='completed'?'rgba(46,125,50,.2)':'rgba(230,81,0,.2)'};color:${row.status==='completed'?'#81C784':'#FFB74D'};">${row.status}</span></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>`;
+        }
+      }
+
+    } catch(e) {
+      console.error('Admin stats error:', e);
+      const kpisEl = document.getElementById('admin-kpis');
+      if (kpisEl) kpisEl.innerHTML = `<div style="color:#EF9A9A;padding:20px;grid-column:1/-1;">Error al conectar con el servidor. Verifique la configuración.</div>`;
+    }
   }
+
 };
 
 document.addEventListener('DOMContentLoaded', () => App.init());
