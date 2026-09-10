@@ -59,14 +59,18 @@ sequenceDiagram
 ---
 
 ## 🔑 Doble Vía de Consulta Resiliente
+
 Para garantizar que las métricas nunca queden en 0:
+
 1. **Vía Principal:** `SUPABASE_SERVICE_KEY` con permisos de bypass total de RLS y acceso al Auth Admin API (`/auth/v1/admin/users`).
 2. **Vía Secundaria (Fallback):** Token de sesión del SuperAdmin (`_admin['token']`), respaldado por la política de RLS en PostgreSQL para rol `superadmin`.
 
 ---
 
 ## 🔗 Enlaces Relacionados en la Bóveda
+
 - [[00 - INDICE GENERAL DEL SISTEMA]]
 - [[01 - Arquitectura de Despliegue]]
 - [[03 - Backend y Modelos de Inteligencia Artificial]]
 - [[04 - Base de Datos y Supabase]]
+

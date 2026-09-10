@@ -24,7 +24,7 @@ graph TD
 ## 🗺️ Mapa Rápido de Ubicaciones por Tarea
 
 | Si el usuario pide... | Consulta esta nota primero | Archivo a editar puntualmente |
-|---|---|---|
+| --- | --- | --- |
 | Modificar el diseño o pantallas del test | [[02 - Frontend y Experiencia de Usuario]] | `web/frontend/js/app.js` (solo la función `renderX`) |
 | Modificar fórmulas psicométricas o temblor | [[05 - Test d2 y Metricas Clinicas]] o [[06 - Biomarcadores Digitales y Tremor]] | `web/frontend/js/metrics.js` |
 | Modificar el modelo IA o endpoints de API | [[03 - Backend y Modelos de Inteligencia Artificial]] | `web/backend/main.py` (solo el endpoint target) |
@@ -35,5 +35,7 @@ graph TD
 ---
 
 ## 🔗 Enlaces Relacionados en la Bóveda
+
 - [[00 - INDICE GENERAL DEL SISTEMA]]
 - [[01 - Arquitectura de Despliegue]]
+

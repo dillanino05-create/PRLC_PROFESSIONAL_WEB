@@ -6,11 +6,11 @@ El **Test de Atención d2** (Brickenkamp & Zillmer) es una de las pruebas neurop
 
 ## 📐 Estructura Psicométrica
 
-* **Páginas / Líneas:** 14 páginas independientes.
-* **Estímulos por Página:** 47 caracteres.
-* **Tiempo Límite por Página:** **20 segundos** (automático y no pausable).
-* **Estímulo Diana (Target):** Letra `d` con exactamente **2 rayitas** (distribuidas como: dos arriba, dos abajo, o una arriba y una abajo).
-* **Distractores:**
+- **Páginas / Líneas:** 14 páginas independientes.
+- **Estímulos por Página:** 47 caracteres.
+- **Tiempo Límite por Página:** **20 segundos** (automático y no pausable).
+- **Estímulo Diana (Target):** Letra `d` con exactamente **2 rayitas** (distribuidas como: dos arriba, dos abajo, o una arriba y una abajo).
+- **Distractores:**
   - Letra `p` con cualquier número de rayitas (1, 2, 3 o 4).
   - Letra `d` con 1, 3 o 4 rayitas.
 
@@ -19,7 +19,7 @@ El **Test de Atención d2** (Brickenkamp & Zillmer) es una de las pruebas neurop
 ## 🧮 Fórmulas Psicométricas Implementadas (`web/frontend/js/metrics.js`)
 
 | Métrica | Nombre | Fórmula Matemática | Significado Clínico |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **TN** | Total Evaluados | $\sum (\text{Aciertos} + \text{Omisiones})$ | Cantidad de estímulos revisados por el sujeto. |
 | **TA** | Total Aciertos | $\sum \text{Dianas marcadas correctamente}$ | Capacidad de identificación positiva. |
 | **O** | Omisiones | $\sum \text{Dianas no seleccionadas}$ | Falla en rastreo visual y alerta atencional. |
@@ -36,15 +36,18 @@ El **Test de Atención d2** (Brickenkamp & Zillmer) es una de las pruebas neurop
 ## 🛑 Detección de Evaluaciones Incompletas
 
 Si el evaluado se detiene antes de completar las 14 páginas (por ejemplo, fatiga severa o abandono):
-* La plataforma detecta automáticamente `lastAttemptedIndex`.
-* Marca `isIncomplete = true`.
-* Normaliza las métricas proporcionalmente sobre las páginas intentadas para no sesgar injustamente la calificación ni arrojar errores matemáticos.
+
+- La plataforma detecta automáticamente `lastAttemptedIndex`.
+- Marca `isIncomplete = true`.
+- Normaliza las métricas proporcionalmente sobre las páginas intentadas para no sesgar injustamente la calificación ni arrojar errores matemáticos.
 
 ---
 
 ## 🔗 Enlaces Relacionados en la Bóveda
+
 - [[00 - INDICE GENERAL DEL SISTEMA]]
 - [[02 - Frontend y Experiencia de Usuario]]
 - [[03 - Backend y Modelos de Inteligencia Artificial]]
 - [[06 - Biomarcadores Digitales y Tremor]]
 - [[08 - Exportacion y Reportes Excel]]
+

@@ -7,7 +7,7 @@ La persistencia de datos, autenticación y almacenamiento de archivos de **PLC P
 ## 📊 Estructura de la Tabla `evaluations`
 
 | Columna | Tipo SQL | Descripción |
-|---|---|---|
+| --- | --- | --- |
 | `id` | `BIGINT PRIMARY KEY` | Identificador autoincremental de la evaluación. |
 | `user_id` | `UUID` | ID de Supabase Auth del psicólogo que realizó la prueba. |
 | `created_at` | `TIMESTAMPTZ` | Fecha y hora exacta de registro. |
@@ -45,7 +45,9 @@ flowchart TD
 ```
 
 ### Política SQL de Acceso para SuperAdmin en Supabase
+
 Para permitir que las consultas del SuperAdmin funcionen tanto por backend como por cliente:
+
 ```sql
 CREATE POLICY "SuperAdmin puede ver todas las evaluaciones" 
 ON public.evaluations 
@@ -62,8 +64,10 @@ USING (
 ## 👥 Gestión de Roles en `auth.users`
 
 Supabase almacena el rol dentro del campo `raw_user_meta_data`:
-* **Psicólogo Estándar:** Sin metadatos o con `role: "psicólogo clínico"`.
-* **SuperAdmin (Dilan):**
+
+- **Psicólogo Estándar:** Sin metadatos o con `role: "psicólogo clínico"`.
+- **SuperAdmin (Dilan):**
+
   ```json
   {
     "role": "superadmin"
@@ -73,7 +77,9 @@ Supabase almacena el rol dentro del campo `raw_user_meta_data`:
 ---
 
 ## 🔗 Enlaces Relacionados en la Bóveda
+
 - [[00 - INDICE GENERAL DEL SISTEMA]]
 - [[01 - Arquitectura de Despliegue]]
 - [[03 - Backend y Modelos de Inteligencia Artificial]]
 - [[07 - SuperAdmin Dashboard]]
+

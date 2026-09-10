@@ -30,7 +30,7 @@ stateDiagram-v2
 ## 📂 Archivos Principales del Frontend
 
 | Archivo | Ubicación | Responsabilidad |
-|---|---|---|
+| --- | --- | --- |
 | `index.html` | `web/frontend/index.html` | Estructura HTML base, contenedor `#app`, carga de CDNs (Supabase, Chart.js, Confetti). |
 | `app.js` | `web/frontend/js/app.js` | Objeto maestro `App`: estado global, router `nav()`, renderers de todas las pantallas, listeners de mouse y cámara. |
 | `metrics.js` | `web/frontend/js/metrics.js` | Motor psicométrico puro: `calcMetrics()`, `generateNarrative()`, `computeTremorScore()`. |
@@ -57,8 +57,10 @@ stateDiagram-v2
 ---
 
 ## 🔗 Enlaces Relacionados en la Bóveda
+
 - [[00 - INDICE GENERAL DEL SISTEMA]]
 - [[01 - Arquitectura de Despliegue]]
 - [[05 - Test d2 y Metricas Clinicas]]
 - [[06 - Biomarcadores Digitales y Tremor]]
 - [[07 - SuperAdmin Dashboard]]
+

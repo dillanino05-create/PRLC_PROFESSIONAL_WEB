@@ -34,18 +34,20 @@ graph TD
 
 ## ⚙️ Parámetros Clínicos
 
-* **Umbral Clínico (`TREMOR_THRESHOLD`):** `85.0` (px/s² normalizado).
-* **Almacenamiento:**
+- **Umbral Clínico (`TREMOR_THRESHOLD`):** `85.0` (px/s² normalizado).
+- **Almacenamiento:**
   - En `lines_data`: cada página almacena su propio `tremor_score` y `tremor_flag`.
   - En `metrics_json`: lista `tremor_lines` con las páginas que dispararon la alerta.
-* **Reflejo en Reportes:**
+- **Reflejo en Reportes:**
   - **Excel Hoja 1:** Sección especial de biomarcadores motores en el resumen ejecutivo.
   - **Excel Hoja 2:** Columnas dedicadas *"Tremor Score (Jitter Motor)"* y *"⚠️ Indicador Temblor Motor"*.
 
 ---
 
 ## 🔗 Enlaces Relacionados en la Bóveda
+
 - [[00 - INDICE GENERAL DEL SISTEMA]]
 - [[02 - Frontend y Experiencia de Usuario]]
 - [[05 - Test d2 y Metricas Clinicas]]
 - [[08 - Exportacion y Reportes Excel]]
+

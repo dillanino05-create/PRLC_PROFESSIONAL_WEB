@@ -61,8 +61,10 @@ flowchart TD
 ---
 
 ## 🔗 Enlaces Relacionados en la Bóveda
+
 - [[00 - INDICE GENERAL DEL SISTEMA]]
 - [[01 - Arquitectura de Despliegue]]
 - [[05 - Test d2 y Metricas Clinicas]]
 - [[07 - SuperAdmin Dashboard]]
 - [[08 - Exportacion y Reportes Excel]]
+
