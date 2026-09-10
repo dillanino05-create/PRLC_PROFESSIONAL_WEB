@@ -262,7 +262,7 @@ const App = {
 
           <!-- Footer -->
           <div style="font-size:0.8rem; color:var(--text-light); text-align:center; padding:10px;">
-            PLC Professional v3.1 &nbsp;&middot;&nbsp; Uso exclusivo para profesionales
+            PLC Professional v3.2 &nbsp;&middot;&nbsp; Uso exclusivo para profesionales
           </div>
         </div>
       </div>`;
@@ -1833,10 +1833,32 @@ const App = {
           </div>
         </div>
 
+        <!-- Registered Psychologists Accounts -->
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;margin-bottom:32px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+            <div style="font-weight:600;color:#C5CAE9;font-size:1.1rem;">
+              👥 Cuentas de Psicólogos Registrados en la Plataforma
+            </div>
+            <span id="admin-users-badge" style="background:rgba(123,140,222,.2);color:#7B8CDE;padding:4px 14px;border-radius:20px;font-size:.85rem;font-weight:600;">
+              Cargando cuentas...
+            </span>
+          </div>
+          <div id="admin-users-table" style="overflow-x:auto;">
+            <div style="color:#546E7A;text-align:center;padding:20px;">Cargando usuarios...</div>
+          </div>
+        </div>
+
         <!-- Recent evaluations -->
         <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;">
-          <div style="font-weight:600;margin-bottom:20px;color:#C5CAE9;font-size:1.05rem;">📋 Evaluaciones Recientes — últimas 10 (IDs de participantes anónimos)</div>
-          <div id="admin-recent-table">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+            <div style="font-weight:600;color:#C5CAE9;font-size:1.1rem;">
+              📋 Evaluaciones Clínicas Registradas (Histórico Global)
+            </div>
+            <span id="admin-evals-badge" style="background:rgba(129,199,132,.2);color:#81C784;padding:4px 14px;border-radius:20px;font-size:.85rem;font-weight:600;">
+              Cargando...
+            </span>
+          </div>
+          <div id="admin-recent-table" style="overflow-x:auto;max-height:480px;overflow-y:auto;">
             <div style="color:#546E7A;text-align:center;padding:20px;">Cargando tabla...</div>
           </div>
         </div>
@@ -1866,7 +1888,7 @@ const App = {
       // ── KPI Cards ──────────────────────────────────────────
       const kpis = [
         { icon: '📊', label: 'Total Evaluaciones',   value: d.total_evaluations },
-        { icon: '👨‍⚕️', label: 'Psicólogos Activos',    value: d.unique_psychologists },
+        { icon: '👨‍⚕️', label: 'Cuentas de Psicólogos', value: d.unique_psychologists },
         { icon: '📅', label: 'Evaluaciones Hoy',     value: d.today_count },
         { icon: '🧠', label: 'Perfil Más Frecuente',  value: d.top_profile }
       ];
@@ -1880,6 +1902,44 @@ const App = {
           <div style="color:#90A4AE;font-size:0.9rem;margin-top:8px;">${k.label}</div>
         </div>
       `).join('');
+
+      // ── Cuentas de Psicólogos ──────────────────────────────────
+      const usersBadge = document.getElementById('admin-users-badge');
+      if (usersBadge) usersBadge.textContent = `${(d.registered_users || []).length} cuentas activas`;
+
+      const usersTableEl = document.getElementById('admin-users-table');
+      if (usersTableEl) {
+        if (!d.registered_users || !d.registered_users.length) {
+          usersTableEl.innerHTML = '<p style="color:#90A4AE;padding:20px;">No se encontraron cuentas registradas.</p>';
+        } else {
+          usersTableEl.innerHTML = `
+            <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+              <thead><tr style="border-bottom:1px solid rgba(255,255,255,.1);">
+                ${['Psicólogo / Correo','Rol de Acceso','Evaluaciones Creadas','Fecha Registro','Último Acceso'].map(h =>
+                  `<th style="padding:12px 10px;text-align:left;color:#7B8CDE;font-weight:600;">${h}</th>`
+                ).join('')}
+              </tr></thead>
+              <tbody>
+                ${d.registered_users.map(u => {
+                  const isSuper = u.role === 'superadmin';
+                  const roleBadge = isSuper
+                    ? '<span style="padding:3px 10px;border-radius:20px;font-size:.78rem;background:rgba(255,215,0,.2);color:#FFD700;border:1px solid rgba(255,215,0,.4);font-weight:700;">🛡️ SuperAdmin</span>'
+                    : '<span style="padding:3px 10px;border-radius:20px;font-size:.78rem;background:rgba(123,140,222,.2);color:#C5CAE9;border:1px solid rgba(123,140,222,.4);">👨‍⚕️ Psicólogo Clínico</span>';
+                  const createdStr = u.created_at ? new Date(u.created_at).toLocaleDateString('es') : '—';
+                  const lastLoginStr = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString('es') : 'Sin registro reciente';
+                  return `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
+                      <td style="padding:12px 10px;color:#FFFFFF;font-weight:600;">${escapeHTML(u.email)}</td>
+                      <td style="padding:12px 10px;">${roleBadge}</td>
+                      <td style="padding:12px 10px;color:#7B8CDE;font-weight:700;">${u.evaluations_count || 0} pruebas</td>
+                      <td style="padding:12px 10px;color:#90A4AE;">${createdStr}</td>
+                      <td style="padding:12px 10px;color:#90A4AE;">${lastLoginStr}</td>
+                    </tr>`;
+                }).join('')}
+              </tbody>
+            </table>`;
+        }
+      }
 
       // ── Gráfica diaria (barras) ─────────────────────────────────
       const dailyCtx = document.getElementById('admin-daily-chart');
@@ -1906,7 +1966,7 @@ const App = {
             }
           });
         } else {
-          dailyCtx.closest('div').innerHTML += '<p style="color:#546E7A;text-align:center;padding:20px;">Sin datos en los últimos 30 días.</p>';
+          dailyCtx.closest('div').innerHTML += '<p style="color:#546E7A;text-align:center;padding:20px;">Sin datos históricos disponibles.</p>';
         }
       }
 
@@ -1933,15 +1993,18 @@ const App = {
         });
       }
 
-      // ── Tabla reciente ─────────────────────────────────────────────
+      // ── Tabla de evaluaciones (Histórico Global) ────────────────────
+      const evalsBadge = document.getElementById('admin-evals-badge');
+      if (evalsBadge) evalsBadge.textContent = `${(d.recent_evaluations || []).length} mostradas de ${d.total_evaluations || 0} totales`;
+
       const recentEl = document.getElementById('admin-recent-table');
       if (recentEl) {
         if (!d.recent_evaluations || !d.recent_evaluations.length) {
-          recentEl.innerHTML = '<p style="color:#90A4AE;padding:20px;">Sin evaluaciones recientes.</p>';
+          recentEl.innerHTML = '<p style="color:#90A4AE;padding:20px;">Sin evaluaciones registradas.</p>';
         } else {
           recentEl.innerHTML = `
             <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
-              <thead><tr style="border-bottom:1px solid rgba(255,255,255,.1);">
+              <thead><tr style="border-bottom:1px solid rgba(255,255,255,.1);position:sticky;top:0;background:#141C33;z-index:2;">
                 ${['# ID','Fecha','ID Participante','Edad','Perfil IA','Confianza','Estado'].map(h =>
                   `<th style="padding:10px;text-align:left;color:#7B8CDE;font-weight:600;">${h}</th>`
                 ).join('')}
@@ -1950,7 +2013,7 @@ const App = {
                 ${d.recent_evaluations.map(row => `
                   <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
                     <td style="padding:10px;color:#90A4AE;">${row.id}</td>
-                    <td style="padding:10px;color:#C5CAE9;">${new Date(row.created_at).toLocaleDateString('es')}</td>
+                    <td style="padding:10px;color:#C5CAE9;">${row.created_at ? new Date(row.created_at).toLocaleDateString('es') : '—'}</td>
                     <td style="padding:10px;color:#C5CAE9;font-family:monospace;font-size:.85rem;">${escapeHTML(String(row.participant_id || '—'))}</td>
                     <td style="padding:10px;color:#C5CAE9;">${row.age || '—'}</td>
                     <td style="padding:10px;color:#7B8CDE;font-weight:600;">${escapeHTML(row.profile)}</td>

@@ -126,7 +126,7 @@ def root():
 
 @app.get('/api/status')
 def status():
-    return {'model_available': predictor.available, 'version': '2.0'}
+    return {'model_available': predictor.available, 'version': '3.2'}
 
 @app.post('/api/predict')
 def predict(req: PredictRequest):
@@ -322,26 +322,65 @@ async def admin_stats(_admin: dict = Depends(verify_superadmin)):
         admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False))
         sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
 
-        # 1. Total evaluaciones
+        # 1. Total evaluaciones (histórico completo)
         total_res = sb_admin.table('evaluations').select('id', count='exact').execute()
         total_evals = total_res.count or 0
 
-        # 2. Psicólogos únicos (conteo de user_id distintos)
-        users_res = sb_admin.table('evaluations').select('user_id').execute()
-        unique_users = len(set(r['user_id'] for r in (users_res.data or [])))
+        # 2. Conteo de evaluaciones por cada psicólogo (user_id)
+        user_eval_counts = {}
+        try:
+            all_evals_res = sb_admin.table('evaluations').select('id, user_id').execute()
+            for ev in (all_evals_res.data or []):
+                uid = ev.get('user_id')
+                if uid:
+                    user_eval_counts[uid] = user_eval_counts.get(uid, 0) + 1
+        except Exception as e:
+            print("Error mapping eval counts:", e)
 
-        # 3. Evaluaciones por día (últimos 30 días)
-        cutoff = (datetime.now() - timedelta(days=30)).isoformat()
-        daily_res = sb_admin.table('evaluations').select('created_at').gte('created_at', cutoff).execute()
+        # 3. Lista de psicólogos registrados (Supabase Auth Admin)
+        registered_users = []
+        try:
+            auth_res = sb_admin.auth.admin.list_users()
+            user_list = getattr(auth_res, 'users', auth_res)
+            for u in user_list:
+                uid = getattr(u, 'id', '')
+                meta = getattr(u, 'user_metadata', {}) or {}
+                registered_users.append({
+                    'id': uid,
+                    'email': getattr(u, 'email', 'Sin correo'),
+                    'created_at': getattr(u, 'created_at', ''),
+                    'last_sign_in_at': getattr(u, 'last_sign_in_at', None),
+                    'role': meta.get('role', 'psicólogo clínico'),
+                    'evaluations_count': user_eval_counts.get(uid, 0)
+                })
+        except Exception as e:
+            print("Error listing auth users:", e)
+            # Fallback en caso de que list_users tenga alguna restricción
+            for uid, count in user_eval_counts.items():
+                registered_users.append({
+                    'id': uid,
+                    'email': f'Usuario {uid[:8]}...',
+                    'created_at': '',
+                    'last_sign_in_at': None,
+                    'role': 'psicólogo clínico',
+                    'evaluations_count': count
+                })
+
+        total_psychologists = len(registered_users) if registered_users else len(user_eval_counts)
+
+        # 4. Evaluaciones por día (todo el histórico disponible)
+        daily_res = sb_admin.table('evaluations').select('created_at').execute()
         daily_map: dict = {}
         for r in (daily_res.data or []):
-            day = r['created_at'][:10]
-            daily_map[day] = daily_map.get(day, 0) + 1
+            created = r.get('created_at')
+            if created:
+                day = created[:10]
+                daily_map[day] = daily_map.get(day, 0) + 1
         daily_sorted = sorted(daily_map.items())
         today_key   = datetime.now().strftime('%Y-%m-%d')
         today_count = daily_map.get(today_key, 0)
 
-        # 4. Distribución de perfiles ML en toda la plataforma
+        # 5. Distribución de perfiles ML en toda la plataforma
         ml_res = sb_admin.table('evaluations').select('ml_json').execute()
         profile_map: dict = {}
         for r in (ml_res.data or []):
@@ -351,10 +390,10 @@ async def admin_stats(_admin: dict = Depends(verify_superadmin)):
                 profile_map[profile] = profile_map.get(profile, 0) + 1
         top_profile = max(profile_map, key=profile_map.get) if profile_map else 'N/A'
 
-        # 5. Últimas 10 evaluaciones (metadatos anónimos)
+        # 6. Evaluaciones recientes (hasta 50 registros)
         recent_res = sb_admin.table('evaluations').select(
-            'id, created_at, participant_id, age, ml_json, status'
-        ).order('id', desc=True).limit(10).execute()
+            'id, created_at, participant_id, age, ml_json, status, user_id'
+        ).order('id', desc=True).limit(50).execute()
         recent = []
         for r in (recent_res.data or []):
             ml = r.get('ml_json') or {}
@@ -365,14 +404,16 @@ async def admin_stats(_admin: dict = Depends(verify_superadmin)):
                 'age': r.get('age'),
                 'profile': (ml.get('predicted_profile') or 'N/A').replace('_', ' '),
                 'confidence': ml.get('confidence_percent', 'N/A'),
-                'status': r.get('status', 'completed')
+                'status': r.get('status', 'completed'),
+                'user_id': r.get('user_id', '')
             })
 
         return {
             'total_evaluations':    total_evals,
-            'unique_psychologists': unique_users,
+            'unique_psychologists': total_psychologists,
             'today_count':          today_count,
             'top_profile':          top_profile.replace('_', ' ') if top_profile != 'N/A' else 'N/A',
+            'registered_users':     registered_users,
             'daily_distribution':   [{'date': d, 'count': c} for d, c in daily_sorted],
             'profile_distribution': [{'profile': k.replace('_', ' '), 'count': v}
                                      for k, v in sorted(profile_map.items(), key=lambda x: -x[1])],

@@ -1,0 +1,23 @@
+{
+  "nodes": [
+    {"id": "1", "x": 0, "y": 0, "width": 320, "height": 100, "type": "text", "text": "## 🧠 PLC Professional (v3.2)\n**Ecosistema Neurocognitivo y de Evaluación Clínica**"},
+    {"id": "2", "x": -400, "y": 180, "width": 280, "height": 140, "type": "file", "file": "01 - Arquitectura de Despliegue.md"},
+    {"id": "3", "x": 0, "y": 180, "width": 280, "height": 140, "type": "file", "file": "02 - Frontend y Experiencia de Usuario.md"},
+    {"id": "4", "x": 400, "y": 180, "width": 280, "height": 140, "type": "file", "file": "03 - Backend y Modelos de Inteligencia Artificial.md"},
+    {"id": "5", "x": -400, "y": 400, "width": 280, "height": 140, "type": "file", "file": "04 - Base de Datos y Supabase.md"},
+    {"id": "6", "x": 0, "y": 400, "width": 280, "height": 140, "type": "file", "file": "05 - Test d2 y Metricas Clinicas.md"},
+    {"id": "7", "x": 400, "y": 400, "width": 280, "height": 140, "type": "file", "file": "06 - Biomarcadores Digitales y Tremor.md"},
+    {"id": "8", "x": -200, "y": 620, "width": 280, "height": 140, "type": "file", "file": "07 - SuperAdmin Dashboard.md"},
+    {"id": "9", "x": 200, "y": 620, "width": 280, "height": 140, "type": "file", "file": "08 - Exportacion y Reportes Excel.md"}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "1", "fromSide": "bottom", "toNode": "2", "toSide": "top"},
+    {"id": "e2", "fromNode": "1", "fromSide": "bottom", "toNode": "3", "toSide": "top"},
+    {"id": "e3", "fromNode": "1", "fromSide": "bottom", "toNode": "4", "toSide": "top"},
+    {"id": "e4", "fromNode": "2", "fromSide": "bottom", "toNode": "5", "toSide": "top"},
+    {"id": "e5", "fromNode": "3", "fromSide": "bottom", "toNode": "6", "toSide": "top"},
+    {"id": "e6", "fromNode": "6", "fromSide": "right", "toNode": "7", "toSide": "left"},
+    {"id": "e7", "fromNode": "3", "fromSide": "bottom", "toNode": "8", "toSide": "top"},
+    {"id": "e8", "fromNode": "4", "fromSide": "bottom", "toNode": "9", "toSide": "top"}
+  ]
+}
