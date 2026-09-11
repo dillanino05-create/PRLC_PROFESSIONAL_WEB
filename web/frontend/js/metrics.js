@@ -186,8 +186,8 @@ function computeTremorScore(samples) {
   const dirChanges = [];
 
   for (let i = 2; i < samples.length; i++) {
-    const dt1 = samples[i-1].t - samples[i-2].t;
-    const dt2 = samples[i].t   - samples[i-1].t;
+    const dt1 = (samples[i-1].t - samples[i-2].t) / 1000.0;
+    const dt2 = (samples[i].t   - samples[i-1].t)   / 1000.0;
     if (dt1 <= 0 || dt2 <= 0) continue;
 
     const dx1 = samples[i-1].x - samples[i-2].x;
@@ -195,9 +195,9 @@ function computeTremorScore(samples) {
     const dx2 = samples[i].x   - samples[i-1].x;
     const dy2 = samples[i].y   - samples[i-1].y;
 
-    const v1 = Math.sqrt(dx1*dx1 + dy1*dy1) / dt1;
-    const v2 = Math.sqrt(dx2*dx2 + dy2*dy2) / dt2;
-    accels.push(Math.abs(v2 - v1) / dt2);
+    const v1 = Math.sqrt(dx1*dx1 + dy1*dy1) / dt1; // px/s
+    const v2 = Math.sqrt(dx2*dx2 + dy2*dy2) / dt2; // px/s
+    accels.push(Math.abs(v2 - v1) / dt2);          // px/s^2
 
     // Cambio de dirección > 45° = posible temblor o corrección brusca
     const theta1 = Math.atan2(dy1, dx1);
@@ -212,17 +212,18 @@ function computeTremorScore(samples) {
   // Jitter = σ de las aceleraciones instantáneas
   const mean     = accels.reduce((a, b) => a + b, 0) / accels.length;
   const variance = accels.reduce((s, a) => s + (a - mean) ** 2, 0) / accels.length;
-  const jitter   = Math.sqrt(variance);
+  const rawJitter = Math.sqrt(variance);
 
-  // Ponderación por densidad de cambios de dirección
+  // Escala psicométrica normalizada (px/s² normalizado a escala clínica [0 - 150])
+  const normJitter = rawJitter / 500.0;
   const totalDurationSec = Math.max((samples[samples.length - 1].t - samples[0].t) / 1000, 0.001);
   const dirChangesPerSec = dirChanges.length / totalDurationSec;
-  const score = jitter * (1 + 0.3 * dirChangesPerSec);
+  const score = normJitter * (1 + 0.3 * dirChangesPerSec);
 
   return { 
     score: parseFloat(score.toFixed(2)), 
     flag: score > TREMOR_THRESHOLD,
-    microtremor: parseFloat(jitter.toFixed(2))
+    microtremor: parseFloat(normJitter.toFixed(2))
   };
 }
 
@@ -309,15 +310,16 @@ function computeOculomotorMetrics(earSamples, gazeEvents, durationSec, cameraWas
   const sumEar = earSamples.reduce((acc, s) => acc + (s.ear || 0), 0);
   const ear_mean = parseFloat((sumEar / earSamples.length).toFixed(3));
 
-  // Conteo de parpadeos (transiciones de EAR > 0.20 a EAR < 0.20)
+  // Conteo de parpadeos adaptativo a la morfología ocular del evaluado
   let blinkCount = 0;
   let inBlink = false;
+  const blinkThreshold = Math.min(0.24, Math.max(0.18, ear_mean * 0.75));
   for (let i = 0; i < earSamples.length; i++) {
     const ear = earSamples[i].ear || 0;
-    if (ear < 0.20 && !inBlink) {
+    if (ear < blinkThreshold && !inBlink) {
       blinkCount++;
       inBlink = true;
-    } else if (ear >= 0.20) {
+    } else if (ear >= blinkThreshold) {
       inBlink = false;
     }
   }

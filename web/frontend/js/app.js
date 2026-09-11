@@ -634,6 +634,8 @@ const App = {
       try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         cameraStatus = 'ok';
+        // Pre-compilación en background de MediaPipe FaceMesh para eliminar el congelamiento de 3s
+        this.warmupFaceMesh();
       } catch (e) {
         console.warn("Cámara denegada o no disponible:", e);
         cameraStatus = 'error';
@@ -980,6 +982,29 @@ const App = {
     });
   },
 
+  /* ── Pre-calentamiento silencioso en GPU (Elimina congelamiento inicial) ─ */
+  warmupFaceMesh() {
+    if (!window.FaceMesh || this.faceMeshInstance) return;
+    try {
+      this.faceMeshInstance = new window.FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+      });
+      this.faceMeshInstance.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+      // Warmup asíncrono con canvas diminuto de 16x16
+      const dummy = document.createElement('canvas');
+      dummy.width = 16;
+      dummy.height = 16;
+      this.faceMeshInstance.send({ image: dummy }).catch(() => {});
+    } catch (e) {
+      console.warn("FaceMesh warmup:", e);
+    }
+  },
+
   /* ── Inferencia MediaPipe Face Mesh (Edge-AI Oculometría) ─────────────── */
   initFaceMeshTracking(videoElement) {
     if (!window.FaceMesh) {
@@ -992,16 +1017,18 @@ const App = {
       this._gazeDivertedStartTime = null;
       this._lastFaceMeshTs = 0;
 
-      this.faceMeshInstance = new window.FaceMesh({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-      });
+      if (!this.faceMeshInstance) {
+        this.faceMeshInstance = new window.FaceMesh({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+        });
 
-      this.faceMeshInstance.setOptions({
-        maxNumFaces: 1,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
-      });
+        this.faceMeshInstance.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+      }
 
       this.faceMeshInstance.onResults((results) => {
         if (!this.recordingActive) return;
@@ -1061,12 +1088,21 @@ const App = {
           }
         }
 
-        // 3. FER (Facial Emotion Recognition): Action Units AU4 (ceño) y AU24 (tensión labial)
-        // AU4: Ceño Fruncido (distancia entre cejas 107 y 336 vs ancho de cara)
-        const browDist = Math.hypot(landmarks[107].x - landmarks[336].x, landmarks[107].y - landmarks[336].y);
-        const browRatio = faceWidth > 0 ? (browDist / faceWidth) : 0.35;
+        // 3. FER (Facial Emotion Recognition): Action Units AU4 (ceño fruncido) y AU24 (tensión labial)
+        // Referencia anatómica constante: Distancia interocular externa (33 a 263)
+        const eyeDist = Math.hypot(landmarks[33].x - landmarks[263].x, landmarks[33].y - landmarks[263].y);
+        const safeEyeDist = eyeDist > 0 ? eyeDist : 0.25;
 
-        // AU24: Tensión labial (compresión 13 y 14 vs comisuras 61 y 291)
+        // AU4 - Acercamiento medial de cejas (107 y 336)
+        const browDist = Math.hypot(landmarks[107].x - landmarks[336].x, landmarks[107].y - landmarks[336].y);
+        const browRatio = browDist / safeEyeDist; // Normal: ~0.46 - 0.55. Fruncido: < 0.40.
+
+        // AU4 - Descenso vertical de cejas hacia los párpados
+        const browLeftToEye = Math.hypot(landmarks[107].x - landmarks[159].x, landmarks[107].y - landmarks[159].y);
+        const browRightToEye = Math.hypot(landmarks[336].x - landmarks[386].x, landmarks[336].y - landmarks[386].y);
+        const browDrop = ((browLeftToEye + browRightToEye) / 2.0) / safeEyeDist; // Normal: ~0.19 - 0.25. Deprimido: < 0.16.
+
+        // AU24 - Compresión labial (13 y 14 vs 61 y 291)
         const lipHeight = Math.hypot(landmarks[13].x - landmarks[14].x, landmarks[13].y - landmarks[14].y);
         const lipWidth = Math.hypot(landmarks[61].x - landmarks[291].x, landmarks[61].y - landmarks[291].y);
         const lipRatio = lipWidth > 0 ? (lipHeight / lipWidth) : 0.20;
@@ -1075,22 +1111,22 @@ const App = {
         let isFrustrationPeak = false;
         let expr = 'Concentración';
 
-        if (browRatio < 0.26) {
-          tension += 55;
+        // Clasificación calibrada de tensión facial y frustración
+        if (browRatio < 0.39 || browDrop < 0.15) {
+          tension += 65;
           isFrustrationPeak = true;
           expr = 'Frustración / Tensión';
-        } else if (browRatio < 0.29) {
+        } else if (browRatio < 0.44 || browDrop < 0.18) {
           tension += 35;
           expr = 'Sobreesfuerzo';
         }
 
-        if (lipRatio < 0.08) {
-          tension += 30;
-        } else if (lipRatio > 0.35) {
-          tension += 15;
+        if (lipRatio < 0.10) {
+          tension += 25;
+          if (tension > 50) expr = 'Tensión Psicomotora';
         }
 
-        if (earAvg < 0.18) {
+        if (earAvg < 0.19) {
           expr = 'Fatiga Visual';
         }
 
