@@ -479,9 +479,14 @@ window.CorsiRunner = {
       sequence_presented: this.sequence.map(i => i + 1),
       sequence_user: this.userSequence.map(i => i + 1),
       success: true,
+      isCorrect: true,
       total_time_ms: totalTime,
       avg_reaction_time_ms: avgRt,
+      meanReactionTimeMs: avgRt,
       hesitation_time_ms: hesitation,
+      hesitationTimeMs: hesitation,
+      reactionTimes: rts,
+      clicks: levelClicks,
       error_count: this.errorCount,
       test_mode: this.testMode
     });
@@ -505,6 +510,11 @@ window.CorsiRunner = {
     this.attemptsLeft--;
     this.updateStats();
 
+    const levelClicks = this.movementsData.filter(m => m.level === this.currentLevel);
+    const rts = levelClicks.map(m => m.reaction_time_ms).filter(t => t > 0);
+    const avgRt = rts.length ? Math.round(rts.reduce((a, b) => a + b, 0) / rts.length) : 0;
+    const hesitation = rts.length ? rts[0] : 0;
+
     this.levelSummaries.push({
       level: this.currentLevel,
       attempt: 2 - this.attemptsLeft,
@@ -512,7 +522,14 @@ window.CorsiRunner = {
       sequence_presented: this.sequence.map(i => i + 1),
       sequence_user: this.userSequence.map(i => i + 1),
       success: false,
+      isCorrect: false,
       total_time_ms: Date.now() - this.levelStartTime,
+      avg_reaction_time_ms: avgRt,
+      meanReactionTimeMs: avgRt,
+      hesitation_time_ms: hesitation,
+      hesitationTimeMs: hesitation,
+      reactionTimes: rts,
+      clicks: levelClicks,
       error_count: this.errorCount,
       test_mode: this.testMode
     });
@@ -541,6 +558,7 @@ window.CorsiRunner = {
       corsiSpan: this.corsiSpan,
       maxLevelReached: this.currentLevel,
       levelSummaries: this.levelSummaries,
+      trialsData: this.levelSummaries,
       movementsData: this.movementsData
     };
 

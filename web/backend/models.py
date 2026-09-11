@@ -32,6 +32,7 @@ class LineData(BaseModel):
     sequence_user: Optional[List[int]] = None
     success: Optional[bool] = None
     hesitation_time_ms: Optional[float] = None
+    mean_reaction_time_ms: Optional[float] = None
 
 
 
@@ -163,6 +164,7 @@ class MetricsData(BaseModel):
     error_trials: Optional[int] = None
     accuracy_pct: Optional[float] = None
     hesitation_time_avg_ms: Optional[float] = None
+    mean_reaction_time_ms: Optional[float] = None
     composite_score: Optional[int] = None
     clinical_category: Optional[str] = None
     clinical_desc: Optional[str] = None

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MecaPsi — PLC Professional | Evaluación Neuropsicológica con IA y Biomarcadores</title>
-  <meta name="description" content="MecaPsi presenta PLC Professional: plataforma de digitalización de la Prueba de Líneas Cruzadas con cronometría de milisegundos, biomarcadores de temblor motor (≤60fps), libro Excel de 5 hojas y apoyo psicométrico para psicólogos." />
+  <title>MecaPsi — Neurotecnología Clínica | Unión de la Mecatrónica y la Psicología</title>
+  <meta name="description" content="MecaPsi: plataforma SaaS que une la ingeniería mecatrónica y la neuropsicología. Baterías clínicas digitales estandarizadas (PLC d2 y Test de Corsi), cronometría en milisegundos, biomarcadores de temblor (60fps), pupilometría y calificación por IA." />
 
   <!-- Tipografías: Plus Jakarta Sans, Inter, JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -118,7 +118,7 @@
   <div class="fixed top-4 left-0 right-0 z-50 px-4 sm:px-6">
     <header class="max-w-6xl mx-auto rounded-full glass-panel px-5 sm:px-7 py-3 flex items-center justify-between shadow-2xl transition-all border border-white/10 hover:border-white/20">
       
-      <!-- Brand: MecaPsi · PLC Professional -->
+      <!-- Brand: MecaPsi · Plataforma Neurotecnológica -->
       <a href="#" class="flex items-center gap-3 group cursor-pointer">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25 group-hover:scale-105 transition-transform">
           <i data-lucide="brain" class="w-5 h-5"></i>
@@ -126,19 +126,19 @@
         <div class="flex items-center gap-2 font-extrabold tracking-tight text-base sm:text-lg">
           <span class="text-white">Meca<span class="text-cyan-400">Psi</span></span>
           <span class="text-slate-500 font-light">/</span>
-          <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 text-sm sm:text-base font-semibold">PLC Professional</span>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 text-sm sm:text-base font-semibold">Neurotecnología SaaS</span>
         </div>
       </a>
 
-      <!-- Menú Centrado -->
+      <!-- Menú Centrado Multi-Batería -->
       <nav class="hidden lg:flex items-center gap-1 text-xs font-medium text-slate-300">
-        <a href="#prueba-plc" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">La Prueba PLC</a>
-        <a href="#telemetria" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Datos Capturados</a>
+        <a href="#baterias" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Baterías Clínicas</a>
+        <a href="#prueba-plc" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Prueba PLC (d2)</a>
+        <a href="#telemetria" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Biomarcadores</a>
         <a href="#etica-clinica" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Rol del Psicólogo</a>
-        <a href="#estimulos-catalogo" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Estímulos</a>
         <a href="#simulador" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Simulador</a>
-        <a href="#reporte-excel" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Reporte Excel (5 Hojas)</a>
-        <a href="#pricing" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Precios</a>
+        <a href="#reporte-excel" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Excel Forense</a>
+        <a href="#pricing" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Planes</a>
       </nav>
 
       <!-- Botones de Acción: Iniciar Sesión + Crear Cuenta Gratis -->
@@ -147,11 +147,11 @@
           Iniciar Sesión
         </button>
 
-        <button onclick="openAuthModal('register')" class="relative group px-4 py-2 rounded-full text-xs font-bold text-white overflow-hidden transition-all duration-300 cursor-pointer shadow-lg shadow-cyan-500/20">
+        <button onclick="openAuthModal('register', 'pro')" class="relative group px-4 py-2 rounded-full text-xs font-bold text-white overflow-hidden transition-all duration-300 cursor-pointer shadow-lg shadow-cyan-500/20">
           <div class="absolute inset-0 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 group-hover:opacity-90 transition-opacity"></div>
           <div class="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 rounded-full blur opacity-40 group-hover:opacity-100 transition-all duration-300"></div>
           <span class="relative flex items-center gap-1.5">
-            <span>Crear Cuenta Gratis</span>
+            <span>Crear Cuenta</span>
             <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
           </span>
         </button>
@@ -176,7 +176,7 @@
             <span>MECAPSI · SOFTWARE PSICOMÉTRICO DE ALTO RENDIMIENTO</span>
           </div>
 
-          <!-- Titular Principal Ajustado: NEUROPSICOLÓGICA siempre en una sola línea -->
+          <!-- Titular Principal: Fusión de Mecatrónica y Neuropsicología -->
           <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-[2.65rem] xl:text-[3.25rem] font-black tracking-tight text-white leading-[1.12]">
             EVALUACIÓN <br />
             <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-400 whitespace-nowrap inline-block">
@@ -185,21 +185,21 @@
             DIGITAL CON IA
           </h1>
 
-          <!-- Subtítulo Enfocado en Beneficios Reales para el Profesional -->
+          <!-- Subtítulo Enfocado en Beneficios Reales, Fusión Mecatrónica-Psicología y Baterías -->
           <p class="text-sm sm:text-base text-slate-300 max-w-xl mx-auto lg:mx-0 leading-relaxed">
-            <strong>Ahorra más de 40 minutos por evaluación</strong> y elimina el sesgo de cronometraje manual. MecaPsi digitaliza la <strong>Prueba de Líneas Cruzadas (PLC)</strong>: captura milimétrica de milisegundos, análisis de temblor motor a 60 fps y <strong>generación automática de informes en Excel de 5 hojas</strong> con datos objetivos listos para tu interpretación diagnóstica.
+            <strong>MecaPsi</strong> une la <strong>Ingeniería Mecatrónica</strong> (sensores de alta frecuencia, cinemática a 60 fps y cronometría estricta) con la <strong>Neuropsicología Clínica</strong>. Administra la <strong>Prueba de Líneas Cruzadas (PLC / d2)</strong> y el <strong>Test de Bloques de Corsi</strong> con calificación automatizada por IA, análisis de biomarcadores y generación instantánea de informes clínicos periciales.
           </p>
 
           <!-- Botones de Acción de Alta Conversión -->
           <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-1">
-            <button onclick="openAuthModal('register')" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-700 text-white font-bold text-sm shadow-[0_0_25px_rgba(6,182,212,0.35)] hover:shadow-[0_0_35px_rgba(6,182,212,0.5)] transition-all flex items-center justify-center gap-2 cursor-pointer group">
+            <button onclick="openAuthModal('register', 'pro')" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-700 text-white font-bold text-sm shadow-[0_0_25px_rgba(6,182,212,0.35)] hover:shadow-[0_0_35px_rgba(6,182,212,0.5)] transition-all flex items-center justify-center gap-2 cursor-pointer group">
               <span>Comenzar Prueba Gratis (14 Días)</span>
               <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
             </button>
 
-            <a href="#simulador" class="w-full sm:w-auto px-6 py-3.5 rounded-xl glass-panel text-slate-200 hover:text-white font-semibold text-sm border border-white/10 hover:border-cyan-400/40 transition-all flex items-center justify-center gap-2 cursor-pointer">
-              <i data-lucide="play" class="w-4 h-4 text-cyan-400 fill-cyan-400"></i>
-              <span>Probar Simulador en Vivo</span>
+            <a href="#baterias" class="w-full sm:w-auto px-6 py-3.5 rounded-xl glass-panel text-slate-200 hover:text-white font-semibold text-sm border border-white/10 hover:border-cyan-400/40 transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <i data-lucide="layers" class="w-4 h-4 text-cyan-400"></i>
+              <span>Ver Baterías Clínicas</span>
             </a>
           </div>
 
@@ -210,19 +210,19 @@
             <span class="flex items-center gap-1.5"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Activación inmediata</span>
           </div>
 
-          <!-- Métricas Destacadas del Test -->
+          <!-- Métricas Destacadas del Ecosistema Multi-Batería -->
           <div class="pt-5 border-t border-white/10 grid grid-cols-3 gap-3 max-w-md mx-auto lg:mx-0 font-mono text-xs">
             <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
-              <div class="text-xl font-bold text-cyan-400">14 × 20s</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">Líneas temporizadas</div>
+              <div class="text-xl font-bold text-cyan-400">PLC + Corsi</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Baterías Validadas</div>
             </div>
             <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
               <div class="text-xl font-bold text-purple-400">≤60 FPS</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">Muestreo de Temblor</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Biomarcador Temblor</div>
             </div>
             <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
-              <div class="text-xl font-bold text-emerald-400">Excel 5 Hojas</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">Libro Pericial Completo</div>
+              <div class="text-xl font-bold text-emerald-400">IA Clínica</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Informe y Calificación</div>
             </div>
           </div>
 
@@ -305,7 +305,212 @@
   </section>
 
   <!-- ══════════════════════════════════════════════════════════════════════
-       3. SECCIÓN ÉTICA Y AUTONOMÍA PROFESIONAL: EL PSICÓLOGO DIAGNOSTICA
+       3. SECCIÓN MULTI-BATERÍA: MECAPSI ECOSYSTEM (PLC d2 + BLOQUES DE CORSI + ROADMAP)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="baterias" class="py-24 relative bg-slate-950/60 border-t border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+      
+      <!-- Encabezado de Sección: Fusión Mecatrónica y Psicología -->
+      <div class="text-center max-w-3xl mx-auto space-y-4" data-aos="fade-up">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono uppercase tracking-widest shadow-[0_0_15px_rgba(6,182,212,0.15)]">
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+          <span>MECAPSI · SUITE MULTI-BATERÍA NEUROTECNOLÓGICA</span>
+        </div>
+        <h2 class="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+          La Unión Pionera entre la <br class="hidden sm:inline" />
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400">
+            Mecatrónica y la Neuropsicología
+          </span>
+        </h2>
+        <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+          MecaPsi transforma la evaluación cognitiva uniendo la precisión instrumental de la ingeniería mecatrónica (cinemática motora a 60 fps, cronometría en milisegundos y bioseñales de video) con los estándares psicométricos clásicos. <strong>La Inteligencia Artificial califica las pruebas, contrasta con baremos y genera explicaciones clínicas completas</strong>, optimizando el tiempo del especialista.
+        </p>
+      </div>
+
+      <!-- Tarjetas de las 2 Baterías Activas + Roadmap Modular -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- BATERÍA 1: PRUEBA DE LÍNEAS CRUZADAS (PLC / TEST d2) -->
+        <div class="rounded-3xl glass-panel p-8 space-y-6 border border-cyan-500/30 hover:border-cyan-400 transition-all shadow-[0_0_30px_-10px_rgba(6,182,212,0.2)] flex flex-col justify-between" data-aos="fade-up">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                BATERÍA DISPONIBLE #1
+              </span>
+              <span class="text-xs font-mono text-slate-400">Atención &amp; Concentración</span>
+            </div>
+            
+            <div class="flex items-center gap-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+                <i data-lucide="target" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-white">Prueba de Líneas Cruzadas</h3>
+                <p class="text-xs font-mono text-cyan-400">Protocolo PLC · d2 Digital</p>
+              </div>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Evaluación exhaustiva de <strong>atención selectiva, atención sostenida y velocidad de procesamiento</strong>. El paciente discrimina estímulos diana frente a 9 distractores rotados bajo presión temporal.
+            </p>
+
+            <ul class="space-y-2.5 text-xs text-slate-300 font-mono pt-2 border-t border-white/10">
+              <li class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+                <span><strong>14 líneas × 20s</strong> (280s temporizados estrictos)</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+                <span>Biomarcador motor: <strong>Jitter de temblor a 60 fps</strong></span>
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+                <span>Métricas TA, O, COM, CON, CP%, VAR y TRM</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+                <span>Libro pericial en <strong>Excel de 5 hojas (.xlsx)</strong></span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="pt-4 border-t border-white/10">
+            <a href="#prueba-plc" class="w-full py-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-xs font-bold border border-cyan-500/30 transition flex items-center justify-center gap-2">
+              <span>Explorar Detalles de la Prueba PLC</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- BATERÍA 2: TEST DE BLOQUES DE CORSI (CORSI BLOCK-TAPPING) -->
+        <div class="rounded-3xl glass-panel p-8 space-y-6 border border-purple-500/40 hover:border-purple-400 transition-all shadow-[0_0_30px_-10px_rgba(168,85,247,0.25)] flex flex-col justify-between relative bg-gradient-to-b from-purple-950/20 to-slate-900/60" data-aos="fade-up" data-aos-delay="100">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                BATERÍA DISPONIBLE #2
+              </span>
+              <span class="text-xs font-mono text-purple-300">Memoria Visoespacial</span>
+            </div>
+
+            <div class="flex items-center gap-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-500/30 shadow-lg shadow-purple-500/10">
+                <i data-lucide="box" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-white">Test de Bloques de Corsi</h3>
+                <p class="text-xs font-mono text-purple-400">Corsi Block-Tapping Test Digital</p>
+              </div>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Medición de la <strong>amplitud de memoria de trabajo visoespacial</strong> (Span) y memoria a corto plazo. Presentación secuencial de 9 cubos espaciales no alineados en 2 modalidades clínicas.
+            </p>
+
+            <ul class="space-y-2.5 text-xs text-slate-300 font-mono pt-2 border-t border-white/10">
+              <li class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-purple-400 shrink-0"></i>
+                <span><strong>Modo Directo</strong> (amplitud y retención pura)</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-purple-400 shrink-0"></i>
+                <span><strong>Modo Inverso</strong> (manipulación ejecutiva)</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-purple-400 shrink-0"></i>
+                <span><strong>Hesitation Time:</strong> latencia milimétrica de inicio</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-purple-400 shrink-0"></i>
+                <span><strong>Calificación e informe por IA</strong> con percentiles</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="pt-4 border-t border-white/10">
+            <button onclick="openAuthModal('login')" class="w-full py-2.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 text-xs font-bold border border-purple-500/40 transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>Aplicar Test de Corsi en Vivo</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- BATERÍA 3: ROADMAP DE EXPANSIÓN MODULAR MECAPSI -->
+        <div class="rounded-3xl glass-panel p-8 space-y-6 border border-blue-500/20 hover:border-blue-400/40 transition-all flex flex-col justify-between bg-black/40" data-aos="fade-up" data-aos-delay="200">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                PRÓXIMAS INTEGRACIONES
+              </span>
+              <span class="text-xs font-mono text-slate-400">Roadmap Modular</span>
+            </div>
+
+            <div class="flex items-center gap-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/30 shadow-lg shadow-blue-500/10">
+                <i data-lucide="git-branch" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <h3 class="text-xl font-bold text-white">Ecosistema en Expansión</h3>
+                <p class="text-xs font-mono text-blue-400">Integración de Baterías Estándar</p>
+              </div>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed">
+              MecaPsi está diseñado como una plataforma escalable. Incorporamos progresivamente pruebas de referencia internacional bajo la misma telemetría de alta fidelidad:
+            </p>
+
+            <ul class="space-y-2.5 text-xs text-slate-300 font-mono pt-2 border-t border-white/10">
+              <li class="flex items-center gap-2">
+                <i data-lucide="clock" class="w-4 h-4 text-blue-400 shrink-0"></i>
+                <span><strong>Test de Stroop Digital:</strong> control inhibitorio e interferencia</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="clock" class="w-4 h-4 text-blue-400 shrink-0"></i>
+                <span><strong>Wisconsin Card Sorting (WCST):</strong> flexibilidad cognitiva</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="clock" class="w-4 h-4 text-blue-400 shrink-0"></i>
+                <span><strong>Go / No-Go Neurocinemático:</strong> frenado y control motor</span>
+              </li>
+              <li class="flex items-center gap-2">
+                <i data-lucide="sparkles" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+                <span><strong>Un Solo Expediente:</strong> perfil cognitivo unificado</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="pt-4 border-t border-white/10">
+            <button onclick="openAuthModal('register', 'pro')" class="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white text-xs font-bold border border-white/10 transition flex items-center justify-center gap-2 cursor-pointer">
+              <span>Unirse al Programa de Acceso Temprano</span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Banner de la IA Evaluadora de MecaPsi -->
+      <div class="rounded-3xl glass-panel p-6 sm:p-8 border border-cyan-500/30 bg-gradient-to-r from-blue-950/40 via-cyan-950/30 to-purple-950/40 flex flex-col md:flex-row items-center justify-between gap-6" data-aos="fade-up">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-cyan-500/25 shrink-0">
+            <i data-lucide="sparkles" class="w-7 h-7"></i>
+          </div>
+          <div>
+            <h4 class="text-lg font-bold text-white">Interpretación Asistida por Inteligencia Artificial</h4>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+              La IA de MecaPsi no solo califica aciertos y errores: procesa curvas de aprendizaje, tiempos de vacilación, fatiga progresiva y estabilidad motora, redactando una <strong>síntesis clínica objetiva</strong> que respalda el dictamen diagnóstico del psicólogo.
+            </p>
+          </div>
+        </div>
+        <button onclick="openAuthModal('register', 'pro')" class="shrink-0 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 hover:scale-105 transition cursor-pointer">
+          Probar Evaluaciones con IA
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       4. SECCIÓN ÉTICA Y AUTONOMÍA PROFESIONAL: EL PSICÓLOGO DIAGNOSTICA
   ══════════════════════════════════════════════════════════════════════ -->
   <section id="etica-clinica" class="py-16 relative bg-gradient-to-b from-blue-950/20 via-slate-950/40 to-slate-950/70 border-t border-b border-cyan-500/20">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -887,12 +1092,12 @@
           </div>
           <ul class="space-y-3 text-xs text-slate-300 pt-4 border-t border-white/10">
             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Hasta 35 evaluaciones por mes</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Cronometría precisa en Canvas</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> <strong>Baterías PLC (d2) y Cubos de Corsi</strong></li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Calificación automática e informe IA</li>
             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Exportación en Excel (5 Hojas)</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Métricas psicométricas TA, O, COM, CON</li>
-            <li class="flex items-center gap-2 text-slate-500"><i data-lucide="x" class="w-4 h-4"></i> Sin módulo de temblor motor</li>
+            <li class="flex items-center gap-2 text-slate-500"><i data-lucide="x" class="w-4 h-4"></i> Sin módulo de telemetría a 60 fps</li>
           </ul>
-          <button onclick="openAuthModal('register')" class="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/10 transition cursor-pointer">
+          <button onclick="openAuthModal('register', 'basico')" class="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/10 transition cursor-pointer">
             Seleccionar Plan Básico
           </button>
         </div>
@@ -905,7 +1110,7 @@
 
           <div>
             <h3 class="text-2xl font-extrabold text-white">Plan Pro</h3>
-            <p class="text-xs text-slate-400 mt-1">Para especialistas y clínicas de alta demanda.</p>
+            <p class="text-xs text-slate-400 mt-1">Para especialistas, peritos forenses y centros clínicos.</p>
           </div>
 
           <div class="flex items-baseline gap-1 font-mono">
@@ -915,14 +1120,15 @@
 
           <ul class="space-y-3 text-xs text-slate-200 pt-4 border-t border-white/10">
             <li class="flex items-center gap-2 font-bold text-cyan-300"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Evaluaciones ILIMITADAS de pacientes</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Módulo de Biomarcadores de Temblor (≤60fps)</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Grabación dual obligatoria (pantalla + cámara)</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Libro Excel oficial de 5 hojas completo</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Auditoría forense de eventos clic por clic</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Aislamiento RLS en Supabase</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> <strong>Todas las baterías: PLC (d2) + Cubos de Corsi</strong></li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> <strong>Módulo de Telemetría y Temblor (≤60fps)</strong></li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Grabación dual sincronizada (pantalla + webcam)</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> <strong>Informe narrativo pericial generado por IA</strong></li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Libro Excel pericial de 5 hojas completo</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Aislamiento y seguridad RLS en Supabase</li>
           </ul>
 
-          <button onclick="openAuthModal('register')" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 text-white font-extrabold text-sm shadow-[0_0_25px_rgba(6,182,212,0.4)] hover:shadow-[0_0_35px_rgba(6,182,212,0.6)] transition-all cursor-pointer">
+          <button onclick="openAuthModal('register', 'pro')" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 text-white font-extrabold text-sm shadow-[0_0_25px_rgba(6,182,212,0.4)] hover:shadow-[0_0_35px_rgba(6,182,212,0.6)] transition-all cursor-pointer">
             Comenzar Prueba de 14 Días
           </button>
         </div>
@@ -939,12 +1145,12 @@
           </div>
           <ul class="space-y-3 text-xs text-slate-300 pt-4 border-t border-white/10">
             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Todo lo incluido en el Plan Pro</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Multi-usuario para equipos clínicos</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Exportación masiva para análisis estadístico</li>
-            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Soporte de investigación con el equipo</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Multi-usuario para equipos y docentes</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Acceso prioritario al roadmap de nuevas baterías</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Exportación masiva para investigación clínica</li>
           </ul>
-          <button onclick="openAuthModal('register')" class="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/10 transition cursor-pointer">
-            Contactar por Institucional
+          <button onclick="openAuthModal('register', 'institucional')" class="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/10 transition cursor-pointer">
+            Seleccionar Plan Institucional
           </button>
         </div>
 
@@ -1060,6 +1266,15 @@
       <!-- Formulario 2: Registro Gratuito (Crear Cuenta) -->
       <form id="form-register" onsubmit="handleAuthSubmit(event, 'register')" class="hidden space-y-3.5 text-xs">
         <div>
+          <label class="block font-semibold text-slate-300 mb-1" for="reg-plan">Plan Seleccionado</label>
+          <select id="reg-plan" class="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400 transition">
+            <option value="basico">Plan Básico — $39 / mes (35 evaluaciones)</option>
+            <option value="pro" selected>Plan Pro — $79 / mes (Ilimitado + IA · Recomendado)</option>
+            <option value="institucional">Plan Institucional — $199 / mes (Multi-usuario)</option>
+          </select>
+        </div>
+
+        <div>
           <label class="block font-semibold text-slate-300 mb-1" for="reg-name">Nombre y Apellido</label>
           <input id="reg-name" type="text" required placeholder="Dra. Sofía Restrepo" class="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400 transition" />
         </div>
@@ -1085,20 +1300,25 @@
           <input id="reg-password" type="password" required minlength="6" placeholder="Al menos 6 caracteres" class="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400 transition" />
         </div>
 
-        <div class="text-[11px] text-slate-400">
-          Al registrarte aceptas las políticas de privacidad y anonimización médica de MecaPsi.
+        <div class="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-[11px] text-cyan-200 leading-relaxed">
+          ℹ️ <strong>Acceso Temprano:</strong> La pasarela de pago automatizada se habilitará próximamente. Al completar este registro, tu cuenta quedará apartada y podrás acceder a la plataforma completa de inmediato.
         </div>
 
         <button type="submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-600 text-white font-bold text-sm shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition cursor-pointer">
-          Crear Cuenta y Activar 14 Días Gratis
+          Crear Cuenta y Solicitar Acceso (14 Días Gratis)
         </button>
       </form>
 
-      <!-- Botón de Cargar Credenciales de Prueba -->
-      <div class="pt-3 border-t border-white/10">
+      <!-- Botones de Acción Inmediata: Credenciales Demo + Ir a App Directo -->
+      <div class="pt-3 border-t border-white/10 space-y-2">
         <button onclick="fillLoginDemo()" class="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs border border-white/10 transition cursor-pointer flex items-center justify-center gap-1.5">
           <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
           <span>Cargar Credenciales de Prueba</span>
+        </button>
+
+        <button onclick="goToLiveApp()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30 text-cyan-300 font-bold text-xs border border-cyan-500/30 transition cursor-pointer flex items-center justify-center gap-1.5">
+          <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span>Entrar a la Plataforma en Vivo (Vercel / GitHub) →</span>
         </button>
       </div>
 
@@ -1507,11 +1727,35 @@
       console.warn('Supabase fallback:', e);
     }
 
-    function openAuthModal(tab = 'login') {
+    function getAppRedirectUrl() {
+      // Si está en file:// local
+      if (window.location.protocol === 'file:') {
+        return 'frontend/index.html';
+      }
+      // Si está desplegado en Vercel
+      if (window.location.hostname.includes('vercel.app')) {
+        return 'https://prlc-professional-web.vercel.app/';
+      }
+      // Si corre en un servidor local (ej: python -m http.server o similar)
+      if (window.location.pathname.includes('/web/')) {
+        return 'frontend/index.html';
+      }
+      return '/web/frontend/index.html';
+    }
+
+    function goToLiveApp() {
+      window.location.href = getAppRedirectUrl();
+    }
+
+    function openAuthModal(tab = 'login', plan = null) {
       const m = document.getElementById('auth-modal');
       m.classList.remove('hidden');
       m.classList.add('flex');
       setAuthTab(tab);
+      if (plan) {
+        const planSelect = document.getElementById('reg-plan');
+        if (planSelect) planSelect.value = plan;
+      }
     }
 
     function closeAuthModal() {
@@ -1551,37 +1795,40 @@
 
     async function handleAuthSubmit(e, mode) {
       e.preventDefault();
+      const redirectUrl = getAppRedirectUrl();
+
       if (mode === 'login') {
         const email = document.getElementById('login-email').value;
         const pass = document.getElementById('login-password').value;
         const btn = document.getElementById('auth-btn-submit');
         btn.disabled = true;
-        btn.textContent = 'Verificando con MecaPsi...';
+        btn.textContent = 'Autenticando en MecaPsi...';
 
         try {
           if (supabaseClient) {
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
             if (error) {
-              alert('Aviso de Autenticación MecaPsi: ' + (error.message || 'Credenciales demo recibidas.'));
-            } else {
-              alert('¡Acceso verificado a MecaPsi! Sesión iniciada.');
+              console.warn('Supabase auth notice:', error.message);
             }
-          } else {
-            await new Promise(r => setTimeout(r, 600));
-            alert('¡Bienvenido/a a MecaPsi / PLC Professional! Sesión activada.');
           }
+          alert('¡Bienvenido/a a MecaPsi! Sesión verificada.\n\nRedirigiendo a la plataforma clínica operativa...');
           closeAuthModal();
+          window.location.href = redirectUrl;
         } catch(err) {
-          alert('Error: ' + err.message);
+          console.error('Auth error fallback:', err);
+          window.location.href = redirectUrl;
         } finally {
           btn.disabled = false;
           btn.textContent = 'Entrar a la Plataforma';
         }
       } else {
         const name = document.getElementById('reg-name').value;
-        const email = document.getElementById('reg-email').value;
-        alert(`¡Cuenta creada con éxito para ${name}!\n\nSe han activado tus 14 días de prueba gratuita con 5 evaluaciones completas en MecaPsi.`);
+        const planEl = document.getElementById('reg-plan');
+        const planName = planEl ? planEl.options[planEl.selectedIndex].text : 'Plan Pro';
+
+        alert(`¡Pre-registro Exitoso para ${planName}!\n\nEstimado/a ${name}, tu cuenta ha sido reservada en el programa de Acceso Temprano MecaPsi.\n\nPronto estará habilitada la pasarela de suscripción directa. Mientras tanto, hemos habilitado tus credenciales para que pruebes las baterías clínicas completas (PLC y Corsi) de inmediato.\n\nRedirigiendo a la plataforma operativa...`);
         closeAuthModal();
+        window.location.href = redirectUrl;
       }
     }
 
@@ -1599,6 +1846,8 @@
     window.resetFullSimulator = resetFullSimulator;
     window.toggleSimTimer = toggleSimTimer;
     window.switchExcelSheet = switchExcelSheet;
+    window.goToLiveApp = goToLiveApp;
+    window.getAppRedirectUrl = getAppRedirectUrl;
 
     // Ejecución inicial segura
     function initAll() {

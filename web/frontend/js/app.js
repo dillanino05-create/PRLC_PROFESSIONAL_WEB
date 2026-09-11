@@ -761,53 +761,65 @@ const App = {
     const isReverse = this.corsiMode === 'reverse';
     this._corsiPracticeSequence = [0, 4, 8]; // 3 cubos didácticos: Cubo 1, Cubo 5, Cubo 9
     this._corsiPracticeUserClicks = [];
-    this._corsiPracticeCanClick = false;
+    this._corsiPracticeCanClick = true;
 
     app.innerHTML = `
       <div class="plc-header">
         <div>
           <h1 style="display:flex;align-items:center;gap:10px;">
-            Mini-Prueba de Práctica — Test de Bloques de Corsi
+            Mini-Prueba de Práctica — Test de Corsi
             <span class="badge" style="background:${isReverse ? '#7E22CE' : '#0284C7'};color:#fff;font-size:0.8rem;padding:4px 10px;border-radius:12px;">
               ${isReverse ? 'Modalidad Inversa' : 'Modalidad Directa'}
             </span>
           </h1>
           <div class="sub">
-            Ensayo didáctico interactivo de 3 cubos. ${isReverse ? 'Deberás reproducir la secuencia al revés (del último al primero).' : 'Deberás reproducir la secuencia en el mismo orden exacto.'}
+            Familiarícese con la tarea visoespacial. El tiempo es ilimitado.
           </div>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="App.nav('pretest')">← Volver a Instrucciones</button>
       </div>
 
-      <div class="page fade-in" style="max-width: 960px;">
-        <div class="card" style="padding: 24px; background: #0F172A; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.5);">
+      <div class="page fade-in" style="max-width: 900px;">
+        <div class="card" style="text-align: center; padding: 28px 24px;">
           
-          <!-- Banner de Estado de la Práctica -->
-          <div id="corsi-p-banner" style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); color: #E0F2FE; padding: 12px 20px; border-radius: 12px; font-size: 1rem; font-weight: 600; text-align: center; margin-bottom: 18px; transition: all 0.3s ease;">
-            Preparando demostración de 3 cubos...
+          <div id="corsi-p-banner" style="font-weight: 700; color: #1A237E; font-size: 1.12rem; margin-bottom: 16px;">
+            ${isReverse 
+              ? 'Observe la secuencia didáctica y reproduzca los cubos en ORDEN INVERSO (del último al primero):' 
+              : 'Observe la secuencia didáctica y reproduzca los cubos en el MISMO ORDEN (del primero al último):'}
           </div>
 
-          <!-- Tablero Espacial de Corsi para la Práctica (480px alto responsivo) -->
-          <div id="corsi-practice-board" style="position: relative; width: 100%; height: 480px; background: rgba(15, 23, 42, 0.8); border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); box-shadow: inset 0 4px 24px rgba(0,0,0,0.6); overflow: hidden; margin-bottom: 20px;">
+          <!-- Controles Rápidos de Práctica -->
+          <div style="display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" style="padding: 10px 22px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;" onclick="App.startCorsiPracticeDemo()">
+              ▶️ Ver Demostración (3 cubos)
+            </button>
+            <button class="btn btn-ghost" style="padding: 10px 18px; font-weight: 600;" onclick="App.resetCorsiPractice()">
+              🔄 Limpiar
+            </button>
+          </div>
+
+          <!-- Tablero Espacial de Corsi para Práctica (centrado y responsive) -->
+          <div id="corsi-practice-board" style="position: relative; width: 100%; max-width: 680px; height: 380px; margin: 0 auto 20px auto; background: #0B1124; border-radius: 14px; border: 1.5px solid rgba(255,255,255,0.1); box-shadow: inset 0 2px 20px rgba(0,0,0,0.6); overflow: hidden;">
           </div>
 
           <!-- Feedback de progreso -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; background: rgba(255,255,255,0.03); padding: 12px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
-            <div style="color: #94A3B8; font-size: 0.9rem;">
-              Secuencia objetivo: <strong style="color: #38BDF8;">3 cubos</strong> |
-              Modo: <strong style="color: ${isReverse ? '#C084FC' : '#38BDF8'};">${isReverse ? 'Inverso (al revés)' : 'Directo (mismo orden)'}</strong>
-            </div>
-            <div id="corsi-p-feedback" style="font-weight: 700; font-size: 0.95rem; color: #FBBF24;">
-              Demostración en curso...
-            </div>
+          <div id="corsi-p-feedback" style="min-height: 28px; font-size: 1.02rem; font-weight: 600; margin-bottom: 16px; color: #546E7A;">
+            Haga clic en los cubos para practicar o pulse "▶️ Ver Demostración".
           </div>
 
-          <!-- Botones de Acción -->
-          <div class="flex flex-between items-center" style="gap: 16px; flex-wrap: wrap;">
-            <button class="btn btn-warn" style="padding: 12px 22px; font-weight: 600; border-radius: 10px;" onclick="App.startCorsiPracticeDemo()">
-              🔄 Repetir práctica (ver secuencia otra vez)
-            </button>
-            <button class="btn btn-primary btn-lg" id="btn-start-corsi-real" disabled style="padding: 14px 36px; font-size: 1.08rem; border-radius: 10px; font-weight: 700; box-shadow: 0 4px 16px rgba(40, 53, 147, 0.3);" onclick="App.startTest()">
+          <!-- Barra de Progreso Dinámica idéntica a PLC (0 / 3) -->
+          <div class="prog-bar-wrap mb-4" style="justify-content: center; max-width: 360px; margin: 0 auto 24px auto;">
+            <span style="font-size: .95rem; color: #546E7A; font-weight: 500;">Cubos marcados:</span>
+            <div class="prog-bar" style="width: 100%; height: 14px; border-radius: 8px;">
+              <div class="prog-bar-fill" id="corsi-p-prog" style="width:0%; transition: width 0.25s ease; border-radius: 8px; background: ${isReverse ? '#9333EA' : '#0284C7'};"></div>
+            </div>
+            <span id="corsi-p-cnt" style="font-size: 1.2rem; font-weight: 800; color: #1A237E;">0 / 3</span>
+          </div>
+
+          <!-- Botones de Acción Final -->
+          <div class="flex flex-between items-center" style="max-width: 600px; margin: 0 auto; gap: 16px; flex-wrap: wrap;">
+            <button class="btn btn-warn" style="padding: 12px 24px;" onclick="App.resetCorsiPractice()">🔄 Repetir práctica</button>
+            <button class="btn btn-primary btn-lg" id="btn-start-corsi-real" style="padding: 14px 40px; font-size: 1.1rem; box-shadow: 0 4px 14px rgba(40, 53, 147, 0.25);" onclick="App.startTest()">
               Iniciar Prueba Real de Corsi &nbsp;→
             </button>
           </div>
@@ -817,9 +829,6 @@ const App = {
     `;
 
     this.initCorsiPracticeBoard();
-    setTimeout(() => {
-      this.startCorsiPracticeDemo();
-    }, 600);
   },
 
   initCorsiPracticeBoard() {
@@ -840,24 +849,24 @@ const App = {
       cube.dataset.id = idx;
 
       cube.style.position = 'absolute';
-      cube.style.left = `calc(${pos.x}% - 36px)`;
-      cube.style.top = `calc(${pos.y}% - 36px)`;
-      cube.style.width = '72px';
-      cube.style.height = '72px';
-      cube.style.borderRadius = '14px';
-      cube.style.background = 'linear-gradient(145deg, #334155 0%, #1E293B 100%)';
-      cube.style.border = '2px solid rgba(148, 163, 184, 0.2)';
-      cube.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.15)';
+      cube.style.left = `calc(${pos.x}% - 30px)`;
+      cube.style.top = `calc(${pos.y}% - 30px)`;
+      cube.style.width = '64px';
+      cube.style.height = '64px';
+      cube.style.borderRadius = '12px';
+      cube.style.background = 'linear-gradient(145deg, #1E293B 0%, #0F172A 100%)';
+      cube.style.border = '2px solid rgba(148, 163, 184, 0.25)';
+      cube.style.boxShadow = '0 6px 16px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1)';
       cube.style.display = 'flex';
       cube.style.alignItems = 'center';
       cube.style.justifyContent = 'center';
       cube.style.cursor = 'pointer';
-      cube.style.transition = 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)';
+      cube.style.transition = 'all 0.16s ease';
       cube.style.userSelect = 'none';
 
       const label = document.createElement('span');
       label.textContent = idx + 1;
-      label.style.fontSize = '1.15rem';
+      label.style.fontSize = '1.05rem';
       label.style.fontWeight = '700';
       label.style.color = 'rgba(255, 255, 255, 0.35)';
       cube.appendChild(label);
@@ -868,21 +877,15 @@ const App = {
     });
   },
 
-  async startCorsiPracticeDemo() {
-    this._corsiPracticeCanClick = false;
+  resetCorsiPractice() {
     this._corsiPracticeUserClicks = [];
-    const banner = document.getElementById('corsi-p-banner');
-    const feedback = document.getElementById('corsi-p-feedback');
-    const startBtn = document.getElementById('btn-start-corsi-real');
-    if (startBtn) startBtn.disabled = true;
-
-    // Limpiar estilos de los cubos
+    this._corsiPracticeCanClick = true;
     for (let i = 0; i < 9; i++) {
       const c = document.getElementById(`corsi-p-cube-${i}`);
       if (c) {
-        c.style.background = 'linear-gradient(145deg, #334155 0%, #1E293B 100%)';
-        c.style.borderColor = 'rgba(148, 163, 184, 0.2)';
-        c.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+        c.style.background = 'linear-gradient(145deg, #1E293B 0%, #0F172A 100%)';
+        c.style.borderColor = 'rgba(148, 163, 184, 0.25)';
+        c.style.boxShadow = '0 6px 16px rgba(0,0,0,0.5)';
         c.style.transform = 'scale(1)';
         const lbl = c.querySelector('span');
         if (lbl) {
@@ -891,78 +894,79 @@ const App = {
         }
       }
     }
-
-    if (banner) {
-      banner.textContent = '👀 Observa con atención la secuencia didáctica de 3 cubos...';
-      banner.style.background = 'rgba(56, 189, 248, 0.12)';
-      banner.style.borderColor = 'rgba(56, 189, 248, 0.3)';
-      banner.style.color = '#E0F2FE';
+    const prog = document.getElementById('corsi-p-prog');
+    const cnt = document.getElementById('corsi-p-cnt');
+    const feedback = document.getElementById('corsi-p-feedback');
+    if (prog) prog.style.width = '0%';
+    if (cnt) cnt.textContent = '0 / 3';
+    if (feedback) {
+      feedback.textContent = 'Haga clic en los cubos para practicar o pulse "▶️ Ver Demostración".';
+      feedback.style.color = '#546E7A';
     }
-    if (feedback) feedback.textContent = 'Demostración en curso...';
+  },
 
-    await new Promise(r => setTimeout(r, 600));
+  async startCorsiPracticeDemo() {
+    this.resetCorsiPractice();
+    this._corsiPracticeCanClick = false;
+    const feedback = document.getElementById('corsi-p-feedback');
+    if (feedback) {
+      feedback.textContent = '👀 Mostrando secuencia de 3 cubos...';
+      feedback.style.color = '#0284C7';
+    }
 
-    // Iluminar la secuencia didáctica [0, 4, 8]
+    await new Promise(r => setTimeout(r, 250));
+
+    // Secuencia didáctica rápida y nítida (3 cubos: 1, 5 y 9)
     const seq = this._corsiPracticeSequence;
     for (let i = 0; i < seq.length; i++) {
       const cubeId = seq[i];
       const cubeEl = document.getElementById(`corsi-p-cube-${cubeId}`);
       if (!cubeEl) continue;
 
-      // Flash del cubo
+      // Iluminar con resplandor amarillo neón
       cubeEl.style.background = 'radial-gradient(circle, #FDE047 0%, #EAB308 70%, #CA8A04 100%)';
       cubeEl.style.borderColor = '#FEF08A';
-      cubeEl.style.boxShadow = '0 0 35px rgba(250, 204, 21, 0.8), inset 0 2px 4px rgba(255,255,255,0.6)';
+      cubeEl.style.boxShadow = '0 0 30px rgba(250, 204, 21, 0.85)';
       cubeEl.style.transform = 'scale(1.08)';
 
       if (window.CorsiRunner && window.CorsiRunner.playTone) {
-        window.CorsiRunner.playTone(520 + (cubeId * 40), 500);
+        window.CorsiRunner.playTone(520 + (cubeId * 40), 320);
       }
 
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 380));
 
-      cubeEl.style.background = 'linear-gradient(145deg, #334155 0%, #1E293B 100%)';
-      cubeEl.style.borderColor = 'rgba(148, 163, 184, 0.2)';
-      cubeEl.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+      cubeEl.style.background = 'linear-gradient(145deg, #1E293B 0%, #0F172A 100%)';
+      cubeEl.style.borderColor = 'rgba(148, 163, 184, 0.25)';
+      cubeEl.style.boxShadow = '0 6px 16px rgba(0,0,0,0.5)';
       cubeEl.style.transform = 'scale(1)';
 
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 140));
     }
 
-    // Turno del participante
-    const isReverse = this.corsiMode === 'reverse';
     this._corsiPracticeCanClick = true;
-
-    if (banner) {
-      if (isReverse) {
-        banner.textContent = '🎯 ¡Tu turno! Haz clic en los 3 cubos en ORDEN INVERSO (del último al primero).';
-        banner.style.background = 'rgba(192, 132, 252, 0.15)';
-        banner.style.borderColor = 'rgba(192, 132, 252, 0.4)';
-        banner.style.color = '#F3E8FF';
-      } else {
-        banner.textContent = '🎯 ¡Tu turno! Haz clic en los 3 cubos en el MISMO ORDEN (1º, 2º y 3º).';
-        banner.style.background = 'rgba(74, 222, 128, 0.15)';
-        banner.style.borderColor = 'rgba(74, 222, 128, 0.4)';
-        banner.style.color = '#DCFCE7';
-      }
+    const isReverse = this.corsiMode === 'reverse';
+    if (feedback) {
+      feedback.textContent = isReverse 
+        ? '🎯 ¡Tu turno! Pulse los 3 cubos en ORDEN INVERSO (del último al primero).' 
+        : '🎯 ¡Tu turno! Pulse los 3 cubos en el MISMO ORDEN.';
+      feedback.style.color = isReverse ? '#9333EA' : '#0284C7';
     }
-    if (feedback) feedback.textContent = 'Esperando tus clics (0 / 3)...';
   },
 
   handleCorsiPracticeClick(cubeIdx) {
     if (!this._corsiPracticeCanClick) return;
-    if (this._corsiPracticeUserClicks.includes(cubeIdx)) return; // Evitar doble clic sobre el mismo cubo
+    if (this._corsiPracticeUserClicks.includes(cubeIdx)) return; // Evitar doble clic
 
     this._corsiPracticeUserClicks.push(cubeIdx);
     const clickOrder = this._corsiPracticeUserClicks.length;
     const isReverse = this.corsiMode === 'reverse';
 
-    // Retroalimentación visual en el cubo pulsado
+    // Feedback visual en el cubo pulsado
     const cubeEl = document.getElementById(`corsi-p-cube-${cubeIdx}`);
     if (cubeEl) {
       cubeEl.style.background = isReverse ? 'linear-gradient(145deg, #9333EA, #6B21A8)' : 'linear-gradient(145deg, #2563EB, #1D4ED8)';
       cubeEl.style.borderColor = isReverse ? '#C084FC' : '#60A5FA';
-      cubeEl.style.boxShadow = isReverse ? '0 0 20px rgba(147, 51, 234, 0.5)' : '0 0 20px rgba(37, 99, 235, 0.5)';
+      cubeEl.style.boxShadow = isReverse ? '0 0 20px rgba(147, 51, 234, 0.6)' : '0 0 20px rgba(37, 99, 235, 0.6)';
       cubeEl.style.transform = 'scale(1.05)';
       const lbl = cubeEl.querySelector('span');
       if (lbl) {
@@ -970,54 +974,39 @@ const App = {
         lbl.style.color = '#FFFFFF';
       }
       if (window.CorsiRunner && window.CorsiRunner.playTone) {
-        window.CorsiRunner.playTone(600 + (clickOrder * 80), 200);
+        window.CorsiRunner.playTone(600 + (clickOrder * 80), 160);
       }
     }
 
+    // Actualizar barra y contador
+    const prog = document.getElementById('corsi-p-prog');
+    const cnt = document.getElementById('corsi-p-cnt');
     const feedback = document.getElementById('corsi-p-feedback');
-    if (feedback) feedback.textContent = `Registrado cubo ${clickOrder} de 3...`;
+    if (prog) prog.style.width = `${Math.min(100, Math.round((clickOrder / 3) * 100))}%`;
+    if (cnt) cnt.textContent = `${clickOrder} / 3`;
 
-    // Si completó los 3 clics, validar
-    if (clickOrder === 3) {
-      this._corsiPracticeCanClick = false;
-      const expectedSeq = isReverse ? [...this._corsiPracticeSequence].reverse() : [...this._corsiPracticeSequence];
-      const isSuccess = this._corsiPracticeUserClicks.every((val, i) => val === expectedSeq[i]);
+    if (clickOrder < 3) {
+      if (feedback) feedback.textContent = `Cubo ${clickOrder} de 3 registrado...`;
+      return;
+    }
 
-      const banner = document.getElementById('corsi-p-banner');
-      const startBtn = document.getElementById('btn-start-corsi-real');
+    // Validar al completar 3 clics
+    const expectedSeq = isReverse ? [...this._corsiPracticeSequence].reverse() : [...this._corsiPracticeSequence];
+    const isSuccess = this._corsiPracticeUserClicks.every((val, i) => val === expectedSeq[i]);
 
-      if (isSuccess) {
-        if (banner) {
-          banner.textContent = '✅ ¡Excelente! Secuencia completada correctamente. Ya estás listo para la prueba real.';
-          banner.style.background = 'rgba(16, 185, 129, 0.2)';
-          banner.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-          banner.style.color = '#A7F3D0';
-        }
-        if (feedback) {
-          feedback.innerHTML = '<span style="color:#10B981;">✓ ¡Práctica superada con éxito!</span>';
-        }
-        if (startBtn) {
-          startBtn.disabled = false;
-        }
-        if (window.CorsiRunner && window.CorsiRunner.playTone) {
-          window.CorsiRunner.playTone(880, 400);
-        }
-      } else {
-        if (banner) {
-          banner.textContent = isReverse
-            ? '❌ Secuencia incorrecta. Recuerda que en Modo Inverso debes pulsar del ÚLTIMO al PRIMERO. Pulsa "Repetir práctica".'
-            : '❌ Secuencia incorrecta. Recuerda que debes pulsar en el MISMO orden. Pulsa "Repetir práctica".';
-          banner.style.background = 'rgba(239, 68, 68, 0.2)';
-          banner.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-          banner.style.color = '#FCA5A5';
-        }
-        if (feedback) {
-          feedback.innerHTML = '<span style="color:#EF4444;">✗ No coincide con la secuencia requerida.</span>';
-        }
-        if (startBtn) startBtn.disabled = true;
-        if (window.CorsiRunner && window.CorsiRunner.playTone) {
-          window.CorsiRunner.playTone(250, 400, 'sawtooth');
-        }
+    if (isSuccess) {
+      if (feedback) {
+        feedback.innerHTML = '<span style="color:#10B981;font-weight:700;">✅ ¡Excelente! Secuencia correcta. Ya puede iniciar la prueba real.</span>';
+      }
+      if (window.CorsiRunner && window.CorsiRunner.playTone) {
+        window.CorsiRunner.playTone(880, 350);
+      }
+    } else {
+      if (feedback) {
+        feedback.innerHTML = '<span style="color:#D97706;font-weight:600;">💡 Secuencia completada. Puede reintentar con "▶️ Ver Demostración" o continuar.</span>';
+      }
+      if (window.CorsiRunner && window.CorsiRunner.playTone) {
+        window.CorsiRunner.playTone(440, 250);
       }
     }
   },
@@ -1369,48 +1358,69 @@ const App = {
 
   stopRecording() {
     return new Promise((resolve) => {
-      if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-        this.mediaRecorder.onstop = () => {
-          this.recordingActive = false;
-          
-          // Apagar cámara y compartición de pantalla
-          if (this.screenStream) {
-            this.screenStream.getTracks().forEach(t => t.stop());
-          }
-          if (this.cameraStream) {
-            this.cameraStream.getTracks().forEach(t => t.stop());
-          }
-
-          // Remover elementos de video del DOM
-          if (this.screenVideoElement) {
-            this.screenVideoElement.remove();
-            this.screenVideoElement = null;
-          }
-          if (this.cameraVideoElement) {
-            this.cameraVideoElement.remove();
-            this.cameraVideoElement = null;
-          }
-
-          const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
-          this.recordedVideoBlob = blob;
-
-          // Detener y liberar MediaPipe Face Mesh
-          this.faceMeshRunning = false;
-          if (this._faceMeshTimer) {
-            clearTimeout(this._faceMeshTimer);
-            this._faceMeshTimer = null;
-          }
-          if (this.faceMeshInstance) {
-            try { this.faceMeshInstance.close(); } catch (e) {}
-            this.faceMeshInstance = null;
-          }
-
-          resolve(blob);
-        };
-        this.mediaRecorder.stop();
-      } else {
+      let isDone = false;
+      const finish = (blob) => {
+        if (isDone) return;
+        isDone = true;
+        this.recordingActive = false;
         this.faceMeshRunning = false;
-        resolve(null);
+        try {
+          if (this.screenStream) this.screenStream.getTracks().forEach(t => t.stop());
+        } catch (e) {}
+        try {
+          if (this.cameraStream) this.cameraStream.getTracks().forEach(t => t.stop());
+        } catch (e) {}
+        if (this.screenVideoElement) {
+          try { this.screenVideoElement.remove(); } catch (e) {}
+          this.screenVideoElement = null;
+        }
+        if (this.cameraVideoElement) {
+          try { this.cameraVideoElement.remove(); } catch (e) {}
+          this.cameraVideoElement = null;
+        }
+        if (this._faceMeshTimer) {
+          clearTimeout(this._faceMeshTimer);
+          this._faceMeshTimer = null;
+        }
+        if (this.faceMeshInstance) {
+          try { this.faceMeshInstance.close(); } catch (e) {}
+          this.faceMeshInstance = null;
+        }
+        resolve(blob);
+      };
+
+      // Temporizador de seguridad: si el MediaRecorder no dispara onstop en 2.5s, forzar resolución
+      const safetyTimer = setTimeout(() => {
+        let blob = null;
+        if (this.recordedChunks && this.recordedChunks.length > 0) {
+          try { blob = new Blob(this.recordedChunks, { type: 'video/webm' }); } catch (e) {}
+        }
+        finish(blob);
+      }, 2500);
+
+      try {
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+          this.mediaRecorder.onstop = () => {
+            clearTimeout(safetyTimer);
+            let blob = null;
+            try {
+              blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+              this.recordedVideoBlob = blob;
+            } catch (e) {}
+            finish(blob);
+          };
+          this.mediaRecorder.stop();
+        } else {
+          clearTimeout(safetyTimer);
+          let blob = null;
+          if (this.recordedChunks && this.recordedChunks.length > 0) {
+            try { blob = new Blob(this.recordedChunks, { type: 'video/webm' }); } catch (e) {}
+          }
+          finish(blob);
+        }
+      } catch (err) {
+        clearTimeout(safetyTimer);
+        finish(null);
       }
     });
   },
@@ -1651,186 +1661,232 @@ const App = {
     this.isSaving = true;
     this.nav('completion');
 
-    // 1. Detener grabación de video
-    const videoBlob = await this.stopRecording();
-
-    // 2. Detener tracking MediaPipe Face Mesh
-    this.faceMeshRunning = false;
-    if (this._gazeDivertedStartTime) {
-      const dur = performance.now() - this._gazeDivertedStartTime;
-      if (dur >= 350) {
-        this.gazeEvents.push({ start_t: this._gazeDivertedStartTime, duration_ms: dur, line: 1 });
+    try {
+      // 1. Detener grabación de video de forma segura con timeout
+      let videoBlob = null;
+      try {
+        videoBlob = await this.stopRecording();
+      } catch (errRec) {
+        console.warn("Aviso al detener grabación:", errRec);
       }
-      this._gazeDivertedStartTime = null;
-    }
 
-    const hasCameraStream = Boolean(
-      this.cameraStream && 
-      (this.cameraStream.active !== false) &&
-      (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0)
-    );
-    const totalTimeSec = (result.totalTimeMs || 1000) / 1000;
-    const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, totalTimeSec, hasCameraStream);
-    const ferMetrics = computeFERMetrics(this.ferSamples, hasCameraStream);
-    const pupiloMetrics = analyzePupillometry(this.pupilSamples, hasCameraStream, 8.0);
+      // 2. Detener tracking MediaPipe Face Mesh
+      this.faceMeshRunning = false;
+      if (this._gazeDivertedStartTime) {
+        const dur = performance.now() - this._gazeDivertedStartTime;
+        if (dur >= 350) {
+          this.gazeEvents.push({ start_t: this._gazeDivertedStartTime, duration_ms: dur, line: 1 });
+        }
+        this._gazeDivertedStartTime = null;
+      }
 
-    // Análisis de temblor motor / cinemática sobre los puntos del mouse en Corsi
-    const mousePoints = (this.mouseTrackPerLine && this.mouseTrackPerLine[0]) ? this.mouseTrackPerLine[0] : [];
-    const motorKinematics = analyzeCursorKinematics(mousePoints);
+      const hasCameraStream = Boolean(
+        this.cameraStream && 
+        (this.cameraStream.active !== false) &&
+        (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0)
+      );
+      const totalTimeSec = (result.totalTimeMs || 1000) / 1000;
+      const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, totalTimeSec, hasCameraStream);
+      const ferMetrics = computeFERMetrics(this.ferSamples, hasCameraStream);
+      const pupiloMetrics = analyzePupillometry(this.pupilSamples, hasCameraStream, 8.0);
 
-    // Calcular métricas neuropsicológicas del Test de Corsi
-    this.metrics = computeCorsiMetrics(result);
-    this.metrics._age = this.participant.age;
-    this.metrics.test_type = 'CORSI';
-    const timestampStr = getSessionTimestamp();
-    this.metrics.session_uid = timestampStr;
+      // Análisis de temblor motor / cinemática sobre los puntos del mouse en Corsi
+      const mousePoints = (this.mouseTrackPerLine && this.mouseTrackPerLine[0]) ? this.mouseTrackPerLine[0] : [];
+      const motorKinematics = analyzeCursorKinematics(mousePoints);
 
-    // Adjuntar biomarcadores paraclínicos IA
-    this.metrics.camera_active = Boolean(oculoMetrics.camera_active);
-    this.metrics.ear_mean = oculoMetrics.ear_mean;
-    this.metrics.blink_count = oculoMetrics.blink_count;
-    this.metrics.blink_rate_min = oculoMetrics.blink_rate_min;
-    this.metrics.gaze_diverted_count = oculoMetrics.gaze_diverted_count;
-    this.metrics.gaze_diverted_ms = oculoMetrics.gaze_diverted_ms;
-    this.metrics.microtremor_avg = motorKinematics.microtremor_score || 0.0;
-    this.metrics.sweep_regularity_avg = motorKinematics.sweep_regularity || 100.0;
-    this.metrics.fer_dominant = ferMetrics.fer_dominant;
-    this.metrics.fer_tension_score = ferMetrics.fer_tension_score;
-    this.metrics.fer_frustration_events = ferMetrics.fer_frustration_events;
-    this.metrics.pupil_dilation_avg = pupiloMetrics.pupil_dilation_avg;
-    this.metrics.cognitive_load_peaks = pupiloMetrics.cognitive_load_peaks;
-    this.metrics.pupil_baseline = pupiloMetrics.pupil_baseline;
+      if (!this.participant) {
+        this.participant = { id: 'P01', name: 'Evaluado', age: 30, gender: 'Otro', education: 'Secundaria', hand: 'Diestro' };
+      }
 
-    // Mapear trialsData a linesData para persistencia relacional homogénea
-    this.linesData = (result.trialsData || []).map((t, idx) => ({
-      linea: idx + 1,
-      sequence_length: t.level,
-      attempt: t.attempt,
-      sequence_presented: t.sequence,
-      sequence_user: t.userSequence,
-      success: t.isCorrect,
-      hesitation_time_ms: t.hesitationTimeMs,
-      mean_reaction_time_ms: t.meanReactionTimeMs,
-      aciertos: t.isCorrect ? 1 : 0,
-      omisiones: t.isCorrect ? 0 : 1,
-      comisiones: 0,
-      evaluados: t.level,
-      targets_total: t.level,
-      tiempo_s: Math.round(((t.reactionTimes || []).reduce((a, b) => a + b, 0) + (t.hesitationTimeMs || 0)) / 1000),
-      tremor_score: motorKinematics.microtremor_score || 0.0,
-      sweep_regularity: motorKinematics.sweep_regularity || 100.0,
-      pupil_dilation_avg: pupiloMetrics.pupil_dilation_avg
-    }));
-    this.metrics._linesDataRef = this.linesData;
+      // Calcular métricas neuropsicológicas del Test de Corsi
+      this.metrics = computeCorsiMetrics(result);
+      this.metrics._age = this.participant.age || 30;
+      this.metrics.test_type = 'CORSI';
+      const timestampStr = getSessionTimestamp();
+      this.metrics.session_uid = timestampStr;
 
-    // Mapear clics individuales de cubos a clickLog
-    this.clickLog = [];
-    (result.trialsData || []).forEach((trial, tIdx) => {
-      (trial.clicks || []).forEach((clk, cIdx) => {
-        this.clickLog.push({
-          line: tIdx + 1,
-          stim_idx: cIdx,
-          cube_id: clk.cubeId,
-          sequence_position: clk.position,
-          expected_cube: clk.expectedCube,
-          is_correct: clk.isCorrect,
-          action: clk.isCorrect ? 'mark_target' : 'mark_distractor',
-          elapsed_ms: clk.reactionTimeMs,
-          reaction_time_ms: clk.reactionTimeMs,
-          distance_px: clk.distancePx,
-          x_coord: clk.x,
-          y_coord: clk.y
+      // Adjuntar biomarcadores paraclínicos IA
+      this.metrics.camera_active = Boolean(oculoMetrics.camera_active);
+      this.metrics.ear_mean = oculoMetrics.ear_mean;
+      this.metrics.blink_count = oculoMetrics.blink_count;
+      this.metrics.blink_rate_min = oculoMetrics.blink_rate_min;
+      this.metrics.gaze_diverted_count = oculoMetrics.gaze_diverted_count;
+      this.metrics.gaze_diverted_ms = oculoMetrics.gaze_diverted_ms;
+      this.metrics.microtremor_avg = motorKinematics.microtremor_score || 0.0;
+      this.metrics.sweep_regularity_avg = motorKinematics.sweep_regularity || 100.0;
+      this.metrics.fer_dominant = ferMetrics.fer_dominant;
+      this.metrics.fer_tension_score = ferMetrics.fer_tension_score;
+      this.metrics.fer_frustration_events = ferMetrics.fer_frustration_events;
+      this.metrics.pupil_dilation_avg = pupiloMetrics.pupil_dilation_avg;
+      this.metrics.cognitive_load_peaks = pupiloMetrics.cognitive_load_peaks;
+      this.metrics.pupil_baseline = pupiloMetrics.pupil_baseline;
+
+      // Mapear trialsData a linesData para persistencia relacional homogénea
+      const trials = result.trialsData || result.levelSummaries || [];
+      this.linesData = trials.map((t, idx) => {
+        const isSuccess = Boolean(t.success ?? t.isCorrect);
+        const seqPresented = t.sequence_presented || t.sequence || [];
+        const seqUser = t.sequence_user || t.userSequence || [];
+        const seqLen = t.sequence_length || t.level || 2;
+        const hesitation = t.hesitation_time_ms ?? t.hesitationTimeMs ?? 0;
+        const meanRt = t.avg_reaction_time_ms ?? t.meanReactionTimeMs ?? 0;
+        const rts = t.reactionTimes || [];
+        const duration = t.total_time_ms ? Math.round(t.total_time_ms / 1000) : Math.round(((rts.reduce((a, b) => a + b, 0)) + hesitation) / 1000);
+
+        return {
+          linea: idx + 1,
+          sequence_length: seqLen,
+          attempt: t.attempt || 1,
+          sequence_presented: seqPresented,
+          sequence_user: seqUser,
+          success: isSuccess,
+          hesitation_time_ms: hesitation,
+          mean_reaction_time_ms: meanRt,
+          aciertos: isSuccess ? 1 : 0,
+          omisiones: isSuccess ? 0 : 1,
+          comisiones: 0,
+          evaluados: seqLen,
+          targets_total: seqLen,
+          tiempo_s: duration,
+          tremor_score: motorKinematics.microtremor_score || 0.0,
+          sweep_regularity: motorKinematics.sweep_regularity || 100.0,
+          pupil_dilation_avg: pupiloMetrics.pupil_dilation_avg
+        };
+      });
+      this.metrics._linesDataRef = this.linesData;
+
+      // Mapear clics individuales de cubos a clickLog
+      this.clickLog = [];
+      trials.forEach((trial, tIdx) => {
+        const clicks = trial.clicks || (result.movementsData ? result.movementsData.filter(m => m.level === trial.level) : []);
+        clicks.forEach((clk, cIdx) => {
+          const isCorr = Boolean(clk.isCorrect ?? clk.is_correct ?? true);
+          this.clickLog.push({
+            line: tIdx + 1,
+            stim_idx: cIdx,
+            cube_id: clk.cubeId ?? clk.cube_id ?? 0,
+            sequence_position: clk.position ?? clk.sequence_position ?? (cIdx + 1),
+            expected_cube: clk.expectedCube ?? clk.expected_cube ?? 0,
+            is_correct: isCorr,
+            action: isCorr ? 'mark_target' : 'mark_distractor',
+            elapsed_ms: clk.reactionTimeMs ?? clk.reaction_time_ms ?? 0,
+            reaction_time_ms: clk.reactionTimeMs ?? clk.reaction_time_ms ?? 0,
+            distance_px: clk.distancePx ?? clk.distance_px ?? 0,
+            x_coord: clk.x ?? clk.x_coord ?? 0,
+            y_coord: clk.y ?? clk.y_coord ?? 0
+          });
         });
       });
-    });
 
-    // Inferencia de perfil normativo vía /api/predict
-    try {
-      const resp = await fetch(API_BASE + '/api/predict', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          test_type: 'CORSI',
-          corsi_span: this.metrics.corsi_span,
-          corsi_mode: this.metrics.corsi_mode,
-          age: this.participant.age,
-          education: this.participant.education,
-          hand: this.participant.hand,
-          accuracy_pct: this.metrics.accuracy_pct,
-          mean_reaction_time_ms: this.metrics.mean_reaction_time_ms,
-          hesitation_time_avg_ms: this.metrics.hesitation_time_avg_ms,
-          composite_score: this.metrics.composite_score,
-          camera_active: this.metrics.camera_active,
-          microtremor_avg: this.metrics.microtremor_avg,
-          pupil_dilation_avg: this.metrics.pupil_dilation_avg
-        })
-      });
-      this.mlPred = await resp.json();
-    } catch (e) {
-      this.mlPred = { model_used: false, profile: 'Normativo Corsi', desc: this.metrics.clinical_desc };
-    }
-
-    const narrative = `Evaluación neuropsicológica del Test de Bloques de Corsi (${this.metrics.corsi_mode === 'reverse' ? 'Modalidad Inversa' : 'Modalidad Directa'}).\n` +
-      `Span Visoespacial: ${this.metrics.corsi_span} bloques (${this.metrics.clinical_category}).\n` +
-      `Puntaje compuesto: ${this.metrics.composite_score} puntos con una precisión del ${this.metrics.accuracy_pct}%.\n` +
-      `Latencia media de reacción: ${Math.round(this.metrics.mean_reaction_time_ms)} ms, vacilación promedio: ${Math.round(this.metrics.hesitation_time_avg_ms)} ms.\n` +
-      `Biomarcadores: Dilatación pupilar ${this.metrics.pupil_dilation_avg?.toFixed(2) || '1.00'}x, Temblor motor: ${this.metrics.microtremor_avg?.toFixed(2) || '0.00'} px/s².`;
-
-    // Persistencia en Supabase y generación de Excel forense
-    try {
-      const sess = await this.supabase.auth.getSession();
-      const token = sess.data.session ? sess.data.session.access_token : '';
-
-      const saveResp = await fetch(API_BASE + '/api/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          test_type: 'CORSI',
-          session_uid: timestampStr,
-          participant: this.participant,
-          lines_data: this.linesData,
-          click_log: this.clickLog,
-          metrics: this.metrics,
-          ml_prediction: this.mlPred,
-          narrative
-        })
-      });
-
-      const sd = await saveResp.json();
-      this.evalId = sd.id;
-      this.evalStatus = sd.status;
-      this.sessionTag = sd.session_tag || generateSessionTag('CORSI', this.evalId, this.participant?.id, timestampStr);
-      const videoFilename = sd.video_filename || `${this.sessionTag}.webm`;
-      const excelFilename = sd.excel_filename || `${this.sessionTag}.xlsx`;
-      this.evalFilename = excelFilename;
-
-      if (videoBlob && this.evalId) {
-        const { error } = await this.supabase.storage
-          .from('exports')
-          .upload(videoFilename, videoBlob, {
-            contentType: 'video/webm',
-            cacheControl: '3600',
-            upsert: true
-          });
-
-        if (!error) {
-          this.metrics.video_path = videoFilename;
-          this.metrics.session_tag = this.sessionTag;
-          await this.supabase
-            .from('evaluations')
-            .update({
-              excel_path: excelFilename,
-              metrics_json: this.metrics
-            })
-            .eq('id', this.evalId);
+      // Inferencia de perfil normativo vía /api/predict (timeout de 3.5s)
+      try {
+        const ctrlPred = new AbortController();
+        const toPred = setTimeout(() => ctrlPred.abort(), 3500);
+        const resp = await fetch(API_BASE + '/api/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: ctrlPred.signal,
+          body: JSON.stringify({
+            test_type: 'CORSI',
+            corsi_span: this.metrics.corsi_span,
+            corsi_mode: this.metrics.corsi_mode,
+            age: this.participant.age || 30,
+            education: this.participant.education || 'Secundaria',
+            hand: this.participant.hand || 'Diestro',
+            accuracy_pct: this.metrics.accuracy_pct,
+            mean_reaction_time_ms: this.metrics.mean_reaction_time_ms,
+            hesitation_time_avg_ms: this.metrics.hesitation_time_avg_ms,
+            composite_score: this.metrics.composite_score,
+            camera_active: this.metrics.camera_active,
+            microtremor_avg: this.metrics.microtremor_avg,
+            pupil_dilation_avg: this.metrics.pupil_dilation_avg
+          })
+        });
+        clearTimeout(toPred);
+        if (resp.ok) {
+          this.mlPred = await resp.json();
+        } else {
+          this.mlPred = { model_used: false, profile: 'Normativo Corsi', desc: this.metrics.clinical_desc };
         }
+      } catch (e) {
+        this.mlPred = { model_used: false, profile: 'Normativo Corsi', desc: this.metrics.clinical_desc };
       }
-    } catch (e) {
-      console.warn("Error guardando sesión Corsi:", e);
-    }
 
-    this.isSaving = false;
-    this.nav('completion');
+      const narrative = `Evaluación neuropsicológica del Test de Bloques de Corsi (${this.metrics.corsi_mode === 'reverse' ? 'Modalidad Inversa' : 'Modalidad Directa'}).\n` +
+        `Span Visoespacial: ${this.metrics.corsi_span} bloques (${this.metrics.clinical_category}).\n` +
+        `Puntaje compuesto: ${this.metrics.composite_score} puntos con una precisión del ${this.metrics.accuracy_pct}%.\n` +
+        `Latencia media de reacción: ${Math.round(this.metrics.mean_reaction_time_ms)} ms, vacilación promedio: ${Math.round(this.metrics.hesitation_time_avg_ms)} ms.\n` +
+        `Biomarcadores: Dilatación pupilar ${this.metrics.pupil_dilation_avg?.toFixed(2) || '1.00'}x, Temblor motor: ${this.metrics.microtremor_avg?.toFixed(2) || '0.00'} px/s².`;
+
+      // Persistencia en Supabase y generación de Excel forense (timeout de 6s)
+      try {
+        const sess = await this.supabase.auth.getSession();
+        const token = sess.data.session ? sess.data.session.access_token : '';
+        const ctrlSave = new AbortController();
+        const toSave = setTimeout(() => ctrlSave.abort(), 6000);
+
+        const saveResp = await fetch(API_BASE + '/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          signal: ctrlSave.signal,
+          body: JSON.stringify({
+            test_type: 'CORSI',
+            session_uid: timestampStr,
+            participant: this.participant,
+            lines_data: this.linesData,
+            click_log: this.clickLog,
+            metrics: this.metrics,
+            ml_prediction: this.mlPred,
+            narrative
+          })
+        });
+        clearTimeout(toSave);
+
+        if (saveResp.ok) {
+          const sd = await saveResp.json();
+          this.evalId = sd.id;
+          this.evalStatus = sd.status;
+          this.sessionTag = sd.session_tag || generateSessionTag('CORSI', this.evalId, this.participant?.id, timestampStr);
+          const videoFilename = sd.video_filename || `${this.sessionTag}.webm`;
+          const excelFilename = sd.excel_filename || `${this.sessionTag}.xlsx`;
+          this.evalFilename = excelFilename;
+
+          if (videoBlob && this.evalId) {
+            try {
+              const { error } = await this.supabase.storage
+                .from('exports')
+                .upload(videoFilename, videoBlob, {
+                  contentType: 'video/webm',
+                  cacheControl: '3600',
+                  upsert: true
+                });
+
+              if (!error) {
+                this.metrics.video_path = videoFilename;
+                this.metrics.session_tag = this.sessionTag;
+                await this.supabase
+                  .from('evaluations')
+                  .update({
+                    excel_path: excelFilename,
+                    metrics_json: this.metrics
+                  })
+                  .eq('id', this.evalId);
+              }
+            } catch (upErr) {
+              console.warn("Aviso al subir video:", upErr);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Error guardando sesión Corsi en backend:", e);
+      }
+    } catch (criticalErr) {
+      console.error("Error crítico en finishCorsiTest:", criticalErr);
+    } finally {
+      this.isSaving = false;
+      // Enrutamiento directo al informe clínico de resultados Corsi
+      this.nav('results');
+    }
   },
 
   renderTest(app) {
@@ -2328,6 +2384,10 @@ const App = {
           </p>
 
           <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px;">
+            ${this.testType === 'CORSI' ? `
+            <button class="btn btn-primary" style="justify-content: center; width: 100%;" onclick="App.nav('results')">
+              📊 Ver Informe Clínico de Corsi
+            </button>` : ''}
             <button class="btn btn-secondary" style="justify-content: center; width: 100%;" onclick="App.nav('menu')">
               🏠 Regresar al Menú Principal
             </button>

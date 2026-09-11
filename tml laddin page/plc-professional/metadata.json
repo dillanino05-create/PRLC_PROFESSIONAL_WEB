@@ -1,0 +1,6 @@
+{
+  "name": "PLC Professional",
+  "description": "Plataforma SaaS HealthTech de evaluación neuropsicológica digital con cronometría de milisegundos, biomarcadores motores y seguridad RLS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
