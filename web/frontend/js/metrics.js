@@ -331,3 +331,48 @@ function computeOculomotorMetrics(earSamples, gazeEvents, durationSec) {
   };
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ANÁLISIS DE EMOCIONES FACIALES & TENSIÓN (FER Edge-AI)
+   ────────────────────────────────────────────────────────────────────────────
+   Evalúa el estado afectivo continuo (foco neutro, sobreesfuerzo, frustración)
+   correlacionado con el desempeño durante el test.
+═══════════════════════════════════════════════════════════════════════════════ */
+function computeFERMetrics(ferSamples) {
+  if (!ferSamples || ferSamples.length === 0) {
+    return {
+      fer_dominant: 'Concentración Neutra',
+      fer_tension_score: 0.0,
+      fer_frustration_events: 0
+    };
+  }
+
+  const counts = {};
+  let totalTension = 0;
+  let frustrationCount = 0;
+
+  for (let i = 0; i < ferSamples.length; i++) {
+    const s = ferSamples[i];
+    const expr = s.expr || 'Concentrado';
+    counts[expr] = (counts[expr] || 0) + 1;
+    totalTension += (s.tension || 0);
+    if (s.is_frustration_peak) frustrationCount++;
+  }
+
+  let dominantExpr = 'Concentración Neutra';
+  let maxC = 0;
+  for (const [k, v] of Object.entries(counts)) {
+    if (v > maxC) {
+      maxC = v;
+      dominantExpr = k;
+    }
+  }
+
+  const avgTension = parseFloat((totalTension / ferSamples.length).toFixed(1));
+
+  return {
+    fer_dominant: dominantExpr,
+    fer_tension_score: avgTension,
+    fer_frustration_events: frustrationCount
+  };
+}
+

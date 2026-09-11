@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MecaPsi — Sistema de Evaluación Neurocognitiva</title>
+  <meta name="description" content="Plataforma SaaS de evaluación psicológica con Test d2 digitalizado, biomarcadores de temblor motor y diagnóstico por IA. Para psicólogos clínicos." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    /* ══════════════════════════════════════════════════
+       TOKENS & RESET
+    ══════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Brand */
+      --brand:        #2563EB;
+      --brand-dark:   #1D4ED8;
+      --brand-light:  #3B82F6;
+      --brand-glow:   rgba(37,99,235,.30);
+
+      /* Surfaces */
+      --bg:           #060C1A;
+      --surface-1:    #0D1630;
+      --surface-2:    #101D3C;
+      --glass:        rgba(255,255,255,.045);
+      --border:       rgba(255,255,255,.08);
+      --border-hover: rgba(59,130,246,.4);
+
+      /* Text */
+      --tx-hi:   #F0F4FF;
+      --tx-mid:  #8FA0C0;
+      --tx-lo:   #4A5A7A;
+
+      /* Semantic */
+      --success:  #10B981;
+      --warning:  #F59E0B;
+      --error:    #EF4444;
+      --info:     #06B6D4;
+
+      /* Radius */
+      --r-sm: 8px;
+      --r-md: 14px;
+      --r-lg: 20px;
+      --r-xl: 28px;
+
+      /* Shadows */
+      --shadow-card: 0 24px 60px -12px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06);
+      --shadow-btn:  0 4px 20px rgba(37,99,235,.4);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--tx-hi);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.55;
+    }
+
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.022'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ══════════════════════════════════════════════════
+       NAV BAR (estilo Factus — limpio, corporativo)
+    ══════════════════════════════════════════════════ */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 64px;
+      display: flex; align-items: center;
+      padding: 0 40px;
+      background: rgba(6,12,26,.92);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      gap: 32px;
+    }
+
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+
+    .nav-logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #2563EB 0%, #0284C7 100%);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 20px rgba(37,99,235,.4);
+    }
+
+    .nav-wordmark {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--tx-hi);
+      letter-spacing: -0.5px;
+    }
+    .nav-wordmark span { color: var(--brand-light); }
+
+    .nav-links {
+      display: flex; align-items: center; gap: 4px;
+      margin-left: auto;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--tx-mid);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: var(--r-sm);
+      transition: all .2s;
+    }
+    .nav-links a:hover { color: var(--tx-hi); background: var(--glass); }
+
+    .nav-status {
+      display: flex; align-items: center; gap: 7px;
+      padding: 5px 12px;
+      background: rgba(16,185,129,.08);
+      border: 1px solid rgba(16,185,129,.2);
+      border-radius: var(--r-sm);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--success);
+      margin-left: 16px;
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .6; transform: scale(0.85); }
+    }
+
+    /* ══════════════════════════════════════════════════
+       HERO — SPLIT LAYOUT (DocuSign pattern)
+       Left = showcase interactive | Right = auth card
+    ══════════════════════════════════════════════════ */
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr 460px;
+      min-height: 100vh;
+      padding-top: 64px;
+      position: relative;
+    }
+
+    /* Gradient blobs */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(100px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-1 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(37,99,235,.18), transparent 70%);
+      top: -100px; left: -100px;
+    }
+    .blob-2 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(6,182,212,.12), transparent 70%);
+      top: 200px; right: 400px;
+    }
+    .blob-3 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(16,185,129,.10), transparent 70%);
+      bottom: 0; right: 0;
+    }
+
+    /* ── LEFT PANEL ── */
+    .showcase {
+      padding: 60px 64px 60px 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .badge-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px;
+      background: rgba(37,99,235,.12);
+      border: 1px solid rgba(37,99,235,.25);
+      border-radius: var(--r-sm);
+      font-size: 12px; font-weight: 600;
+      color: var(--brand-light);
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      width: fit-content;
+    }
+
+    .hero-headline {
+      font-size: clamp(32px, 3.5vw, 52px);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      color: var(--tx-hi);
+      margin-bottom: 20px;
+    }
+    .hero-headline .accent { color: var(--brand-light); }
+
+    .hero-sub {
+      font-size: 16px;
+      color: var(--tx-mid);
+      max-width: 540px;
+      margin-bottom: 48px;
+      line-height: 1.7;
+    }
+
+    /* Feature cards grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      max-width: 580px;
+    }
+
+    .feat-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 18px 20px;
+      transition: all .25s;
+      cursor: default;
+      position: relative;
+      overflow: hidden;
+    }
+    .feat-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(37,99,235,.07) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity .25s;
+    }
+    .feat-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+    .feat-card:hover::before { opacity: 1; }
+
+    .feat-icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .feat-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--tx-hi);
+      margin-bottom: 5px;
+      letter-spacing: -.2px;
+    }
+
+    .feat-desc {
+      font-size: 11.5px;
+      color: var(--tx-mid);
+      line-height: 1.55;
+    }
+
+    .feat-tag {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: .3px;
+    }
+    .tag-blue   { background: rgba(37,99,235,.15); color: #93C5FD; }
+    .tag-green  { background: rgba(16,185,129,.15); color: #6EE7B7; }
+    .tag-amber  { background: rgba(245,158,11,.15); color: #FCD34D; }
+    .tag-cyan   { background: rgba(6,182,212,.15);  color: #67E8F9; }
+
+    /* Stat strip */
+    .stats-strip {
+      display: flex;
+      gap: 32px;
+      margin-top: 48px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+
+    .stat-item { }
+    .stat-value {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--tx-hi);
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--tx-lo);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* Live d2 mini demo */
+    .d2-demo-box {
+      margin-top: 40px;
+      background: rgba(13,22,48,.8);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 16px 20px;
+      max-width: 580px;
+    }
+
+    .d2-demo-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .d2-demo-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--tx-lo);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .d2-timer-badge {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--warning);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .d2-strip {
+      display: flex;
+      gap: 5px;
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+
+    .d2-item {
+      width: 42px; height: 42px;
+      flex-shrink: 0;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: all .15s;
+      user-select: none;
+    }
+    .d2-item:hover { background: rgba(37,99,235,.15); border-color: var(--brand-light); }
+    .d2-item.marked {
+      background: rgba(37,99,235,.2);
+      border-color: var(--brand);
+    }
+    .d2-item.marked::after {
+      content: '✓';
+      position: absolute;
+      top: 1px; right: 3px;
+      font-size: 9px;
+      color: var(--brand-light);
+      font-weight: 700;
+    }
+
+    .d2-stim {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--tx-hi);
+      line-height: 1;
+    }
+
+    .d2-marks {
+      font-size: 8px;
+      position: absolute;
+      color: var(--info);
+      line-height: .8;
+    }
+    .d2-marks.top { top: 2px; left: 50%; transform: translateX(-50%); letter-spacing: -1px; }
+    .d2-marks.bot { bottom: 2px; left: 50%; transform: translateX(-50%); letter-spacing: -1px; }
+
+    .d2-stats-row {
+      display: flex; gap: 16px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,.05);
+    }
+
+    .d2-metric {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .d2-metric-label { color: var(--tx-lo); }
+    .d2-metric-val   { color: var(--tx-hi); font-weight: 700; }
+
+    /* ══════════════════════════════════════════════════
+       RIGHT PANEL — AUTH CARD (Slack style)
+    ══════════════════════════════════════════════════ */
+    .auth-panel {
+      background: var(--surface-1);
+      border-left: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 40px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .auth-logo-wrap {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .auth-logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, #2563EB, #0284C7);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 8px 24px rgba(37,99,235,.35);
+      flex-shrink: 0;
+    }
+
+    .auth-wordmark {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      color: var(--tx-hi);
+    }
+    .auth-wordmark span { color: var(--brand-light); }
+
+    .auth-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--tx-hi);
+      letter-spacing: -.5px;
+      margin-bottom: 6px;
+    }
+
+    .auth-subtitle {
+      font-size: 14px;
+      color: var(--tx-mid);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    /* Role Toggle */
+    .role-toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      background: rgba(0,0,0,.25);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 24px;
+    }
+
+    .role-btn {
+      padding: 9px 6px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--tx-lo);
+      transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+
+    .role-btn.active {
+      background: var(--surface-2);
+      color: var(--tx-hi);
+      box-shadow: 0 1px 6px rgba(0,0,0,.3);
+    }
+
+    /* Form */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--tx-mid);
+      margin-bottom: 7px;
+      letter-spacing: .2px;
+    }
+
+    .form-input-wrap {
+      position: relative;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 11px 14px;
+      background: rgba(255,255,255,.04);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-sm);
+      color: var(--tx-hi);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: all .2s;
+    }
+    .form-input::placeholder { color: var(--tx-lo); }
+    .form-input:focus {
+      border-color: var(--brand);
+      background: rgba(37,99,235,.06);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+    }
+
+    .pw-toggle {
+      position: absolute;
+      right: 12px; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none;
+      cursor: pointer;
+      color: var(--tx-lo);
+      font-size: 16px;
+      padding: 2px;
+      transition: color .15s;
+    }
+    .pw-toggle:hover { color: var(--tx-mid); }
+
+    /* Superadmin notice */
+    .admin-notice {
+      display: none;
+      align-items: center; gap: 9px;
+      padding: 11px 14px;
+      background: rgba(245,158,11,.07);
+      border: 1px solid rgba(245,158,11,.2);
+      border-radius: var(--r-sm);
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #FCD34D;
+    }
+    .admin-notice.visible { display: flex; }
+    .admin-notice-icon { font-size: 15px; }
+
+    /* Error message */
+    .form-error {
+      display: none;
+      align-items: center; gap: 7px;
+      padding: 10px 14px;
+      background: rgba(239,68,68,.08);
+      border: 1px solid rgba(239,68,68,.2);
+      border-radius: var(--r-sm);
+      font-size: 12.5px;
+      color: #FCA5A5;
+      margin-bottom: 14px;
+    }
+    .form-error.visible { display: flex; }
+
+    /* Forgot link */
+    .forgot-link {
+      display: block;
+      text-align: right;
+      font-size: 12px;
+      color: var(--brand-light);
+      text-decoration: none;
+      margin-top: -8px;
+      margin-bottom: 20px;
+      transition: color .15s;
+    }
+    .forgot-link:hover { color: var(--tx-hi); text-decoration: underline; }
+
+    /* Submit button */
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      border: none;
+      border-radius: var(--r-sm);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 14.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+      box-shadow: var(--shadow-btn);
+      letter-spacing: -.1px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-primary::before {
+      content: '';
+      position: absolute; top: 0; left: -100%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+      transition: left .4s;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(37,99,235,.5); }
+    .btn-primary:hover::before { left: 150%; }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+    /* Spinner in button */
+    .btn-spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      margin: 0 auto;
+    }
+    .btn-spinner.visible { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Divider */
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 20px 0;
+      color: var(--tx-lo);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Demo button */
+    .btn-ghost {
+      width: 100%;
+      padding: 11px;
+      background: var(--glass);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-sm);
+      color: var(--tx-mid);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-ghost:hover { border-color: var(--border-hover); color: var(--tx-hi); background: rgba(37,99,235,.07); }
+
+    /* Trust / compliance badges */
+    .trust-strip {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .trust-label {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--tx-lo);
+      font-weight: 600;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .trust-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .trust-badge {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--tx-lo);
+      transition: all .2s;
+    }
+    .trust-badge:hover { border-color: rgba(255,255,255,.15); color: var(--tx-mid); }
+
+    /* Auth footer note */
+    .auth-footer-note {
+      margin-top: 16px;
+      font-size: 11px;
+      color: var(--tx-lo);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .auth-footer-note a { color: var(--brand-light); text-decoration: none; }
+    .auth-footer-note a:hover { text-decoration: underline; }
+
+    /* ══════════════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════════════ */
+    .site-footer {
+      position: relative; z-index: 1;
+      background: rgba(0,0,0,.35);
+      border-top: 1px solid var(--border);
+      padding: 16px 80px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--tx-lo);
+    }
+    .site-footer a { color: var(--tx-lo); text-decoration: none; }
+    .site-footer a:hover { color: var(--tx-mid); }
+
+    /* ══════════════════════════════════════════════════
+       MODAL (Soporte)
+    ══════════════════════════════════════════════════ */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(8px);
+      z-index: 999;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 36px;
+      max-width: 440px;
+      width: 90%;
+      box-shadow: var(--shadow-card);
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute; top: 16px; right: 16px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--tx-mid);
+      font-size: 18px;
+      cursor: pointer;
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s;
+    }
+    .modal-close:hover { color: var(--tx-hi); background: rgba(255,255,255,.08); }
+
+    .modal-title { font-size: 18px; font-weight: 800; color: var(--tx-hi); margin-bottom: 8px; }
+    .modal-body  { font-size: 13.5px; color: var(--tx-mid); line-height: 1.6; }
+
+    /* ══════════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+      .showcase { padding: 48px 24px; }
+      .nav { padding: 0 20px; }
+      .nav-links { display: none; }
+      .auth-panel { border-left: none; border-top: 1px solid var(--border); }
+      .stats-strip { gap: 20px; }
+      .site-footer { flex-direction: column; gap: 8px; text-align: center; padding: 16px 24px; }
+    }
+
+    /* Success toast */
+    .toast {
+      display: none;
+      position: fixed;
+      bottom: 28px; right: 28px;
+      background: var(--surface-2);
+      border: 1px solid rgba(16,185,129,.3);
+      border-radius: var(--r-md);
+      padding: 14px 20px;
+      font-size: 13.5px;
+      color: var(--tx-hi);
+      box-shadow: var(--shadow-card);
+      z-index: 200;
+      gap: 10px;
+      align-items: center;
+      max-width: 320px;
+      animation: slideUp .3s ease;
+    }
+    .toast.visible { display: flex; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .toast-icon { font-size: 18px; }
+  </style>
+</head>
+<body>
+
+<!-- ══ GRADIENT BLOBS ══ -->
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+
+<!-- ══════════════════════════════════════════════════
+     NAV BAR
+══════════════════════════════════════════════════ -->
+<nav class="nav">
+  <a href="#" class="nav-brand" aria-label="MecaPsi inicio">
+    <div class="nav-logo">🧠</div>
+    <span class="nav-wordmark">Meca<span>Psi</span></span>
+  </a>
+
+  <ul class="nav-links">
+    <li><a href="#" onclick="openSupportModal(event)">Soporte</a></li>
+    <li><a href="https://prlc-professional-web.vercel.app/" target="_blank" rel="noopener">Demo Live</a></li>
+    <li><a href="https://huggingface.co/spaces" target="_blank" rel="noopener">API IA</a></li>
+  </ul>
+
+  <div class="nav-status" title="Motor de IA activo en Hugging Face Spaces">
+    <div class="status-dot"></div>
+    IA Activa · v3.2
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════
+     HERO SPLIT
+══════════════════════════════════════════════════ -->
+<main class="hero">
+
+  <!-- LEFT: SHOWCASE -->
+  <section class="showcase" aria-label="Características de MecaPsi">
+
+    <div class="badge-pill">
+      <span>🏛️</span> Sistema de Soporte a la Decisión Clínica (DSS)
+    </div>
+
+    <h1 class="hero-headline">
+      Evaluación Neurocognitiva<br>
+      con <span class="accent">Inteligencia Artificial</span><br>
+      para Psicólogos
+    </h1>
+
+    <p class="hero-sub">
+      MecaPsi digitaliza el <strong>Test d2 de Brickenkamp</strong>, captura biomarcadores
+      de temblor motor y clasifica perfiles cognitivos con una red neuronal MLP entrenada
+      para 5 diagnósticos diferenciales. Todo en una sola sesión clínica.
+    </p>
+
+    <!-- Feature cards -->
+    <div class="feature-grid" role="list">
+
+      <article class="feat-card" role="listitem">
+        <span class="feat-icon">📋</span>
+        <div class="feat-title">Test d2 Digitalizado</div>
+        <div class="feat-desc">14 líneas × 47 estímulos. 20 segundos exactos por página, cronometro automático no pausable.</div>
+        <span class="feat-tag tag-blue">14 pág · 658 estím.</span>
+      </article>
+
+      <article class="feat-card" role="listitem">
+        <span class="feat-icon">🖱️</span>
+        <div class="feat-title">Biomarcadores de Tremor</div>
+        <div class="feat-desc">Captura cinemática del cursor a ≤60 fps. Calcula jitter motor y score de temblor en tiempo real.</div>
+        <span class="feat-tag tag-cyan">Umbral 85.0 px/s²</span>
+      </article>
+
+      <article class="feat-card" role="listitem">
+        <span class="feat-icon">🤖</span>
+        <div class="feat-title">Red Neuronal MLP Keras</div>
+        <div class="feat-desc">16 variables psicométricas → 5 perfiles clínicos. Modelo v3.2 con StandardScaler.</div>
+        <span class="feat-tag tag-green">5 perfiles · v3.2</span>
+      </article>
+
+      <article class="feat-card" role="listitem">
+        <span class="feat-icon">📊</span>
+        <div class="feat-title">Reporte Excel Profesional</div>
+        <div class="feat-desc">Exporta .xlsx con 2 hojas: resumen ejecutivo con métricas TN, TA, O, COM, CON, CP, VAR, TRM, IVR.</div>
+        <span class="feat-tag tag-amber">openpyxl · .xlsx</span>
+      </article>
+
+      <article class="feat-card" role="listitem">
+        <span class="feat-icon">🎥</span>
+        <div class="feat-title">Grabación Dual Obligatoria</div>
+        <div class="feat-desc">Pantalla compartida vía getDisplayMedia + webcam en segundo plano para integridad clínica.</div>
+        <span class="feat-tag tag-blue">Screen + Cam</span>
+      </article>
+
+      <article class="feat-card" role="listitem">
+        <span class="feat-icon">🔐</span>
+        <div class="feat-title">SuperAdmin Panel</div>
+        <div class="feat-desc">Consola de Dilan A. Lamus Pabón con métricas globales. IDs de pacientes enmascarados (******).</div>
+        <span class="feat-tag tag-amber">Supabase RLS</span>
+      </article>
+
+    </div>
+
+    <!-- Mini d2 interactive demo -->
+    <div class="d2-demo-box" aria-label="Demostración interactiva del Test d2">
+      <div class="d2-demo-header">
+        <span class="d2-demo-title">🎮 Prueba el Test d2 — Marca las «d» con 2 rayitas</span>
+        <span class="d2-timer-badge">⏱ 20s</span>
+      </div>
+      <div class="d2-strip" id="d2Strip" role="group" aria-label="Muestra de estímulos d2"></div>
+      <div class="d2-stats-row">
+        <div class="d2-metric"><span class="d2-metric-label">TA: </span><span class="d2-metric-val" id="demoTA">0</span></div>
+        <div class="d2-metric"><span class="d2-metric-label">COM: </span><span class="d2-metric-val" id="demoCOM">0</span></div>
+        <div class="d2-metric"><span class="d2-metric-label">CON: </span><span class="d2-metric-val" id="demoCON">0</span></div>
+        <div class="d2-metric" style="margin-left:auto;"><span class="d2-metric-label">Tremor: </span><span class="d2-metric-val" id="demoTremor" style="color:var(--success);">—</span></div>
+      </div>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="stats-strip" role="list" aria-label="Estadísticas técnicas">
+      <div class="stat-item" role="listitem">
+        <div class="stat-value">658</div>
+        <div class="stat-label">Estímulos por sesión</div>
+      </div>
+      <div class="stat-item" role="listitem">
+        <div class="stat-value">16</div>
+        <div class="stat-label">Features de IA</div>
+      </div>
+      <div class="stat-item" role="listitem">
+        <div class="stat-value">5</div>
+        <div class="stat-label">Perfiles clínicos</div>
+      </div>
+      <div class="stat-item" role="listitem">
+        <div class="stat-value">&lt;60fps</div>
+        <div class="stat-label">Captura biomarcadores</div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- RIGHT: AUTH CARD -->
+  <aside class="auth-panel" aria-label="Panel de inicio de sesión">
+    <div class="auth-card">
+
+      <div class="auth-logo-wrap">
+        <div class="auth-logo-icon">🧠</div>
+        <div>
+          <div class="auth-wordmark">Meca<span>Psi</span></div>
+        </div>
+      </div>
+
+      <h2 class="auth-title">Iniciar sesión</h2>
+      <p class="auth-subtitle">Accede a tu ecosistema de evaluación neurocognitiva.</p>
+
+      <!-- Role Toggle -->
+      <div class="role-toggle" role="tablist" aria-label="Tipo de usuario">
+        <button class="role-btn active" id="roleClinico" onclick="setRole('clinico')" role="tab" aria-selected="true">
+          🩺 Psicólogo Clínico
+        </button>
+        <button class="role-btn" id="roleSuperadmin" onclick="setRole('superadmin')" role="tab" aria-selected="false">
+          🛡️ SuperAdmin
+        </button>
+      </div>
+
+      <!-- Admin notice -->
+      <div class="admin-notice" id="adminNotice" role="alert">
+        <span class="admin-notice-icon">🔒</span>
+        <span>Acceso restringido — <strong>Dilan A. Lamus Pabón</strong>. Los IDs de pacientes aparecen enmascarados (******) por privacidad.</span>
+      </div>
+
+      <!-- Error message -->
+      <div class="form-error" id="formError" role="alert">
+        <span>⚠️</span>
+        <span id="errorText">Credenciales incorrectas. Verifica tu correo y contraseña.</span>
+      </div>
+
+      <form id="loginForm" onsubmit="handleLogin(event)" novalidate>
+
+        <div class="form-group">
+          <label class="form-label" for="emailInput">Correo electrónico</label>
+          <input
+            class="form-input"
+            type="email"
+            id="emailInput"
+            name="email"
+            placeholder="psicólogo@clinica.com"
+            autocomplete="email"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="passwordInput">Contraseña</label>
+          <div class="form-input-wrap">
+            <input
+              class="form-input"
+              type="password"
+              id="passwordInput"
+              name="password"
+              placeholder="••••••••••"
+              autocomplete="current-password"
+              style="padding-right: 42px;"
+              required
+            />
+            <button type="button" class="pw-toggle" id="pwToggle" onclick="togglePassword()" aria-label="Mostrar/ocultar contraseña">
+              👁️
+            </button>
+          </div>
+        </div>
+
+        <a href="#" class="forgot-link" onclick="showForgotModal(event)">¿Olvidaste tu contraseña?</a>
+
+        <button type="submit" class="btn-primary" id="loginBtn">
+          <span id="btnText">Entrar a MecaPsi</span>
+          <div class="btn-spinner" id="btnSpinner"></div>
+        </button>
+
+      </form>
+
+      <div class="divider">o</div>
+
+      <button class="btn-ghost" onclick="fillDemo()" id="demoBtn">
+        🧪 Cargar credenciales de demostración
+      </button>
+
+      <!-- Trust / compliance -->
+      <div class="trust-strip" aria-label="Certificaciones y cumplimiento">
+        <div class="trust-label">Seguridad & Cumplimiento</div>
+        <div class="trust-badges">
+          <span class="trust-badge">🔒 Supabase RLS</span>
+          <span class="trust-badge">🧬 RedCOLSI</span>
+          <span class="trust-badge">🛡️ DSS Médico</span>
+          <span class="trust-badge">☁️ Vercel Edge</span>
+        </div>
+      </div>
+
+      <p class="auth-footer-note">
+        ¿Nuevo en MecaPsi? Contacta al administrador del sistema.<br>
+        Desarrollado por <a href="#" onclick="return false">Dilan Alejandro Lamus Pabón</a> — <a href="https://prlc-professional-web.vercel.app/" target="_blank" rel="noopener">Ver plataforma</a>
+      </p>
+
+    </div>
+  </aside>
+
+</main>
+
+<!-- ══════════════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════════════ -->
+<footer class="site-footer" role="contentinfo">
+  <span>© 2025 MecaPsi · Dilan Alejandro Lamus Pabón · Sistema de Soporte Clínico (DSS)</span>
+  <span style="display:flex;gap:20px;">
+    <a href="#" onclick="openSupportModal(event)">Soporte Técnico</a>
+    <a href="#" onclick="return false">Privacidad</a>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx-lo);">Backend: HF · DB: Supabase · Frontend: Vercel</span>
+  </span>
+</footer>
+
+<!-- ══════════════════════════════════════════════════
+     MODAL — Soporte
+══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="supportModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="closeModalOnBg(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeSupportModal()" aria-label="Cerrar modal">✕</button>
+    <div class="modal-title" id="modalTitle">💬 Soporte Técnico</div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px;">MecaPsi es una plataforma de investigación y uso clínico supervisado.</p>
+      <p style="margin-bottom:12px;"><strong style="color:var(--tx-hi);">Administrador del sistema:</strong><br>Dilan Alejandro Lamus Pabón</p>
+      <p style="margin-bottom:12px;"><strong style="color:var(--tx-hi);">Plataforma live:</strong><br>
+        <a href="https://prlc-professional-web.vercel.app/" target="_blank" rel="noopener" style="color:var(--brand-light);">prlc-professional-web.vercel.app</a>
+      </p>
+      <p style="margin-bottom:12px;"><strong style="color:var(--tx-hi);">Motor de IA:</strong><br>Hugging Face Spaces · Modelo MLP Keras v3.2</p>
+      <p style="color:var(--tx-lo);font-size:12px;">⚠️ Esta plataforma es un Sistema de Soporte a la Decisión (DSS) y NO reemplaza el juicio clínico de un profesional certificado. Uso restringido a psicólogos habilitados.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     TOAST
+══════════════════════════════════════════════════ -->
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span class="toast-icon" id="toastIcon">✅</span>
+  <span id="toastMsg">Credenciales cargadas</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════════ -->
+<script>
+  // ── Supabase init ──
+  const SUPABASE_URL = 'https://lfyaiwbtfgoiczyyzlwh.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxNDg5NTMsImV4cCI6MjA2MTcyNDk1M30.7GYwJ_OFvOuMXPAhHVUJLjuVj8C2-OV4DXTMfwuqhCw';
+  let supabaseClient = null;
+
+  try {
+    supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  } catch(e) {
+    console.warn('Supabase init failed (offline mode):', e);
+  }
+
+  // ── State ──
+  let currentRole = 'clinico';
+  let pwVisible   = false;
+
+  // ── Role toggle ──
+  function setRole(role) {
+    currentRole = role;
+    document.getElementById('roleClinico').classList.toggle('active', role === 'clinico');
+    document.getElementById('roleSuperadmin').classList.toggle('active', role === 'superadmin');
+    document.getElementById('roleClinico').setAttribute('aria-selected', role === 'clinico');
+    document.getElementById('roleSuperadmin').setAttribute('aria-selected', role === 'superadmin');
+    const notice = document.getElementById('adminNotice');
+    notice.classList.toggle('visible', role === 'superadmin');
+    if (role === 'superadmin') {
+      document.getElementById('emailInput').placeholder = 'superadmin@mecapsi.co';
+    } else {
+      document.getElementById('emailInput').placeholder = 'psicólogo@clinica.com';
+    }
+  }
+
+  // ── Password toggle ──
+  function togglePassword() {
+    pwVisible = !pwVisible;
+    const inp = document.getElementById('passwordInput');
+    inp.type = pwVisible ? 'text' : 'password';
+    document.getElementById('pwToggle').textContent = pwVisible ? '🙈' : '👁️';
+  }
+
+  // ── Demo credentials ──
+  function fillDemo() {
+    document.getElementById('emailInput').value    = 'demo@mecapsi.co';
+    document.getElementById('passwordInput').value = 'MecaPsi2025!';
+    showToast('🧪', 'Credenciales demo cargadas — solo para exploración');
+  }
+
+  // ── Login handler ──
+  async function handleLogin(e) {
+    e.preventDefault();
+    const email    = document.getElementById('emailInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    const errEl    = document.getElementById('formError');
+    const btnText  = document.getElementById('btnText');
+    const spinner  = document.getElementById('btnSpinner');
+    const btn      = document.getElementById('loginBtn');
+
+    errEl.classList.remove('visible');
+
+    if (!email || !password) {
+      showError('Completa todos los campos para continuar.');
+      return;
+    }
+
+    // Loading state
+    btnText.style.display = 'none';
+    spinner.classList.add('visible');
+    btn.disabled = true;
+
+    try {
+      if (supabaseClient) {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        showToast('✅', '¡Bienvenido! Redirigiendo al sistema...');
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 1200);
+      } else {
+        // Offline: simulate delay
+        await new Promise(r => setTimeout(r, 800));
+        showError('Sin conexión al servidor. Verifica tu red.');
+      }
+    } catch (err) {
+      const msgs = {
+        'Invalid login credentials': 'Correo o contraseña incorrectos.',
+        'Email not confirmed':        'Confirma tu correo antes de ingresar.',
+        'Too many requests':          'Demasiados intentos. Espera unos minutos.',
+      };
+      showError(msgs[err.message] || err.message || 'Error desconocido. Intenta de nuevo.');
+    } finally {
+      btnText.style.display = '';
+      spinner.classList.remove('visible');
+      btn.disabled = false;
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById('errorText').textContent = msg;
+    document.getElementById('formError').classList.add('visible');
+  }
+
+  // ── Toast ──
+  let toastTimer;
+  function showToast(icon, msg) {
+    const el = document.getElementById('toast');
+    document.getElementById('toastIcon').textContent = icon;
+    document.getElementById('toastMsg').textContent  = msg;
+    el.classList.add('visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('visible'), 3200);
+  }
+
+  // ── Modals ──
+  function openSupportModal(e) {
+    e.preventDefault();
+    document.getElementById('supportModal').classList.add('open');
+  }
+  function closeSupportModal() {
+    document.getElementById('supportModal').classList.remove('open');
+  }
+  function closeModalOnBg(e) {
+    if (e.target === document.getElementById('supportModal')) closeSupportModal();
+  }
+  function showForgotModal(e) {
+    e.preventDefault();
+    showToast('📧', 'Contacta al SuperAdmin para restablecer tu contraseña.');
+  }
+
+  // Escape key closes modal
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeSupportModal();
+  });
+
+  // ══════════════════════════════════════════════════
+  // MINI TEST d2 DEMO
+  // ══════════════════════════════════════════════════
+  (function buildD2Demo() {
+    // Estímulos: { letter, marks, isTarget }
+    // Target = 'd' con exactamente 2 marcas (arriba+abajo, o 2 arriba, o 2 abajo)
+    const stimuli = [
+      { l:'d', marks:[1,1], target:true },   // d con 1 arriba + 1 abajo ← TARGET
+      { l:'p', marks:[2,0], target:false },
+      { l:'d', marks:[1,0], target:false },
+      { l:'d', marks:[2,0], target:true },   // d con 2 arriba ← TARGET
+      { l:'p', marks:[1,1], target:false },
+      { l:'d', marks:[0,2], target:true },   // d con 2 abajo ← TARGET
+      { l:'p', marks:[1,0], target:false },
+      { l:'d', marks:[3,0], target:false },
+      { l:'d', marks:[1,1], target:true },   // TARGET
+      { l:'p', marks:[2,1], target:false },
+      { l:'d', marks:[0,1], target:false },
+      { l:'d', marks:[2,0], target:true },   // TARGET
+    ];
+
+    const strip = document.getElementById('d2Strip');
+    let ta=0, com=0;
+    const marked = new Set();
+    const targets = new Set(stimuli.map((s,i)=>s.target?i:-1).filter(i=>i>=0));
+
+    stimuli.forEach((s, i) => {
+      const item = document.createElement('div');
+      item.className = 'd2-item';
+      item.setAttribute('role','checkbox');
+      item.setAttribute('aria-checked','false');
+      item.setAttribute('aria-label', `Estímulo ${i+1}: ${s.l} con ${s.marks[0]+s.marks[1]} marcas`);
+      item.tabIndex = 0;
+
+      // Letter
+      const ltr = document.createElement('div');
+      ltr.className = 'd2-stim';
+      ltr.textContent = s.l;
+      item.appendChild(ltr);
+
+      // Marks top
+      if (s.marks[0] > 0) {
+        const t = document.createElement('div');
+        t.className = 'd2-marks top';
+        t.textContent = "'".repeat(s.marks[0]);
+        item.appendChild(t);
+      }
+
+      // Marks bottom
+      if (s.marks[1] > 0) {
+        const b = document.createElement('div');
+        b.className = 'd2-marks bot';
+        b.textContent = "'".repeat(s.marks[1]);
+        item.appendChild(b);
+      }
+
+      const toggle = () => {
+        const wasMarked = marked.has(i);
+        if (wasMarked) {
+          marked.delete(i);
+          item.classList.remove('marked');
+          item.setAttribute('aria-checked','false');
+          if (targets.has(i)) ta = Math.max(0, ta-1);
+          else                  com = Math.max(0, com-1);
+        } else {
+          marked.add(i);
+          item.classList.add('marked');
+          item.setAttribute('aria-checked','true');
+          if (targets.has(i)) ta++;
+          else                  com++;
+        }
+        updateDemoStats();
+      };
+
+      item.addEventListener('click', toggle);
+      item.addEventListener('keydown', e => { if (e.key===' '||e.key==='Enter') { e.preventDefault(); toggle(); } });
+      strip.appendChild(item);
+    });
+
+    function updateDemoStats() {
+      document.getElementById('demoTA').textContent  = ta;
+      document.getElementById('demoCOM').textContent = com;
+      const con = ta - com;
+      const conEl = document.getElementById('demoCON');
+      conEl.textContent = con;
+      conEl.style.color = con >= 0 ? 'var(--success)' : 'var(--error)';
+    }
+  })();
+
+  // ══════════════════════════════════════════════════
+  // TREMOR DEMO (mouse tracking on d2 area)
+  // ══════════════════════════════════════════════════
+  (function tremorDemo() {
+    const THRESHOLD = 85.0;
+    let samples = [];
+    let prevV = null;
+
+    document.getElementById('d2Strip').addEventListener('mousemove', e => {
+      const now = performance.now();
+      samples.push({ x: e.clientX, y: e.clientY, t: now });
+      if (samples.length > 80) samples.shift();
+
+      if (samples.length < 5) return;
+
+      const vels = [];
+      for (let i = 1; i < samples.length; i++) {
+        const dx = samples[i].x - samples[i-1].x;
+        const dy = samples[i].y - samples[i-1].y;
+        const dt = (samples[i].t - samples[i-1].t) / 1000 || 0.001;
+        vels.push(Math.sqrt(dx*dx+dy*dy) / dt);
+      }
+
+      const accels = [];
+      for (let i = 1; i < vels.length; i++) {
+        const dt = (samples[i+1]?.t - samples[i]?.t) / 1000 || 0.016;
+        accels.push(Math.abs(vels[i] - vels[i-1]) / dt);
+      }
+
+      if (accels.length < 2) return;
+
+      const mean = accels.reduce((s,v)=>s+v,0)/accels.length;
+      const jitter = Math.sqrt(accels.reduce((s,v)=>s+(v-mean)**2,0)/accels.length);
+
+      // Dir changes
+      let dirChanges = 0;
+      for (let i = 2; i < samples.length; i++) {
+        const a1 = Math.atan2(samples[i-1].y-samples[i-2].y, samples[i-1].x-samples[i-2].x);
+        const a2 = Math.atan2(samples[i].y-samples[i-1].y, samples[i].x-samples[i-1].x);
+        if (Math.abs(a2-a1) > Math.PI/4) dirChanges++;
+      }
+      const timespan = (samples[samples.length-1].t - samples[0].t) / 1000 || 1;
+      const dirPerSec = dirChanges / timespan;
+      const score = jitter * (1 + 0.3 * dirPerSec);
+      const clamped = Math.min(score, 200);
+
+      const el = document.getElementById('demoTremor');
+      el.textContent = clamped.toFixed(1);
+      el.style.color = clamped > THRESHOLD ? 'var(--error)' : 'var(--success)';
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -18,10 +18,11 @@ class LineData(BaseModel):
     microtremor_score: float = 0.0 # Amplitud de microtemblor instantáneo
     sweep_regularity: float = 100.0 # Regularidad de avance izquierda a derecha (%)
     retrocesos_mouse: int = 0   # Rectificaciones bruscas hacia atrás
-    # ── Biomarcadores Oculomotores (MediaPipe Face Mesh) ────────────────────────
+    # ── Biomarcadores Oculomotores y Emocionales (MediaPipe Face Mesh) ─────────
     ear_avg: Optional[float] = None # Eye Aspect Ratio promedio en la línea
     blinks_count: Optional[int] = None # Conteo de parpadeos en la línea
     gaze_diverted: Optional[bool] = None # Desvío de mirada detectado fuera del canvas
+    fer_expression: Optional[str] = None # Expresión/tensión facial observada en la línea
 
 
 
@@ -66,6 +67,10 @@ class PredictRequest(BaseModel):
     gaze_diverted_ms: Optional[float] = None
     microtremor_avg: Optional[float] = None
     sweep_regularity_avg: Optional[float] = None
+    # ── Expresiones Faciales y Tensión (FER) ──────────────────────────────────
+    fer_dominant: Optional[str] = None
+    fer_tension_score: Optional[float] = None
+    fer_frustration_events: Optional[int] = None
 
 
 class MetricsData(BaseModel):
@@ -112,6 +117,10 @@ class MetricsData(BaseModel):
     microtremor_avg: Optional[float] = None
     sweep_regularity_avg: Optional[float] = None
     video_path: Optional[str] = None
+    # ── Expresiones Faciales y Tensión (FER) ──────────────────────────────────
+    fer_dominant: Optional[str] = None
+    fer_tension_score: Optional[float] = None
+    fer_frustration_events: Optional[int] = None
 
 
 

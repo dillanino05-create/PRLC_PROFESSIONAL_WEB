@@ -155,6 +155,21 @@ class PLCMLPredictor:
             except (ValueError, TypeError):
                 sweep_regularity_avg = 100.0
 
+            try:
+                fer_dominant = str(data.get('fer_dominant') or 'Concentración Neutra')
+            except Exception:
+                fer_dominant = 'Concentración Neutra'
+
+            try:
+                fer_tension_score = float(data.get('fer_tension_score') or 0.0)
+            except Exception:
+                fer_tension_score = 0.0
+
+            try:
+                fer_frustration_events = int(data.get('fer_frustration_events') or 0)
+            except Exception:
+                fer_frustration_events = 0
+
             biomarkers_summary = {
                 'camera_active': camera_active,
                 'oculomotor': {
@@ -164,6 +179,12 @@ class PLCMLPredictor:
                     'gaze_diverted_count': gaze_diverted_count,
                     'gaze_diverted_ms': gaze_diverted_ms,
                     'status': 'Foco Sostenido' if gaze_diverted_count <= 2 else 'Fluctuación / Desvíos Frecuentes'
+                } if camera_active else {'status': 'Cámara Desactivada por el Usuario'},
+                'facial_emotions': {
+                    'dominant_expression': fer_dominant,
+                    'tension_score': fer_tension_score,
+                    'frustration_events': fer_frustration_events,
+                    'status': 'Tensión Facial / Sobreesfuerzo' if fer_tension_score > 60.0 else 'Foco Atencional Sereno'
                 } if camera_active else {'status': 'Cámara Desactivada por el Usuario'},
                 'motor_kinematics': {
                     'microtremor_avg': microtremor_avg,

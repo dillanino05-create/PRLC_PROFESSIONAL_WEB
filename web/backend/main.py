@@ -2,9 +2,12 @@ import os
 import gc
 import json
 import base64
+import math
+import time
 import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta
+from typing import Optional
 from contextlib import asynccontextmanager
 
 import matplotlib.pyplot as plt
@@ -63,7 +66,21 @@ async def lifespan(app: FastAPI):
     # Apagar worker en shutdown
     worker_task.cancel()
 
-app = FastAPI(title='PLC Professional Web', version='2.0', lifespan=lifespan)
+app = FastAPI(title='PLC Professional Web', version='3.3', lifespan=lifespan)
+
+def parse_iso_datetime(dt_str: Optional[str]) -> Optional[datetime]:
+    """Parser ISO ultra-robusto compatible con Python 3.8-3.14 e inmune a variaciones de milisegundos."""
+    if not dt_str:
+        return None
+    try:
+        clean = dt_str[:19]
+        return datetime.strptime(clean, '%Y-%m-%dT%H:%M:%S')
+    except Exception:
+        try:
+            s = dt_str.replace('Z', '+00:00')
+            return datetime.fromisoformat(s)
+        except Exception:
+            return None
 
 app.add_middleware(
     CORSMiddleware,
@@ -128,7 +145,7 @@ def root():
 
 @app.get('/api/status')
 def status():
-    return {'model_available': predictor.available, 'version': '3.2'}
+    return {'model_available': predictor.available, 'version': '3.3'}
 
 @app.post('/api/predict')
 def predict(req: PredictRequest):
@@ -137,32 +154,48 @@ def predict(req: PredictRequest):
 def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, metrics, ml_pred, narrative):
     opts = ClientOptions(
         headers={'Authorization': f'Bearer {token}'},
-        httpx_client=httpx.Client(http2=False)
+        httpx_client=httpx.Client(http2=False, timeout=httpx.Timeout(60.0, connect=15.0))
     )
     sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
     
     try:
-        sb.table("evaluations").update({"status": "processing"}).eq("id", eval_id).execute()
+        try:
+            sb.table("evaluations").update({"status": "processing"}).eq("id", eval_id).execute()
+        except Exception as ue:
+            print(f"⚠️ Error status processing: {ue}")
         
         excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative)
         filename = os.path.basename(excel_path)
         
         with open(excel_path, "rb") as f:
-            sb.storage.from_("exports").upload(
-                path=filename, 
-                file=f, 
-                file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
-            )
+            file_bytes = f.read()
             
-        try: os.remove(excel_path)
-        except: pass
-        
+        uploaded = False
+        last_err = None
+        for attempt in range(3):
+            try:
+                sb.storage.from_("exports").upload(
+                    path=filename, 
+                    file=file_bytes, 
+                    file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "upsert": "true"}
+                )
+                uploaded = True
+                break
+            except Exception as up_e:
+                last_err = up_e
+                print(f"⚠️ Intento {attempt + 1}/3 subida Excel falló: {up_e}")
+                time.sleep(1.0)
+                
+        if uploaded:
+            try: os.remove(excel_path)
+            except Exception: pass
+            
         sb.table("evaluations").update({"status": "completed", "excel_path": filename}).eq("id", eval_id).execute()
         
     except Exception as e:
         print(f"Error bg_excel: {e}")
-        try: sb.table("evaluations").update({"status": "error"}).eq("id", eval_id).execute()
-        except: pass
+        try: sb.table("evaluations").update({"status": "completed"}).eq("id", eval_id).execute()
+        except Exception: pass
 
 @app.post('/api/save')
 def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = Depends(get_supabase)):
@@ -209,28 +242,52 @@ def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = D
 async def export(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
-    # Defensa Extrema IDOR: Aislamos obligatoriamente mediante UUID local del servidor
-    res = sb.table("evaluations").select("excel_path, status").eq("id", eval_id).eq("user_id", uid).execute()
+    # Defensa IDOR: Registro vinculado al usuario autenticado
+    res = sb.table("evaluations").select("*").eq("id", eval_id).eq("user_id", uid).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Archivo no encontrado en base de datos")
     
-    st = res.data[0].get("status")
-    if st in ["pending", "processing"]:
-        raise HTTPException(status_code=400, detail="El Excel aún se está generando (background). Intente en unos 5 a 10 segundos.")
-    if st == "error":
-        raise HTTPException(status_code=500, detail="El sistema generó un error inesperado al compilar el Excel de este participante.")
-    if not res.data[0].get("excel_path"):
-        raise HTTPException(status_code=404, detail="Ausencia de archivo físico.")
-        
-    filename = res.data[0]["excel_path"]
+    row = res.data[0]
+    filename = row.get("excel_path")
+    st = row.get("status")
+
+    # 1. Si existe en Storage y completado, intentar enlace firmado
+    if filename and st == "completed":
+        try:
+            signed_res = sb.storage.from_("exports").create_signed_url(filename, 120)
+            secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
+            if secure_url:
+                return {"url": secure_url}
+        except Exception as pe:
+            print(f"⚠️ create_signed_url falló para {filename}: {pe}. Activando compilación on-the-fly.")
+
+    # 2. FALLBACK INMUNE: Generar Excel en caliente en el servidor y servir como FileResponse
     try:
-        # Crea un enlace firmado válido por 60 segundos
-        signed_res = sb.storage.from_("exports").create_signed_url(filename, 60)
-        # Extrae la URL (dependiendo de la versión del SDK puede ser signedURL o signedUrl)
-        secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
-        return {"url": secure_url}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"No se pudo firmar el archivo: {str(e)}")
+        part = {
+            'id': row.get('participant_id', 'P01'),
+            'name': row.get('participant_name', 'Paciente'),
+            'age': row.get('age', 25),
+            'gender': row.get('gender', 'M'),
+            'education': row.get('education', 'Universitario'),
+            'hand': row.get('hand', 'Derecha'),
+            'occupation': row.get('occupation', '')
+        }
+        lines = row.get('lines_json') or []
+        clicks = row.get('clicks_json') or []
+        metrics = row.get('metrics_json') or {}
+        ml_pred = row.get('ml_json')
+        narrative = row.get('narrative', '')
+
+        excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative)
+        download_name = os.path.basename(excel_path)
+        
+        return FileResponse(
+            path=excel_path,
+            filename=download_name,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as fe:
+        raise HTTPException(status_code=500, detail=f"No se pudo compilar el Excel de este participante: {str(fe)}")
 
 @app.get('/api/history')
 def history(auth_ctx: dict = Depends(get_supabase)):
@@ -242,29 +299,25 @@ def history(auth_ctx: dict = Depends(get_supabase)):
         ).order("id", desc=True).execute()
         
         result = []
-        now_dt = datetime.now()
+        now_dt = datetime.utcnow()
         for r in res.data:
-            m = r.get("metrics_json", {})
+            m = r.get("metrics_json") or {}
             vpath = m.get("video_path", "")
             video_days_left = None
-            if vpath and not m.get("video_expired", False):
-                created_at_str = r.get('created_at')
-                if created_at_str:
-                    try:
-                        # Parsing robusto con o sin zona horaria
-                        c_clean = created_at_str.replace('Z', '+00:00')
-                        cat = datetime.fromisoformat(c_clean)
-                        # Normalizar a offset-naive si now_dt es naive
-                        if cat.tzinfo is not None:
-                            diff_sec = (datetime.now(cat.tzinfo) - cat).total_seconds()
-                        else:
-                            diff_sec = (now_dt - cat).total_seconds()
-                        days_diff = diff_sec / 86400.0
-                        video_days_left = max(0, int(30 - days_diff))
-                    except Exception as e:
-                        video_days_left = 30
-                else:
-                    video_days_left = 30
+            is_expired = bool(m.get("video_expired", False))
+            
+            created_at_str = r.get('created_at')
+            cat = parse_iso_datetime(created_at_str)
+            if cat:
+                diff_sec = (now_dt - cat).total_seconds()
+                days_diff = diff_sec / 86400.0
+                # Política de 30 días: Día 1 comienza en la fecha de creación (0 días transcurridos -> 30 días restantes)
+                video_days_left = max(0, int(math.ceil(30.0 - days_diff)))
+                if days_diff >= 30.0:
+                    is_expired = True
+                    video_days_left = 0
+            else:
+                video_days_left = 30 if not is_expired else 0
 
             result.append({
                 'id': r['id'],
@@ -275,8 +328,9 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'status': r.get('status', 'completed'),
                 'CP': round(m.get('CP', 0), 1) if 'CP' in m else 0,
                 'TA': m.get('TA', 0),
-                'video_path': vpath if (video_days_left is None or video_days_left > 0) else '',
-                'video_days_left': video_days_left
+                'video_path': vpath if (not is_expired and video_days_left > 0) else '',
+                'video_days_left': video_days_left,
+                'video_expired': is_expired
             })
         return result
     except Exception as e:
@@ -298,16 +352,11 @@ async def get_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
         raise HTTPException(status_code=404, detail="Esta evaluación no cuenta con una grabación de video activa o ya ha expirado.")
 
     # ── Política de Retención: Verificar si han pasado más de 30 días ────────
-    created_at_str = row.get("created_at")
-    if created_at_str:
-        try:
-            c_clean = created_at_str.replace('Z', '+00:00')
-            cat = datetime.fromisoformat(c_clean)
-            if cat.tzinfo is not None:
-                diff_sec = (datetime.now(cat.tzinfo) - cat).total_seconds()
-            else:
-                diff_sec = (datetime.now() - cat).total_seconds()
-            
+    try:
+        created_at_str = row.get("created_at")
+        cat = parse_iso_datetime(created_at_str)
+        if cat:
+            diff_sec = (datetime.utcnow() - cat).total_seconds()
             if diff_sec >= (30 * 86400):
                 # Purgar archivo en Supabase Storage para liberar cuota de espacio
                 try:
@@ -321,17 +370,17 @@ async def get_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
                 metrics["video_path"] = ""
                 try:
                     sb.table("evaluations").update({"metrics_json": metrics}).eq("id", eval_id).execute()
-                except:
+                except Exception:
                     pass
                 
                 raise HTTPException(
                     status_code=410, 
-                    detail="La grabación ha superado los 30 días de retención reglamentaria y fue eliminada para optimizar el almacenamiento."
+                    detail="La grabación ha superado los 30 días de retención reglamentaria (iniciados desde su fecha de creación) y fue purgada para optimizar el almacenamiento."
                 )
-        except HTTPException:
-            raise
-        except Exception as e:
-            print(f"Error verificando retención de video: {e}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error verificando retención de video: {e}")
         
     try:
         # Enlace firmado válido por 5 minutos (300s) para reproducir la sesión

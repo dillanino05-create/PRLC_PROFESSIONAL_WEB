@@ -78,8 +78,11 @@ def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
     ax1.plot(lineas, hits, color='#1565C0', lw=2.2, marker='o', ms=5, label='Aciertos Objetivo')
     ax1.fill_between(lineas, hits, alpha=0.12, color='#1565C0')
     if len(lineas) > 2:
-        z = np.polyfit(lineas, hits, 1)
-        ax1.plot(lineas, np.poly1d(z)(lineas), '--', color='#E53935', lw=1.4, label='Tendencia Lineal')
+        try:
+            z = np.polyfit(lineas, hits, 1)
+            ax1.plot(lineas, np.poly1d(z)(lineas), '--', color='#E53935', lw=1.4, label='Tendencia Lineal')
+        except Exception:
+            pass
     ax1.set_title('Fluctuación Visual de Eficacia', fontweight='bold', fontsize=11)
     ax1.set_xlabel('Línea (Fase Temporal)'); ax1.set_ylabel('Aciertos')
     ax1.set_xticks(lineas); ax1.grid(alpha=0.3); ax1.legend(fontsize=8)
@@ -114,7 +117,10 @@ def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
     x_n = np.linspace(mu - 4 * sigma, mu + 4 * sigma, 300)
     y_n = (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x_n - mu) / sigma) ** 2)
     ax4.plot(x_n, y_n, color='#1565C0', lw=2.2, label='Expectativa demográfica campana estándar')
-    score = metrics.get('adjScore', metrics.get('CP', 0))
+    try:
+        score = float(metrics.get('adjScore', metrics.get('CP', 0)) or 0.0)
+    except Exception:
+        score = 0.0
     y_ev  = (1 / (sigma * np.sqrt(2 * np.pi))) * math.exp(-0.5 * ((score - mu) / sigma) ** 2)
     ax4.axvline(x=score, color='#E53935', lw=2, ls='--', label=f'Marca del Evaluado: {score:.1f}')
     ax4.scatter([score], [y_ev], color='#E53935', s=60, zorder=5)
@@ -280,8 +286,22 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         except (ValueError, TypeError):
             sweep_reg = 100.0
 
+        fer_dom = str(metrics.get('fer_dominant') or 'Concentración Neutra')
+        try:
+            fer_tens = float(metrics.get('fer_tension_score') or 0.0)
+        except (ValueError, TypeError):
+            fer_tens = 0.0
+
+        try:
+            fer_frust = int(metrics.get('fer_frustration_events') or 0)
+        except (ValueError, TypeError):
+            fer_frust = 0
+
         biomarkers_ia_rows = [
-            {"Biomarcador IA": "Estado Cámara Web", "Registro": "ACTIVA (Captura de mirada/parpadeo)" if cam_active else "DESACTIVADA POR EL USUARIO"},
+            {"Biomarcador IA": "Estado Cámara Web", "Registro": "ACTIVA (Captura de mirada/emociones)" if cam_active else "DESACTIVADA POR EL USUARIO"},
+            {"Biomarcador IA": "Expresión Facial Dominante (FER)", "Registro": fer_dom if cam_active else "N/A"},
+            {"Biomarcador IA": "Nivel de Tensión Facial Estimado", "Registro": f"{fer_tens:.1f}% ({'Sobreesfuerzo/Tensión' if fer_tens > 60 else 'Foco Atento Sereno'})" if cam_active else "N/A"},
+            {"Biomarcador IA": "Episodios de Frustración Facial", "Registro": f"{fer_frust} eventos" if cam_active else "N/A"},
             {"Biomarcador IA": "EAR Promedio (Apertura Ocular)", "Registro": f"{ear_m:.3f}" if ear_m is not None else "N/A"},
             {"Biomarcador IA": "Parpadeos Totales / Frecuencia", "Registro": f"{blinks_tot} ({blinks_rate:.1f}/min)" if cam_active else "N/A"},
             {"Biomarcador IA": "Desvíos de Mirada del Canvas", "Registro": f"{gaze_div} eventos ({gaze_div_s}s acumulados)" if cam_active else "N/A"},
@@ -347,7 +367,8 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
                 "⚠️ Indicador Temblor Motor": "SÍ — Variabilidad cinématica elevada" if l.get('tremor_flag', False) else "Normal",
                 "Regularidad Barrido (%)": sr,
                 "Parpadeos (Línea)": blinks_str,
-                "Desvío de Mirada": "SÍ" if l.get('gaze_diverted') else "NO"
+                "Desvío de Mirada": "SÍ" if l.get('gaze_diverted') else "NO",
+                "Expresión Facial (FER)": l.get('fer_expression') or "Neutro/Concentrado"
             })
         df_l = pd.DataFrame(d2)
         df_l.to_excel(writer, sheet_name='02_Analisis_Lineas', index=False, startrow=4)
@@ -356,7 +377,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         _add_educational_header(ws2, "Disección Iterativa de la Ejecución (Línea por Línea)",
                                 "Desglose longitudinal de la instrumentación. Útil para ubicar focos precisos de aparición de fallos por latencia crónica o desgaste temprano. (Targets Totales = Exactitud + Omisión).")
         _style_hdr(ws2, row=5)
-        _set_widths(ws2, [10, 18, 28, 22, 25, 25, 28, 24, 22, 26, 36, 24, 20, 20])
+        _set_widths(ws2, [10, 18, 28, 22, 25, 25, 28, 24, 22, 26, 36, 24, 20, 20, 26])
         
         # ── Hoja 3: Glosario de Métricas ───────────────────────────────────
         glosario = [

@@ -1352,7 +1352,10 @@ const App = {
           gaze_diverted_count: this.metrics.gaze_diverted_count,
           gaze_diverted_ms: this.metrics.gaze_diverted_ms,
           microtremor_avg: this.metrics.microtremor_avg,
-          sweep_regularity_avg: this.metrics.sweep_regularity_avg
+          sweep_regularity_avg: this.metrics.sweep_regularity_avg,
+          fer_dominant: this.metrics.fer_dominant,
+          fer_tension_score: this.metrics.fer_tension_score,
+          fer_frustration_events: this.metrics.fer_frustration_events
         })
       });
       this.mlPred = await resp.json();
@@ -1395,7 +1398,10 @@ const App = {
             gaze_diverted_count: this.metrics.gaze_diverted_count,
             gaze_diverted_ms: this.metrics.gaze_diverted_ms,
             microtremor_avg: this.metrics.microtremor_avg,
-            sweep_regularity_avg: this.metrics.sweep_regularity_avg
+            sweep_regularity_avg: this.metrics.sweep_regularity_avg,
+            fer_dominant: this.metrics.fer_dominant,
+            fer_tension_score: this.metrics.fer_tension_score,
+            fer_frustration_events: this.metrics.fer_frustration_events
           },
           ml_prediction: this.mlPred,
           narrative
@@ -1701,17 +1707,17 @@ const App = {
 
 
 
-        <!-- C.2) Datos Extras de IA: Biomarcadores Oculomotores y Cinemáticos -->
+        <!-- C.2) Datos Extras de IA: Biomarcadores Oculomotores, Emociones Facial (FER) y Cinemáticos -->
         <div class="card mb-4" style="border-left: 4px solid #00BCD4;">
-          <div style="display:flex;align-items:center;justify-content:between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-            <div class="section-title" style="margin-bottom:0;color:#00838F;">Datos Extras de IA — Telemetría Oculomotora y Cinemática</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            <div class="section-title" style="margin-bottom:0;color:#00838F;">Datos Extras de IA — Telemetría Oculomotora, Facial (FER) y Cinemática</div>
             <span class="badge" style="background:#E0F7FA;color:#006064;font-size:0.75rem;padding:4px 8px;border-radius:6px;font-weight:700;">APOYO AL CRITERIO CLÍNICO</span>
           </div>
           <p style="font-size:0.88rem;color:#546E7A;margin-bottom:16px;line-height:1.45;">
-            Biomarcadores objetivos capturados en Edge-AI en el navegador del paciente. Operan como exámenes paraclínicos complementarios para que el profesional corrobore el patrón atencional y el nivel de tensión motriz. El sistema asiste y expone los datos crudos; el psicólogo conserva la exclusiva potestad diagnóstica.
+            Biomarcadores objetivos capturados en Edge-AI en el navegador del paciente. Operan como exámenes paraclínicos complementarios para que el profesional corrobore el patrón atencional, el nivel de tensión gestual y el microtemblor motriz. El sistema asiste y expone los datos crudos; el psicólogo conserva la exclusiva potestad diagnóstica.
           </p>
 
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(310px, 1fr));gap:16px;">
             
             <!-- Columna 1: Oculometría (MediaPipe Face Mesh) -->
             <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px;">
@@ -1760,7 +1766,54 @@ const App = {
               `}
             </div>
 
-            <!-- Columna 2: Cinemática del Mouse & Microtemblores -->
+            <!-- Columna 2: Emociones Faciales & Tensión (FER Edge-AI) -->
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <span style="font-weight:700;font-size:0.95rem;color:#1E293B;">🎭 Emociones Faciales & Tensión (FER)</span>
+                <span style="font-size:0.75rem;font-weight:600;padding:2px 8px;border-radius:12px;${m.camera_active ? 'background:#F3E5F5;color:#7B1FA2;' : 'background:#ECEFF1;color:#607D8B;'}">
+                  ${m.camera_active ? 'EDGE-AI ACTIVO' : 'SIN CÁMARA'}
+                </span>
+              </div>
+
+              ${m.camera_active ? `
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;text-align:center;margin-bottom:14px;">
+                  <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                    <div style="font-size:0.95rem;font-weight:700;color:#6A1B9A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHTML(m.fer_dominant || 'Concentración')}">${escapeHTML(m.fer_dominant || 'Concentración')}</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Expresión Dominante</div>
+                  </div>
+                  <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.15rem;font-weight:700;color:${(m.fer_tension_score || 0) > 40 ? '#D84315' : '#2E7D32'};">${m.fer_tension_score !== undefined && m.fer_tension_score !== null ? m.fer_tension_score : '0.0'}%</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Tensión Facial</div>
+                  </div>
+                  <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.15rem;font-weight:700;color:${(m.fer_frustration_events || 0) > 0 ? '#C62828' : '#2E7D32'};">${m.fer_frustration_events || 0}</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Picos Frustración</div>
+                  </div>
+                </div>
+
+                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #AB47BC;color:#334155;">
+                  ${(function(){
+                    let notes = [];
+                    if ((m.fer_frustration_events || 0) > 0) {
+                      notes.push(`<strong>Picos de frustración:</strong> Se detectaron ${m.fer_frustration_events} contracciones intensas del corrugador superciliar (AU4) correlacionadas con estímulos complejos.`);
+                    }
+                    if ((m.fer_tension_score || 0) > 35) {
+                      notes.push(`<strong>Tensión sostenida:</strong> Índice de tensión facial elevado (${m.fer_tension_score}%). Mayor esfuerzo gestual.`);
+                    }
+                    if (notes.length === 0) {
+                      return '<span style="color:#2E7D32;">✓ Patrón gestual sereno, compatible con autorregulación emocional y foco atencional disciplinado.</span>';
+                    }
+                    return notes.join('<br/>');
+                  })()}
+                </div>
+              ` : `
+                <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
+                  ℹ️ La cámara no estuvo habilitada. El análisis facial de emociones y tensión (FER) requiere captura de video frontal.
+                </div>
+              `}
+            </div>
+
+            <!-- Columna 3: Cinemática del Mouse & Microtemblores -->
             <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px;">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                 <span style="font-weight:700;font-size:0.95rem;color:#1E293B;">🖱️ Cinemática Motora & Microtemblor</span>
@@ -1923,7 +1976,39 @@ const App = {
 
   generateHistoryRowsHTML(rows) {
     if (!rows.length) return `<tr><td colspan="8" style="text-align:center;color:#789;">No se encontraron resultados</td></tr>`;
-    return rows.map(r => `
+    return rows.map(r => {
+      const createdDate = new Date(r.created_at);
+      const now = new Date();
+      const diffMs = now - createdDate;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const dayCurrent = Math.min(30, Math.max(1, diffDays + 1)); // Día 1 empieza en su fecha de creación
+      
+      let daysLeft = 30 - diffDays;
+      if (r.video_days_left !== undefined && r.video_days_left !== null) {
+        daysLeft = r.video_days_left;
+      }
+      if (daysLeft < 0) daysLeft = 0;
+
+      const isExpired = Boolean(r.video_expired || daysLeft <= 0);
+
+      let videoBadgeHtml = '';
+      if (r.video_path && !isExpired) {
+        const badgeStyle = daysLeft <= 3 
+          ? 'background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;' 
+          : daysLeft <= 10 
+            ? 'background:#FFF3E0;color:#E65100;border:1px solid #FFE0B2;' 
+            : 'background:#E3F2FD;color:#1565C0;border:1px solid #BBDEFB;';
+        videoBadgeHtml = `
+          <div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;">
+            <button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;padding:2px 8px;" onclick="App.playVideo(${r.id}, this)">🎥 Video</button>
+            <span style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:4px;${badgeStyle}" title="Día ${dayCurrent} de 30 de retención clínica">⏳ Quedan ${daysLeft}d (${dayCurrent}/30)</span>
+          </div>
+        `;
+      } else if (isExpired && (r.video_path || r.video_expired || diffDays >= 30)) {
+        videoBadgeHtml = `<span style="font-size:0.7rem;color:#64748B;padding:3px 6px;background:#F1F5F9;border-radius:6px;border:1px solid #CBD5E1;font-weight:600;" title="El video cumplió el período reglamentario de 30 días y fue purgado de la nube.">🗑️ Expirado (+30d)</span>`;
+      }
+
+      return `
       <tr>
         <td>${r.id}</td>
         <td>${new Date(r.created_at).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })}</td>
@@ -1934,43 +2019,15 @@ const App = {
         <td>${r.TA}</td>
         <td class="flex gap-2" style="align-items:center;">
           <button class="btn btn-ghost btn-sm" style="background:#E8EAF6;color:#1A237E;" onclick="App.openWebReport(${r.id}, this)">👁️ Ver Web</button>
-          ${(function(){
-            const createdDate = new Date(r.created_at);
-            const now = new Date();
-            const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
-            const daysLeft = r.video_days_left !== undefined && r.video_days_left !== null
-              ? r.video_days_left
-              : Math.max(0, Math.ceil(30 - diffDays));
-
-            if (r.video_path) {
-              if (daysLeft <= 0) {
-                return `<span style="font-size:0.7rem;color:#64748B;padding:3px 6px;background:#F1F5F9;border-radius:6px;border:1px solid #CBD5E1;font-weight:600;" title="El video fue purgado tras superar los 30 días reglamentarios para proteger el almacenamiento.">🗑️ Expirado (+30d)</span>`;
-              }
-              const badgeStyle = daysLeft <= 3 
-                ? 'background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;' 
-                : daysLeft <= 10 
-                  ? 'background:#FFF3E0;color:#E65100;border:1px solid #FFE0B2;' 
-                  : 'background:#E3F2FD;color:#1565C0;border:1px solid #BBDEFB;';
-              return `
-                <div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;">
-                  <button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;padding:2px 8px;" onclick="App.playVideo(${r.id}, this)">🎥 Video</button>
-                  <span style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:4px;${badgeStyle}">⏳ Quedan ${daysLeft}d</span>
-                </div>
-              `;
-            } else if (daysLeft <= 0 && r.video_days_left === 0) {
-              return `<span style="font-size:0.7rem;color:#94A3B8;padding:3px 6px;background:#F8FAFC;border-radius:6px;border:1px solid #E2E8F0;font-weight:600;" title="El video fue purgado tras superar los 30 días reglamentarios.">🗑️ Expirado (+30d)</span>`;
-            }
-            return '';
-          })()}
+          ${videoBadgeHtml}
           ${r.status === 'processing' || r.status === 'pending' ?
             `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
-            r.status === 'error' ?
-              `<button class="btn btn-danger btn-sm" disabled title="Error al compilar el Excel de este paciente">❌ Error</button>` :
-              `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id}, this)">📥 Excel</button>`
+            `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id}, this)" title="Descargar Excel clínico completo">📥 Excel</button>`
           }
           <button class="btn btn-danger btn-sm" onclick="App.deleteEval(${r.id}, this)">🗑</button>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   },
 
   filterHistory(query) {
@@ -1998,18 +2055,35 @@ const App = {
       const r = await fetch(`${API_BASE}/api/export/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const d = await r.json();
-      if (btn) {
-        btn.textContent = "📥 Excel";
-        btn.disabled = false;
-      }
-      if (d.url) {
-        window.open(d.url, '_blank');
+      
+      const cType = r.headers.get('content-type') || '';
+      if (cType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') || cType.includes('application/octet-stream')) {
+        // Compilación On-the-fly streaming directa
+        const blob = await r.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const disp = r.headers.get('content-disposition') || '';
+        let fname = `PLC_Evaluacion_${id}.xlsx`;
+        const match = disp.match(/filename="?([^";]+)"?/);
+        if (match && match[1]) fname = match[1];
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
       } else {
-        alert(d.detail || "URL no disponible");
+        const d = await r.json();
+        if (d.url) {
+          window.open(d.url, '_blank');
+        } else {
+          alert(d.detail || "URL no disponible");
+        }
       }
     } catch (e) {
-      alert("Error al contactar con la nube");
+      console.error("Error al descargar Excel:", e);
+      alert("Error de conexión al generar el archivo Excel.");
+    } finally {
       if (btn) {
         btn.textContent = "📥 Excel";
         btn.disabled = false;
@@ -2110,11 +2184,11 @@ const App = {
         extraEl.innerHTML = `
           <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-left:4px solid #00BCD4;border-radius:10px;padding:16px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-              <span style="font-weight:700;font-size:0.95rem;color:#00838F;">⚡ Datos Extras de IA — Telemetría Oculomotora y Cinemática</span>
+              <span style="font-weight:700;font-size:0.95rem;color:#00838F;">⚡ Datos Extras de IA — Telemetría Oculomotora, Facial (FER) y Cinemática</span>
               <span class="badge" style="background:#E0F7FA;color:#006064;font-size:0.75rem;padding:3px 8px;border-radius:6px;font-weight:700;">PARACLÍNICO DE APOYO</span>
             </div>
 
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:14px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;">
               <!-- Panel Oculomotor -->
               <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -2145,6 +2219,36 @@ const App = {
                 `}
               </div>
 
+              <!-- Panel Emociones Faciales (FER) -->
+              <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                  <span style="font-weight:700;font-size:0.88rem;color:#1E293B;">🎭 Expresión & Tensión (FER)</span>
+                  <span style="font-size:0.7rem;font-weight:600;padding:2px 6px;border-radius:8px;${camActive ? 'background:#F3E5F5;color:#7B1FA2;' : 'background:#ECEFF1;color:#607D8B;'}">
+                    ${camActive ? 'EDGE-AI' : 'N/A'}
+                  </span>
+                </div>
+                ${camActive ? `
+                  <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;text-align:center;">
+                    <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                      <div style="font-size:0.88rem;font-weight:700;color:#6A1B9A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHTML(metrics.fer_dominant || 'Concentración')}">${escapeHTML(metrics.fer_dominant || 'Neutro')}</div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Expresión</div>
+                    </div>
+                    <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                      <div style="font-size:1.05rem;font-weight:700;color:${(metrics.fer_tension_score || 0) > 40 ? '#D84315' : '#2E7D32'};">${metrics.fer_tension_score !== undefined && metrics.fer_tension_score !== null ? metrics.fer_tension_score : '0.0'}%</div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Tensión</div>
+                    </div>
+                    <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                      <div style="font-size:1.05rem;font-weight:700;color:${(metrics.fer_frustration_events || 0) > 0 ? '#C62828' : '#2E7D32'};">${metrics.fer_frustration_events || 0}</div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Frustración</div>
+                    </div>
+                  </div>
+                ` : `
+                  <div style="font-size:0.8rem;color:#64748B;text-align:center;padding:12px;background:#FFF;border-radius:6px;">
+                    Sin captura facial en esta evaluación.
+                  </div>
+                `}
+              </div>
+
               <!-- Panel Cinemática & Microtemblor -->
               <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -2168,7 +2272,7 @@ const App = {
               </div>
             </div>
           </div>
-        `;
+`;
       }
 
       // 2.5. Notas de Saltos Erráticos en el modal

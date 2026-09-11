@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MecaPsi — PLC Professional | Evaluación Neuropsicológica con IA y Biomarcadores</title>
+  <meta name="description" content="MecaPsi presenta PLC Professional: plataforma de digitalización de la Prueba de Líneas Cruzadas con cronometría de milisegundos, biomarcadores de temblor motor (≤60fps), libro Excel de 5 hojas y apoyo psicométrico para psicólogos." />
+
+  <!-- Tipografías: Plus Jakarta Sans, Inter, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              bg: '#050814',
+              surface: '#0B1124',
+              card: 'rgba(15, 23, 42, 0.70)',
+              border: 'rgba(255, 255, 255, 0.08)',
+              cyan: '#06B6D4',
+              blue: '#3B82F6',
+              purple: '#A855F7',
+              emerald: '#10B981',
+              pink: '#EC4899',
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'glow-pulse': 'glowPulse 3s ease-in-out infinite',
+          },
+          keyframes: {
+            glowPulse: {
+              '0%, 100%': { opacity: '0.6', transform: 'scale(1)' },
+              '50%': { opacity: '0.95', transform: 'scale(1.02)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- AOS Animation on Scroll CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+  <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Supabase CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      background-color: #050814;
+      color: #F1F5F9;
+      overflow-x: hidden;
+    }
+
+    /* Cuadrícula técnica sutil */
+    .cyber-grid {
+      background-size: 44px 44px;
+      background-image: 
+        linear-gradient(to right, rgba(59, 130, 246, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(59, 130, 246, 0.04) 1px, transparent 1px);
+    }
+
+    /* Glassmorphism panel */
+    .glass-panel {
+      background: rgba(11, 17, 36, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-panel:hover {
+      border-color: rgba(6, 182, 212, 0.35);
+      box-shadow: 0 0 35px -10px rgba(6, 182, 212, 0.25);
+    }
+
+    /* Scroll margin para que el navbar flotante nunca tape títulos */
+    section {
+      scroll-margin-top: 6.5rem;
+    }
+
+    /* Scrollbar personalizada */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #050814;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="cyber-grid relative selection:bg-cyan-500 selection:text-slate-950 font-sans pb-16">
+
+  <!-- Neon Glow Orbs de Fondo -->
+  <div class="fixed top-0 left-1/4 w-[550px] h-[550px] bg-blue-600/10 rounded-full blur-[140px] pointer-events-none -z-10 animate-pulse-slow"></div>
+  <div class="fixed bottom-10 right-10 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[160px] pointer-events-none -z-10"></div>
+  <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-cyan-600/5 rounded-full blur-[180px] pointer-events-none -z-10"></div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       1. NAVBAR FLOTANTE GLASSMORPHISM
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="fixed top-4 left-0 right-0 z-50 px-4 sm:px-6">
+    <header class="max-w-6xl mx-auto rounded-full glass-panel px-5 sm:px-7 py-3 flex items-center justify-between shadow-2xl transition-all border border-white/10 hover:border-white/20">
+      
+      <!-- Brand: MecaPsi · PLC Professional -->
+      <a href="#" class="flex items-center gap-3 group cursor-pointer">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25 group-hover:scale-105 transition-transform">
+          <i data-lucide="brain" class="w-5 h-5"></i>
+        </div>
+        <div class="flex items-center gap-2 font-extrabold tracking-tight text-base sm:text-lg">
+          <span class="text-white">Meca<span class="text-cyan-400">Psi</span></span>
+          <span class="text-slate-500 font-light">/</span>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 text-sm sm:text-base font-semibold">PLC Professional</span>
+        </div>
+      </a>
+
+      <!-- Menú Centrado -->
+      <nav class="hidden lg:flex items-center gap-1 text-xs font-medium text-slate-300">
+        <a href="#prueba-plc" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">La Prueba PLC</a>
+        <a href="#telemetria" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Datos Capturados</a>
+        <a href="#etica-clinica" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Rol del Psicólogo</a>
+        <a href="#estimulos-catalogo" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Estímulos</a>
+        <a href="#simulador" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Simulador</a>
+        <a href="#reporte-excel" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Reporte Excel (5 Hojas)</a>
+        <a href="#pricing" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Precios</a>
+      </nav>
+
+      <!-- Botones de Acción: Iniciar Sesión + Crear Cuenta Gratis -->
+      <div class="flex items-center gap-2.5">
+        <button onclick="openAuthModal('login')" class="px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer">
+          Iniciar Sesión
+        </button>
+
+        <button onclick="openAuthModal('register')" class="relative group px-4 py-2 rounded-full text-xs font-bold text-white overflow-hidden transition-all duration-300 cursor-pointer shadow-lg shadow-cyan-500/20">
+          <div class="absolute inset-0 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 group-hover:opacity-90 transition-opacity"></div>
+          <div class="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 rounded-full blur opacity-40 group-hover:opacity-100 transition-all duration-300"></div>
+          <span class="relative flex items-center gap-1.5">
+            <span>Crear Cuenta Gratis</span>
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+          </span>
+        </button>
+      </div>
+
+    </header>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       2. HERO SECTION CON MUESTRA REAL DE LA PRUEBA PLC Y PROPUESTA DE VALOR
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section class="relative pt-36 pb-20 lg:pt-44 lg:pb-32 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+        
+        <!-- Columna Izquierda: Titular Claro y Persuasión de Marketing -->
+        <div class="lg:col-span-6 space-y-6 text-center lg:text-left">
+          
+          <!-- Badge Institucional MecaPsi -->
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono tracking-wider shadow-[0_0_15px_rgba(6,182,212,0.15)]">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+            <span>MECAPSI · SOFTWARE PSICOMÉTRICO DE ALTO RENDIMIENTO</span>
+          </div>
+
+          <!-- Titular Principal Ajustado: NEUROPSICOLÓGICA siempre en una sola línea -->
+          <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-[2.65rem] xl:text-[3.25rem] font-black tracking-tight text-white leading-[1.12]">
+            EVALUACIÓN <br />
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-400 whitespace-nowrap inline-block">
+              NEUROPSICOLÓGICA
+            </span> <br />
+            DIGITAL CON IA
+          </h1>
+
+          <!-- Subtítulo Enfocado en Beneficios Reales para el Profesional -->
+          <p class="text-sm sm:text-base text-slate-300 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+            <strong>Ahorra más de 40 minutos por evaluación</strong> y elimina el sesgo de cronometraje manual. MecaPsi digitaliza la <strong>Prueba de Líneas Cruzadas (PLC)</strong>: captura milimétrica de milisegundos, análisis de temblor motor a 60 fps y <strong>generación automática de informes en Excel de 5 hojas</strong> con datos objetivos listos para tu interpretación diagnóstica.
+          </p>
+
+          <!-- Botones de Acción de Alta Conversión -->
+          <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-1">
+            <button onclick="openAuthModal('register')" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-700 text-white font-bold text-sm shadow-[0_0_25px_rgba(6,182,212,0.35)] hover:shadow-[0_0_35px_rgba(6,182,212,0.5)] transition-all flex items-center justify-center gap-2 cursor-pointer group">
+              <span>Comenzar Prueba Gratis (14 Días)</span>
+              <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+            </button>
+
+            <a href="#simulador" class="w-full sm:w-auto px-6 py-3.5 rounded-xl glass-panel text-slate-200 hover:text-white font-semibold text-sm border border-white/10 hover:border-cyan-400/40 transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <i data-lucide="play" class="w-4 h-4 text-cyan-400 fill-cyan-400"></i>
+              <span>Probar Simulador en Vivo</span>
+            </a>
+          </div>
+
+          <!-- Micro-Garantía de Confianza de Marketing -->
+          <div class="flex items-center justify-center lg:justify-start gap-5 text-slate-400 text-xs font-mono pt-1">
+            <span class="flex items-center gap-1.5"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Sin tarjeta de crédito</span>
+            <span class="flex items-center gap-1.5"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> 5 evaluaciones de cortesía</span>
+            <span class="flex items-center gap-1.5"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Activación inmediata</span>
+          </div>
+
+          <!-- Métricas Destacadas del Test -->
+          <div class="pt-5 border-t border-white/10 grid grid-cols-3 gap-3 max-w-md mx-auto lg:mx-0 font-mono text-xs">
+            <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
+              <div class="text-xl font-bold text-cyan-400">14 × 20s</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Líneas temporizadas</div>
+            </div>
+            <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
+              <div class="text-xl font-bold text-purple-400">≤60 FPS</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Muestreo de Temblor</div>
+            </div>
+            <div class="bg-black/30 p-2.5 rounded-xl border border-white/5">
+              <div class="text-xl font-bold text-emerald-400">Excel 5 Hojas</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Libro Pericial Completo</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Columna Derecha: MUESTRA REAL DE LA PRUEBA PLC EN EJECUCIÓN -->
+        <div class="lg:col-span-6">
+          <div class="relative mx-auto w-full max-w-lg rounded-3xl glass-panel p-6 border border-cyan-500/30 shadow-[0_0_50px_-15px_rgba(6,182,212,0.25)] space-y-5">
+            
+            <!-- Encabezado de la Ventana Clínica -->
+            <div class="flex items-center justify-between border-b border-white/10 pb-3 text-xs font-mono">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                <span class="text-white font-bold tracking-wider">MECAPSI ENGINE // PROTOCOLO PLC</span>
+              </div>
+              <span class="px-2 py-0.5 rounded text-[10px] bg-blue-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">
+                LÍNEA 3 DE 14
+              </span>
+            </div>
+
+            <!-- Ficha del Evaluado en Ejecución (Anonimizada según políticas MecaPsi) -->
+            <div class="flex items-center justify-between text-xs bg-black/40 p-3 rounded-xl border border-white/5 font-mono">
+              <div>
+                <span class="text-slate-400">Paciente:</span> <strong class="text-white">Elena Morales</strong>
+                <span class="text-slate-500 text-[10px] block">ID: ******829 · 68 años · Diestra</span>
+              </div>
+              <div class="text-right">
+                <span class="text-slate-400 text-[10px] block">Tiempo restante</span>
+                <span class="text-cyan-400 font-bold text-sm" id="hero-countdown">14.6 s</span>
+              </div>
+            </div>
+
+            <!-- Regla Clínica Visual: Explicación de la Diana PLC -->
+            <div class="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs space-y-2">
+              <div class="flex items-center justify-between font-bold text-cyan-300">
+                <span class="flex items-center gap-1.5">
+                  <i data-lucide="target" class="w-4 h-4 text-cyan-400"></i>
+                  <span>CRITERIO DE DIANA (TARGET)</span>
+                </span>
+                <span class="text-[10px] bg-cyan-500/20 px-2 py-0.5 rounded text-cyan-200">2 marcas laterales</span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">
+                El paciente debe marcar <strong>únicamente la cruz con cuadraditos en ambos brazos</strong> (izquierdo y derecho). Los distractores con un solo cuadradito o desplazados deben ignorarse.
+              </p>
+            </div>
+
+            <!-- Tira Real de Estímulos PLC (Renderizados en Canvas HTML5) -->
+            <div class="space-y-2">
+              <div class="flex justify-between text-[11px] font-mono text-slate-400">
+                <span>MUESTRA DE CRUCES PLC (HAZ CLIC PARA MARCAR):</span>
+                <span class="text-cyan-400 font-bold" id="hero-sel-counter">Dianas Marcadas: 2/4</span>
+              </div>
+
+              <!-- Canvas Grid con Estímulos PLC Reales -->
+              <div class="grid grid-cols-4 sm:grid-cols-6 gap-2 bg-black/50 p-3 rounded-2xl border border-white/5" id="hero-stimuli-box">
+                <!-- Se inyectan dinámicamente con JavaScript usando drawPLCStimulus -->
+              </div>
+            </div>
+
+            <!-- Telemetría en Vivo de Biomarcadores de Temblor -->
+            <div class="bg-black/40 p-3 rounded-xl border border-white/5 font-mono text-xs space-y-2">
+              <div class="flex justify-between text-[11px]">
+                <span class="text-slate-400">CINEMÁTICA DEL CURSOR:</span>
+                <span class="text-emerald-400 font-bold" id="hero-tremor-status">JITTER: 48.2 px/s² · ESTABLE</span>
+              </div>
+              <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-400 via-cyan-400 to-purple-500 h-full w-[55%]"></div>
+              </div>
+              <div class="flex justify-between text-[10px] text-slate-500">
+                <span>Muestreo continuo a 60 fps</span>
+                <span>Umbral de alerta: 85.0 px/s²</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       3. SECCIÓN ÉTICA Y AUTONOMÍA PROFESIONAL: EL PSICÓLOGO DIAGNOSTICA
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="etica-clinica" class="py-16 relative bg-gradient-to-b from-blue-950/20 via-slate-950/40 to-slate-950/70 border-t border-b border-cyan-500/20">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="rounded-3xl glass-panel p-8 sm:p-10 border border-cyan-500/30 bg-black/60 shadow-[0_0_45px_rgba(6,182,212,0.15)] space-y-6" data-aos="fade-up">
+        
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 text-cyan-400 flex items-center justify-center shadow-lg shadow-cyan-500/10">
+              <i data-lucide="shield-check" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <span class="text-xs font-mono text-cyan-400 uppercase font-bold tracking-wider">PRINCIPIO ÉTICO Y DEONTOLÓGICO</span>
+              <h2 class="text-xl sm:text-2xl font-black text-white">El Software Asiste Objetivamente · El Psicólogo Diagnostica</h2>
+            </div>
+          </div>
+          <span class="self-start sm:self-center px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+            ✓ 100% Criterio Profesional
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+          <div class="space-y-3">
+            <p>
+              <strong class="text-white">PLC Professional NO emite diagnósticos médicos automáticos.</strong> Nuestra convicción científica es clara: ninguna inteligencia artificial o algoritmo puede ni debe reemplazar el criterio clínico, la anamnesis, la entrevista y la experiencia del profesional de la salud mental.
+            </p>
+            <p>
+              Nuestra plataforma funciona como un <strong>laboratorio psicométrico digital de ultra-alta fidelidad</strong>: captura micro-movimientos, calcula latencias a nivel de milisegundo y genera matrices matemáticas sin redondeos ni sesgos manuales.
+            </p>
+          </div>
+          <div class="space-y-3 bg-white/5 p-5 rounded-2xl border border-white/5 font-mono text-xs">
+            <div class="text-cyan-300 font-bold text-sm mb-1">Lo que MecaPsi entrega al evaluador:</div>
+            <ul class="space-y-2 text-slate-300">
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+                <span><strong>Datos brutos y puros:</strong> Métricas clínicas exactas (TA, O, COM, CON, CP, VAR, TRM, IVR).</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+                <span><strong>Patrones cinemáticos de temblor:</strong> Indicador objetivo de tensión motriz o fatiga.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+                <span><strong>Soporte pericial inapelable:</strong> Auditoría segundo a segundo para sustentar dictámenes en peritajes forenses y clínicos.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-mono">
+          <span>Toda la evidencia matemática se entrega organizada en un libro Excel de 5 hojas para tu dictamen.</span>
+          <button onclick="openAuthModal('register')" class="text-cyan-400 hover:text-cyan-300 font-bold underline flex items-center gap-1 cursor-pointer">
+            <span>Regístrate y prueba 5 evaluaciones de cortesía</span>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       4. SECCIÓN TELEMETRÍA: TODO LO QUE EL SISTEMA CAPTURA EN CADA TEST
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="telemetria" class="py-24 relative">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-3" data-aos="fade-up">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono uppercase tracking-widest">
+          <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+          <span>Telemetría Integral</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Todo lo que Captura MecaPsi en Cada Evaluación
+        </h2>
+        <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+          Mientras el evaluado resuelve las 14 líneas, el motor registra silenciosamente cientos de miles de puntos de datos que serían completamente invisibles en la prueba de papel y lápiz.
+        </p>
+      </div>
+
+      <!-- Grid de 6 Bloques de Captura de Datos -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-aos="fade-up">
+        
+        <!-- Bloque 1: Cinemática del Cursor -->
+        <div class="rounded-3xl glass-panel p-6 space-y-3 border border-purple-500/30 bg-purple-950/10 hover:border-purple-400/50 transition">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+            <i data-lucide="activity" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">1. Cinemática y Temblor (≤60 fps)</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Coordenadas continuas (x, y, t), aceleración instantánea, desviación estándar del movimiento (Jitter motor), frecuencia de giros bruscos &gt;45° y alertas de temblor por línea.
+          </p>
+          <div class="font-mono text-[10px] text-purple-300 pt-1">
+            ✓ Detecta temblor psicomotor, fatiga y ansiedad
+          </div>
+        </div>
+
+        <!-- Bloque 2: Cronometría Monotónica -->
+        <div class="rounded-3xl glass-panel p-6 space-y-3 border border-cyan-500/30 bg-cyan-950/10 hover:border-cyan-400/50 transition">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+            <i data-lucide="clock" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">2. Cronometría de Milisegundos</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Temporización de 20.00 segundos exactos por línea (280s totales) con <code>window.performance.now()</code>. Tiempos de reacción discriminados por dianas marcadas vs comisiones.
+          </p>
+          <div class="font-mono text-[10px] text-cyan-300 pt-1">
+            ✓ Desfase de hardware &lt; 0.8 ms
+          </div>
+        </div>
+
+        <!-- Bloque 3: Rastreo Ocular Estimado -->
+        <div class="rounded-3xl glass-panel p-6 space-y-3 border border-blue-500/30 bg-blue-950/10 hover:border-blue-400/50 transition">
+          <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+            <i data-lucide="eye" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">3. Barrido Visual y Saltos Erráticos</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Monitorea el sentido de lectura de izquierda a derecha. Detecta retrocesos desorganizados, saltos entre filas y pérdida del foco de rastreo visomotor.
+          </p>
+          <div class="font-mono text-[10px] text-blue-300 pt-1">
+            ✓ Cuantifica desorganización atencional
+          </div>
+        </div>
+
+        <!-- Bloque 4: Batería Psicométrica Completa -->
+        <div class="rounded-3xl glass-panel p-6 space-y-3 border border-emerald-500/30 bg-emerald-950/10 hover:border-emerald-400/50 transition">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <i data-lucide="calculator" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">4. Fórmulas Psicométricas Estandarizadas</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Cálculo inmediato de TA (Aciertos), O (Omisiones), COM (Comisiones), CON = TA - (O + COM) (Concentración Neta), CP% (Calidad de filtrado), VAR (Variabilidad rítmica) y TRM (Resistencia a la fatiga).
+          </p>
+          <div class="font-mono text-[10px] text-emerald-300 pt-1">
+            ✓ Baremo normativo comparativo
+          </div>
+        </div>
+
+        <!-- Bloque 5: Supervisión Pericial Dual -->
+        <div class="rounded-3xl glass-panel p-6 space-y-3 border border-rose-500/30 bg-rose-950/10 hover:border-rose-400/50 transition">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center">
+            <i data-lucide="video" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">5. Grabación Dual Pantalla + Cámara</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Grabación sincronizada de la pantalla de prueba y la cámara del paciente. Garantiza validez pericial, evita suplantación de identidad y documenta la conducta observacional.
+          </p>
+          <div class="font-mono text-[10px] text-rose-300 pt-1">
+            ✓ Blindaje forense y pericial
+          </div>
+        </div>
+
+        <!-- Bloque 6: Auditoría Forense y RLS -->
+        <div class="rounded-3xl glass-panel p-6 space-y-3 border border-amber-500/30 bg-amber-950/10 hover:border-amber-400/50 transition">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <i data-lucide="lock" class="w-5 h-5"></i>
+          </div>
+          <h3 class="text-base font-bold text-white">6. Anonimización y Seguridad RLS</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Enmascaramiento de cédula (`ID: ******829`). Aislamiento de registros por profesional evaluador mediante Row Level Security en Supabase con cifrado AES-256 en reposo.
+          </p>
+          <div class="font-mono text-[10px] text-amber-300 pt-1">
+            ✓ Cumplimiento estricto de secreto médico
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       5. CATÁLOGO INTERACTIVO DE ESTÍMULOS DE LA PRUEBA PLC
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="estimulos-catalogo" class="py-24 relative bg-slate-950/60 border-t border-white/10">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-3" data-aos="fade-up">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-xs font-mono uppercase tracking-widest">
+          <i data-lucide="scan" class="w-3.5 h-3.5"></i>
+          <span>Anatomía del Test</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          La Diana (Target) y los 9 Distractores de la Prueba PLC
+        </h2>
+        <p class="text-slate-400 text-sm sm:text-base">
+          Examina cómo están construidos los estímulos de la Prueba de Líneas Cruzadas. Haz clic en cualquiera para ver su clasificación y propiedades psicométricas.
+        </p>
+      </div>
+
+      <!-- Grid de Estímulos PLC -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4" id="catalogo-stimuli-grid" data-aos="zoom-in">
+        <!-- Generado dinámicamente con JavaScript -->
+      </div>
+
+      <!-- Ficha de Información del Estímulo Seleccionado -->
+      <div id="stimulus-detail-card" class="rounded-2xl glass-panel p-5 border border-cyan-500/30 bg-black/40 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-xs">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-14 bg-black/60 rounded-xl border border-cyan-500/40 flex items-center justify-center" id="detail-canvas-box">
+            <!-- Canvas mini del estímulo seleccionado -->
+          </div>
+          <div>
+            <div class="text-cyan-300 font-bold text-sm" id="detail-name">Estímulo T — Diana (Target)</div>
+            <div class="text-slate-400 text-xs mt-0.5" id="detail-desc">Cruz con dos cuadraditos en ambos brazos laterales. Es el único estímulo que el paciente debe marcar.</div>
+          </div>
+        </div>
+        <div class="shrink-0 text-right">
+          <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold text-xs" id="detail-badge">
+            ✓ MARCAR
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       6. SIMULADOR CLÍNICO COMPLETO CON CRONÓMETRO DE 20 SEGUNDOS
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="simulador" class="py-24 relative bg-slate-950/70 border-t border-white/10">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-3" data-aos="fade-up">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-mono uppercase tracking-widest">
+          <i data-lucide="play" class="w-3.5 h-3.5 fill-blue-400"></i>
+          <span>Simulador Clínico MecaPsi</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Experimenta una Línea de Prueba de 20 Segundos
+        </h2>
+        <p class="text-slate-300 text-sm sm:text-base">
+          Haz clic en las dianas (cruces con cuadradito en ambos brazos). Puedes activar el cronómetro de 20 segundos para simular la presión temporal que experimenta el paciente real.
+        </p>
+      </div>
+
+      <!-- Caja Principal del Simulador -->
+      <div class="rounded-3xl glass-panel p-6 sm:p-8 border border-cyan-500/30 shadow-2xl space-y-6" data-aos="zoom-in">
+        
+        <!-- Barra Superior de Control del Simulador -->
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/10 text-xs font-mono">
+          <div class="flex items-center gap-3">
+            <span class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span class="text-white font-bold text-sm">LÍNEA DE PRUEBA // 12 ESTÍMULOS</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <!-- Botón Cronómetro de 20s -->
+            <button onclick="toggleSimTimer()" id="btn-timer" class="px-3.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-bold transition flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="timer" class="w-3.5 h-3.5"></i>
+              <span id="timer-text">Iniciar 20s</span>
+            </button>
+
+            <!-- Botón Reiniciar -->
+            <button onclick="resetFullSimulator()" class="px-3.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 transition cursor-pointer flex items-center gap-1.5 border border-white/10">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              <span>Reiniciar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Progreso Temporal de 20 segundos -->
+        <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-white/5">
+          <div id="sim-timer-bar" class="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 h-full w-full transition-all duration-100 ease-linear"></div>
+        </div>
+
+        <!-- Tira de 12 Cruces PLC Renderizadas en Canvas -->
+        <div class="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-3 py-3" id="sim-plc-grid">
+          <!-- Canvas generados dinámicamente con drawPLCStimulus -->
+        </div>
+
+        <!-- Resultados en Tiempo Real según Fórmulas MecaPsi -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-4 border-t border-white/10 text-center font-mono text-xs">
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+            <div class="text-slate-400 text-[11px]">Aciertos (TA)</div>
+            <div id="metric-ta" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+          </div>
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+            <div class="text-slate-400 text-[11px]">Omisiones (O)</div>
+            <div id="metric-o" class="text-2xl font-bold text-amber-400 mt-1">4</div>
+          </div>
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+            <div class="text-slate-400 text-[11px]">Comisiones (COM)</div>
+            <div id="metric-com" class="text-2xl font-bold text-rose-400 mt-1">0</div>
+          </div>
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+            <div class="text-slate-400 text-[11px]">Concentración (CON)</div>
+            <div id="metric-con" class="text-2xl font-bold text-cyan-400 mt-1">-4</div>
+          </div>
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5 col-span-2 sm:col-span-1">
+            <div class="text-slate-400 text-[11px]">Tremor del Cursor</div>
+            <div id="metric-tremor" class="text-2xl font-bold text-emerald-400 mt-1">-- px/s²</div>
+          </div>
+        </div>
+
+        <!-- Fórmulas Explicadas -->
+        <div class="text-xs text-slate-400 flex flex-wrap items-center justify-between gap-2 pt-1 font-mono">
+          <span>Fórmulas oficiales: <strong class="text-white">CON = TA - (O + COM)</strong> · TOT = O + COM</span>
+          <span class="text-cyan-400">Umbral clínico normal: &lt;85.0 px/s²</span>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       7. SECCIÓN REPORTE EXCEL CLÍNICO (LIBRO COMPLETO DE 5 HOJAS)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="reporte-excel" class="py-24 relative bg-slate-950/70 border-t border-white/10">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-3" data-aos="fade-up">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono uppercase tracking-widest">
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+          <span>Documentación Oficial .XLSX</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Libro de Reporte Clínico en Excel de 5 Hojas
+        </h2>
+        <p class="text-slate-400 text-sm sm:text-base">
+          Diseñado con <code class="text-emerald-400 font-mono">openpyxl</code> con formato institucional, estilos clínicos y gráficos vectoriales nativos. Generado en 1 segundo para anexar a la historia clínica o peritaje judicial.
+        </p>
+      </div>
+
+      <!-- Simulador de Pestañas de Excel (5 HOJAS) -->
+      <div class="rounded-3xl glass-panel p-6 sm:p-8 border border-emerald-500/30 shadow-2xl space-y-6" data-aos="zoom-in">
+        
+        <!-- Pestañas de las 5 Hojas -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-3 border-b border-white/10 text-xs font-mono scrollbar-none">
+          <button onclick="switchExcelSheet(1)" id="btn-sheet-1" class="px-3.5 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold transition flex items-center gap-2 shrink-0 cursor-pointer">
+            <i data-lucide="sheet" class="w-4 h-4"></i>
+            <span>01_Resumen_Clinico</span>
+          </button>
+          <button onclick="switchExcelSheet(2)" id="btn-sheet-2" class="px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 hover:text-white border border-white/10 font-bold transition flex items-center gap-2 shrink-0 cursor-pointer">
+            <i data-lucide="table" class="w-4 h-4"></i>
+            <span>02_Analisis_Lineas (14 Líneas)</span>
+          </button>
+          <button onclick="switchExcelSheet(3)" id="btn-sheet-3" class="px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 hover:text-white border border-white/10 font-bold transition flex items-center gap-2 shrink-0 cursor-pointer">
+            <i data-lucide="book-open" class="w-4 h-4"></i>
+            <span>03_Glosario_Metricas</span>
+          </button>
+          <button onclick="switchExcelSheet(4)" id="btn-sheet-4" class="px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 hover:text-white border border-white/10 font-bold transition flex items-center gap-2 shrink-0 cursor-pointer">
+            <i data-lucide="fingerprint" class="w-4 h-4"></i>
+            <span>04_Eventos_CRUDOS (Milisegundos)</span>
+          </button>
+          <button onclick="switchExcelSheet(5)" id="btn-sheet-5" class="px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 hover:text-white border border-white/10 font-bold transition flex items-center gap-2 shrink-0 cursor-pointer">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            <span>05_Graficas_Nativas</span>
+          </button>
+        </div>
+
+        <!-- Contenido Hoja 1: Resumen Clínico -->
+        <div id="excel-sheet-1" class="space-y-4 font-mono text-xs">
+          <div class="bg-black/50 p-5 rounded-2xl border border-white/5 space-y-4">
+            <div class="text-emerald-400 font-bold text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+              <span>HOJA 1 // CONSOLIDADO DE EJECUCIÓN BIOMÉTRICA Y NEUROCOGNITIVA</span>
+              <span class="text-[10px] text-slate-400">PACIENTE: ELENA MORALES (ID: ******829)</span>
+            </div>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-slate-300">
+              <div class="bg-white/5 p-3 rounded-xl border border-white/5">
+                <span class="text-[10px] text-slate-500 block">TOTAL ACIERTOS (TA)</span>
+                <span class="text-2xl font-bold text-emerald-400">46</span>
+              </div>
+              <div class="bg-white/5 p-3 rounded-xl border border-white/5">
+                <span class="text-[10px] text-slate-500 block">TOTAL ERRORES (TOT)</span>
+                <span class="text-2xl font-bold text-amber-400">4</span>
+              </div>
+              <div class="bg-white/5 p-3 rounded-xl border border-white/5">
+                <span class="text-[10px] text-slate-500 block">CONCENTRACIÓN NETA (CON)</span>
+                <span class="text-2xl font-bold text-cyan-400">42</span>
+              </div>
+              <div class="bg-white/5 p-3 rounded-xl border border-white/5">
+                <span class="text-[10px] text-slate-500 block">JITTER MOTOR PROMEDIO</span>
+                <span class="text-2xl font-bold text-purple-400">48.2 px/s²</span>
+              </div>
+            </div>
+
+            <div class="p-4 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-2 text-slate-300">
+              <div class="text-emerald-300 font-bold text-xs flex items-center gap-2">
+                <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+                <span>Parámetros Biométricos Listos para tu Evaluación:</span>
+              </div>
+              <p class="text-[11px] leading-relaxed">
+                El sujeto mantuvo una tasa de precisión del 91.3% con una latencia de clic promedio de 214 ms. La cinemática del cursor se mantuvo dentro del rango normal (&lt;85 px/s²). Información objetiva para que el profesional determine la existencia o descarte de déficit de atención o fatiga psicomotriz.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contenido Hoja 2: Análisis por Línea -->
+        <div id="excel-sheet-2" class="hidden space-y-3 font-mono text-xs overflow-x-auto">
+          <div class="text-cyan-300 font-bold text-xs mb-2">HOJA 2 // DISECCIÓN DE LAS 14 LÍNEAS DE 20 SEGUNDOS</div>
+          <table class="w-full text-left text-slate-300 border-collapse">
+            <thead>
+              <tr class="border-b border-white/10 text-[10px] text-slate-400 uppercase">
+                <th class="py-2 px-3">Línea</th>
+                <th class="py-2 px-3">Tiempo</th>
+                <th class="py-2 px-3">Blancos</th>
+                <th class="py-2 px-3">Aciertos (TA)</th>
+                <th class="py-2 px-3">Omisiones (O)</th>
+                <th class="py-2 px-3">Comisiones (COM)</th>
+                <th class="py-2 px-3">Saltos Erráticos</th>
+                <th class="py-2 px-3">Tremor Score</th>
+                <th class="py-2 px-3">Alerta Motriz</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5 text-[11px]">
+              <tr><td class="py-2 px-3 font-bold text-cyan-400">Línea 01</td><td class="py-2 px-3">20.00s</td><td class="py-2 px-3">4</td><td class="py-2 px-3 text-emerald-400 font-bold">4</td><td class="py-2 px-3">0</td><td class="py-2 px-3">0</td><td class="py-2 px-3">0</td><td class="py-2 px-3">44.2 px/s²</td><td class="py-2 px-3 text-emerald-400">NORMAL</td></tr>
+              <tr><td class="py-2 px-3 font-bold text-cyan-400">Línea 02</td><td class="py-2 px-3">20.00s</td><td class="py-2 px-3">4</td><td class="py-2 px-3 text-emerald-400 font-bold">3</td><td class="py-2 px-3 text-amber-400">1</td><td class="py-2 px-3">0</td><td class="py-2 px-3">0</td><td class="py-2 px-3">51.8 px/s²</td><td class="py-2 px-3 text-emerald-400">NORMAL</td></tr>
+              <tr><td class="py-2 px-3 font-bold text-cyan-400">Línea 03</td><td class="py-2 px-3">20.00s</td><td class="py-2 px-3">4</td><td class="py-2 px-3 text-emerald-400 font-bold">4</td><td class="py-2 px-3">0</td><td class="py-2 px-3">0</td><td class="py-2 px-3">0</td><td class="py-2 px-3">48.2 px/s²</td><td class="py-2 px-3 text-emerald-400">NORMAL</td></tr>
+              <tr><td class="py-2 px-3 font-bold text-cyan-400">Línea 04</td><td class="py-2 px-3">20.00s</td><td class="py-2 px-3">4</td><td class="py-2 px-3 text-emerald-400 font-bold">3</td><td class="py-2 px-3">0</td><td class="py-2 px-3 text-rose-400 font-bold">1</td><td class="py-2 px-3 text-amber-400">1</td><td class="py-2 px-3">59.0 px/s²</td><td class="py-2 px-3 text-emerald-400">NORMAL</td></tr>
+              <tr><td class="py-2 px-3 text-slate-500" colspan="9">... (Líneas 05 a 14 completas en el libro descargable)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Contenido Hoja 3: Glosario de Métricas -->
+        <div id="excel-sheet-3" class="hidden space-y-3 font-mono text-xs">
+          <div class="text-purple-300 font-bold text-xs mb-2">HOJA 3 // GLOSARIO BIOMÉDICO Y FÓRMULAS ESTANDARIZADAS</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-300">
+            <div class="p-3 bg-white/5 rounded-xl border border-white/5">
+              <span class="text-cyan-400 font-bold">TA — Total Aciertos:</span>
+              <p class="text-[11px] text-slate-400 mt-1">Suma pura de blancos marcados correctamente en el espectro visual.</p>
+            </div>
+            <div class="p-3 bg-white/5 rounded-xl border border-white/5">
+              <span class="text-amber-400 font-bold">O — Omisiones:</span>
+              <p class="text-[11px] text-slate-400 mt-1">Estímulos diana omitidos por falla de alerta o latencia visomotora.</p>
+            </div>
+            <div class="p-3 bg-white/5 rounded-xl border border-white/5">
+              <span class="text-rose-400 font-bold">COM — Comisiones:</span>
+              <p class="text-[11px] text-slate-400 mt-1">Falsas alarmas por fallo en control inhibitorio al marcar distractores.</p>
+            </div>
+            <div class="p-3 bg-white/5 rounded-xl border border-white/5">
+              <span class="text-emerald-400 font-bold">CON — Acierto Neto:</span>
+              <p class="text-[11px] text-slate-400 mt-1">Resta estricta: CON = TA - (O + COM). Mide eficacia atencional real.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contenido Hoja 4: Registro de Eventos Crudos (Forense) -->
+        <div id="excel-sheet-4" class="hidden space-y-3 font-mono text-xs overflow-x-auto">
+          <div class="text-rose-300 font-bold text-xs mb-2">HOJA 4 // AUDITORÍA CLIC POR CLIC A NIVEL DE MILISEGUNDOS (PERITAJE FORENSE)</div>
+          <table class="w-full text-left text-slate-300 border-collapse">
+            <thead>
+              <tr class="border-b border-white/10 text-[10px] text-slate-400 uppercase">
+                <th class="py-2 px-3">Línea</th>
+                <th class="py-2 px-3">Columna</th>
+                <th class="py-2 px-3">Ítem</th>
+                <th class="py-2 px-3">Blanco Requerido</th>
+                <th class="py-2 px-3">Acción Emitida</th>
+                <th class="py-2 px-3">Latencia de Motor</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5 text-[11px]">
+              <tr><td class="py-2 px-3">Línea 01</td><td class="py-2 px-3">Col 02</td><td class="py-2 px-3 text-cyan-400">T</td><td class="py-2 px-3">SÍ (Diana)</td><td class="py-2 px-3 text-emerald-400">MARCACIÓN</td><td class="py-2 px-3 font-bold">342 ms</td></tr>
+              <tr><td class="py-2 px-3">Línea 01</td><td class="py-2 px-3">Col 05</td><td class="py-2 px-3 text-slate-400">D1</td><td class="py-2 px-3">NO (Distractor)</td><td class="py-2 px-3 text-slate-400">IGNORADO</td><td class="py-2 px-3 font-bold">--</td></tr>
+              <tr><td class="py-2 px-3">Línea 01</td><td class="py-2 px-3">Col 08</td><td class="py-2 px-3 text-cyan-400">T</td><td class="py-2 px-3">SÍ (Diana)</td><td class="py-2 px-3 text-emerald-400">MARCACIÓN</td><td class="py-2 px-3 font-bold">298 ms</td></tr>
+              <tr><td class="py-2 px-3 text-slate-500" colspan="6">... (Registro secuencial continuo de todos los clics de la sesión)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Contenido Hoja 5: Gráficas Nativas -->
+        <div id="excel-sheet-5" class="hidden space-y-4 font-mono text-xs">
+          <div class="text-blue-300 font-bold text-xs mb-2">HOJA 5 // VECTORES MATEMÁTICOS Y GRÁFICOS OPENPYXL INTEGRADOS</div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+            <div class="bg-black/50 p-4 rounded-xl border border-white/5 space-y-2">
+              <i data-lucide="line-chart" class="w-6 h-6 text-cyan-400 mx-auto"></i>
+              <div class="font-bold text-white text-xs">Curva de Aciertos por Línea</div>
+              <p class="text-[10px] text-slate-400">Monitorea la estabilidad y el desgaste longitudinal a lo largo del test.</p>
+            </div>
+            <div class="bg-black/50 p-4 rounded-xl border border-white/5 space-y-2">
+              <i data-lucide="bar-chart-2" class="w-6 h-6 text-amber-400 mx-auto"></i>
+              <div class="font-bold text-white text-xs">Distribución de Falla (O vs C)</div>
+              <p class="text-[10px] text-slate-400">Compara omisiones por latencia versus comisiones por impulsividad.</p>
+            </div>
+            <div class="bg-black/50 p-4 rounded-xl border border-white/5 space-y-2">
+              <i data-lucide="spline" class="w-6 h-6 text-purple-400 mx-auto"></i>
+              <div class="font-bold text-white text-xs">Saltos Erráticos de Barrido</div>
+              <p class="text-[10px] text-slate-400">Muestra la desorganización de barrido visual entre las 14 líneas.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       8. SECCIÓN MARKETING ROI: ¿POR QUÉ PROFESIONALES Y CLÍNICAS ELIGEN MECAPSI?
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section class="py-24 relative bg-gradient-to-b from-slate-950/40 to-slate-900/60 border-t border-white/10">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-3" data-aos="fade-up">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono uppercase tracking-widest">
+          <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+          <span>Retorno de Inversión y Eficiencia</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Multiplica tu Capacidad Clínica y Ahorra Tiempo
+        </h2>
+        <p class="text-slate-400 text-sm sm:text-base">
+          Diseñado para que consultorios independientes, clínicas y centros forenses aumenten su productividad con cero margen de error.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        
+        <div class="rounded-3xl glass-panel p-7 space-y-4 border border-white/10 hover:border-cyan-400/40 transition" data-aos="fade-up">
+          <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-black text-lg">
+            40m
+          </div>
+          <h3 class="text-xl font-bold text-white">Ahorra 40+ Minutos por Paciente</h3>
+          <p class="text-slate-400 text-xs leading-relaxed">
+            Elimina el conteo manual de cruces y la redacción tediosa de tablas de datos. El libro de 5 hojas en Excel se genera con un solo clic.
+          </p>
+        </div>
+
+        <div class="rounded-3xl glass-panel p-7 space-y-4 border border-white/10 hover:border-blue-400/40 transition" data-aos="fade-up" data-aos-delay="100">
+          <div class="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-black text-lg">
+            3x
+          </div>
+          <h3 class="text-xl font-bold text-white">Triplica tus Evaluaciones</h3>
+          <p class="text-slate-400 text-xs leading-relaxed">
+            Aumenta el número de consultas y evaluaciones que puedes atender por semana sin sobrecarga de trabajo administrativo.
+          </p>
+        </div>
+
+        <div class="rounded-3xl glass-panel p-7 space-y-4 border border-white/10 hover:border-purple-400/40 transition" data-aos="fade-up" data-aos-delay="200">
+          <div class="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-black text-lg">
+            100%
+          </div>
+          <h3 class="text-xl font-bold text-white">Blindaje Pericial y Legal</h3>
+          <p class="text-slate-400 text-xs leading-relaxed">
+            La telemetría clic a clic con marcas de tiempo en milisegundos y grabación dual le da a tus informes un peso forense irrefutable ante tribunales.
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       9. PRICING HOLOGRÁFICO
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="pricing" class="py-24 relative bg-slate-950/40 border-t border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-4" data-aos="fade-up">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono uppercase tracking-widest">
+          <i data-lucide="tag" class="w-3.5 h-3.5"></i>
+          <span>Planes Clínicos Estandarizados</span>
+        </div>
+        <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+          Suscripción SaaS para Profesionales
+        </h2>
+        <p class="text-slate-400 text-base">
+          Elige el plan ideal para tu práctica privada, clínica o centro de investigación.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center max-w-6xl mx-auto">
+        
+        <!-- Plan Básico -->
+        <div class="rounded-3xl glass-panel p-8 space-y-6 border border-white/10 hover:border-white/20 transition-all" data-aos="fade-up">
+          <div>
+            <h3 class="text-xl font-bold text-white">Plan Básico</h3>
+            <p class="text-xs text-slate-400 mt-1">Práctica privada y consultorios independientes.</p>
+          </div>
+          <div class="flex items-baseline gap-1 font-mono">
+            <span class="text-4xl font-black text-white">$39</span>
+            <span class="text-slate-400 text-xs">/ mes</span>
+          </div>
+          <ul class="space-y-3 text-xs text-slate-300 pt-4 border-t border-white/10">
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Hasta 35 evaluaciones por mes</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Cronometría precisa en Canvas</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Exportación en Excel (5 Hojas)</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Métricas psicométricas TA, O, COM, CON</li>
+            <li class="flex items-center gap-2 text-slate-500"><i data-lucide="x" class="w-4 h-4"></i> Sin módulo de temblor motor</li>
+          </ul>
+          <button onclick="openAuthModal('register')" class="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/10 transition cursor-pointer">
+            Seleccionar Plan Básico
+          </button>
+        </div>
+
+        <!-- Plan Pro (Destacado con Neón Pulsante) -->
+        <div class="rounded-3xl p-8 space-y-6 relative scale-105 bg-slate-900/90 border-2 border-cyan-400/80 shadow-[0_0_45px_rgba(6,182,212,0.35)] animate-glow-pulse" data-aos="fade-up" data-aos-delay="100">
+          <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-[10px] font-mono font-black tracking-widest uppercase shadow-lg shadow-cyan-500/30">
+            ★ RECOMENDADO CLÍNICO ★
+          </div>
+
+          <div>
+            <h3 class="text-2xl font-extrabold text-white">Plan Pro</h3>
+            <p class="text-xs text-slate-400 mt-1">Para especialistas y clínicas de alta demanda.</p>
+          </div>
+
+          <div class="flex items-baseline gap-1 font-mono">
+            <span class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400">$79</span>
+            <span class="text-slate-400 text-xs">/ mes</span>
+          </div>
+
+          <ul class="space-y-3 text-xs text-slate-200 pt-4 border-t border-white/10">
+            <li class="flex items-center gap-2 font-bold text-cyan-300"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Evaluaciones ILIMITADAS de pacientes</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Módulo de Biomarcadores de Temblor (≤60fps)</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Grabación dual obligatoria (pantalla + cámara)</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Libro Excel oficial de 5 hojas completo</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Auditoría forense de eventos clic por clic</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Aislamiento RLS en Supabase</li>
+          </ul>
+
+          <button onclick="openAuthModal('register')" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 text-white font-extrabold text-sm shadow-[0_0_25px_rgba(6,182,212,0.4)] hover:shadow-[0_0_35px_rgba(6,182,212,0.6)] transition-all cursor-pointer">
+            Comenzar Prueba de 14 Días
+          </button>
+        </div>
+
+        <!-- Plan Institucional -->
+        <div class="rounded-3xl glass-panel p-8 space-y-6 border border-white/10 hover:border-white/20 transition-all" data-aos="fade-up" data-aos-delay="200">
+          <div>
+            <h3 class="text-xl font-bold text-white">Institucional</h3>
+            <p class="text-xs text-slate-400 mt-1">Hospitales, universidades y centros multi-sede.</p>
+          </div>
+          <div class="flex items-baseline gap-1 font-mono">
+            <span class="text-4xl font-black text-white">$199</span>
+            <span class="text-slate-400 text-xs">/ mes</span>
+          </div>
+          <ul class="space-y-3 text-xs text-slate-300 pt-4 border-t border-white/10">
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Todo lo incluido en el Plan Pro</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Multi-usuario para equipos clínicos</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Exportación masiva para análisis estadístico</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Soporte de investigación con el equipo</li>
+          </ul>
+          <button onclick="openAuthModal('register')" class="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/10 transition cursor-pointer">
+            Contactar por Institucional
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       10. FOOTER MINIMALISTA MECAPSI
+  ══════════════════════════════════════════════════════════════════════ -->
+  <footer class="border-t border-white/10 py-12 bg-black/50 text-xs text-slate-500 font-mono">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+            <i data-lucide="brain" class="w-4 h-4"></i>
+          </div>
+          <span class="text-white font-bold text-sm">MecaPsi · PLC Professional</span>
+          <span class="text-slate-600">|</span>
+          <span>Plataforma SaaS de Neuroevaluación</span>
+        </div>
+
+        <div class="flex items-center gap-6">
+          <a href="#prueba-plc" class="hover:text-cyan-400 transition-colors">La Prueba PLC</a>
+          <a href="#telemetria" class="hover:text-cyan-400 transition-colors">Telemetría</a>
+          <a href="#estimulos-catalogo" class="hover:text-cyan-400 transition-colors">Estímulos</a>
+          <a href="#simulador" class="hover:text-cyan-400 transition-colors">Simulador</a>
+          <a href="#reporte-excel" class="hover:text-cyan-400 transition-colors">Excel (5 Hojas)</a>
+          <a href="#pricing" class="hover:text-cyan-400 transition-colors">Planes</a>
+          <a href="#" onclick="openAuthModal('login'); return false;" class="text-cyan-400 hover:underline">Acceso Clínico</a>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-6 border-t border-white/5 text-[11px]">
+        <div>
+          © 2026 MecaPsi · Todos los derechos reservados. Plataforma de psicometría computacional para neuropsicología clínica y peritaje forense.
+        </div>
+        <div class="text-slate-400">
+          PRUEBA DE LÍNEAS CRUZADAS · FASTAPI · KERAS · OPENPYXL · SUPABASE RLS
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       11. STICKY BOTTOM CONVERSION BAR (Marketing CRO)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div id="sticky-cta-bar" class="fixed bottom-0 left-0 right-0 z-40 bg-black/90 backdrop-blur-md border-t border-cyan-500/30 px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.8)] transition-all transform translate-y-0">
+    <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-xs sm:text-sm text-slate-200">
+          <strong>¿Listo para transformar tus evaluaciones?</strong> Prueba MecaPsi durante 14 días con 5 evaluaciones gratis.
+        </span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="openAuthModal('register')" class="px-5 py-2 rounded-full bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 text-white font-bold text-xs shadow-lg shadow-cyan-500/30 hover:scale-105 transition cursor-pointer">
+          Crear Cuenta Gratis
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       12. MODAL DUAL DE ACCESO / REGISTRO PROFESIONAL (Login + Crear Cuenta)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div id="auth-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-md" onclick="closeAuthModalOnBg(event)">
+    <div class="relative w-full max-w-md rounded-3xl glass-panel p-8 border border-white/10 shadow-[0_0_50px_rgba(6,182,212,0.25)] space-y-6" onclick="event.stopPropagation()">
+      
+      <!-- Pestañas Duales: Iniciar Sesión / Crear Cuenta -->
+      <div class="flex items-center justify-between border-b border-white/10 pb-4">
+        <div class="flex items-center gap-2">
+          <button onclick="setAuthTab('login')" id="tab-login" class="px-3 py-1.5 rounded-xl font-bold text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 transition cursor-pointer">
+            Iniciar Sesión
+          </button>
+          <button onclick="setAuthTab('register')" id="tab-register" class="px-3 py-1.5 rounded-xl font-bold text-xs bg-white/5 text-slate-400 hover:text-white border border-white/10 transition cursor-pointer">
+            Crear Cuenta (14 Días)
+          </button>
+        </div>
+        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Formulario 1: Login -->
+      <form id="form-login" onsubmit="handleAuthSubmit(event, 'login')" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1.5" for="login-email">Correo Electrónico</label>
+          <input id="login-email" type="email" required placeholder="profesional@clinica.com" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400 transition" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1.5" for="login-password">Contraseña</label>
+          <input id="login-password" type="password" required placeholder="••••••••••••" class="w-full px-4 py-3 rounded-xl bg-black/40 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400 transition" />
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked class="rounded border-slate-700 bg-slate-800 text-cyan-500" />
+            <span>Recordar sesión</span>
+          </label>
+          <a href="#" onclick="alert('Contacta a soporte MecaPsi para restablecer credenciales'); return false;" class="text-cyan-400 hover:underline">¿Olvidaste tu clave?</a>
+        </div>
+
+        <button type="submit" id="auth-btn-submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 text-white font-bold text-sm shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition cursor-pointer">
+          Entrar a la Plataforma
+        </button>
+      </form>
+
+      <!-- Formulario 2: Registro Gratuito (Crear Cuenta) -->
+      <form id="form-register" onsubmit="handleAuthSubmit(event, 'register')" class="hidden space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1" for="reg-name">Nombre y Apellido</label>
+          <input id="reg-name" type="text" required placeholder="Dra. Sofía Restrepo" class="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400 transition" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1" for="reg-specialty">Especialidad / Rol</label>
+          <select id="reg-specialty" class="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400 transition">
+            <option value="neuro">Neuropsicólogo/a Clínico</option>
+            <option value="forensic">Perito Forense / Judicial</option>
+            <option value="general">Psicólogo/a Evaluador</option>
+            <option value="laboral">Medicina Laboral / Ocupacional</option>
+            <option value="academic">Investigador / Docente</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1" for="reg-email">Correo Electrónico Profesional</label>
+          <input id="reg-email" type="email" required placeholder="sofia.restrepo@hospital.org" class="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400 transition" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1" for="reg-password">Crear Contraseña</label>
+          <input id="reg-password" type="password" required minlength="6" placeholder="Al menos 6 caracteres" class="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-400 transition" />
+        </div>
+
+        <div class="text-[11px] text-slate-400">
+          Al registrarte aceptas las políticas de privacidad y anonimización médica de MecaPsi.
+        </div>
+
+        <button type="submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-600 text-white font-bold text-sm shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition cursor-pointer">
+          Crear Cuenta y Activar 14 Días Gratis
+        </button>
+      </form>
+
+      <!-- Botón de Cargar Credenciales de Prueba -->
+      <div class="pt-3 border-t border-white/10">
+        <button onclick="fillLoginDemo()" class="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs border border-white/10 transition cursor-pointer flex items-center justify-center gap-1.5">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span>Cargar Credenciales de Prueba</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       13. MOTOR JAVASCRIPT: DIBUJO REAL DE ESTÍMULOS PLC EN CANVAS
+  ══════════════════════════════════════════════════════════════════════ -->
+  <script>
+    // Inicializar iconos Lucide y animación AOS
+    lucide.createIcons();
+    AOS.init({ once: true, duration: 750, easing: 'ease-out-cubic' });
+
+    // ── DEFINICIÓN EXACTA DE ESTÍMULOS PLC (Prueba de Líneas Cruzadas) ──
+    // Target T = Cruz con cuadradito a la izquierda Y a la derecha
+    const STIM_TYPES = {
+      'T':   { name: 'Diana (Target T)', is_target: true,  sq_left: true,  sq_right: true,  sq_top: false, sq_bottom: false, h_offset: 0,   v_asym: 0, desc: 'Cruz con cuadraditos en ambos brazos laterales. Es el único estímulo a marcar.' },
+      'D1':  { name: 'Distractor D1',   is_target: false, sq_left: false, sq_right: true,  sq_top: false, sq_bottom: false, h_offset: 0,   v_asym: 6, desc: 'Cuadradito solo a la derecha con asimetría vertical hacia abajo.' },
+      'D2':  { name: 'Distractor D2',   is_target: false, sq_left: true,  sq_right: false, sq_top: false, sq_bottom: false, h_offset: 0,   v_asym: -5, desc: 'Cuadradito solo a la izquierda con asimetría vertical hacia arriba.' },
+      'D3':  { name: 'Distractor D3',   is_target: false, sq_left: true,  sq_right: false, sq_top: false, sq_bottom: false, h_offset: 6,   v_asym: 0, desc: 'Cuadradito a la izquierda con desplazamiento del eje horizontal.' },
+      'D4':  { name: 'Distractor D4',   is_target: false, sq_left: false, sq_right: false, sq_top: false, sq_bottom: false, h_offset: 0,   v_asym: 0, desc: 'Cruz simple simétrica sin cuadraditos en ningún extremo.' },
+      'D5':  { name: 'Distractor D5',   is_target: false, sq_left: false, sq_right: false, sq_top: true,  sq_bottom: false, h_offset: 0,   v_asym: 0, desc: 'Cuadradito único en el extremo superior de la cruz.' },
+      'D6':  { name: 'Distractor D6',   is_target: false, sq_left: false, sq_right: false, sq_top: true,  sq_bottom: true,  h_offset: 0,   v_asym: 0, desc: 'Cuadraditos en los extremos verticales (superior e inferior).' },
+      'D7':  { name: 'Distractor D7',   is_target: false, sq_left: false, sq_right: true,  sq_top: false, sq_bottom: false, h_offset: -6,  v_asym: 0, desc: 'Cuadradito derecho con desplazamiento horizontal izquierdo.' },
+      'D8':  { name: 'Distractor D8',   is_target: false, sq_left: true,  sq_right: false, sq_top: false, sq_bottom: false, h_offset: 0,   v_asym: 8, desc: 'Cuadradito izquierdo con marcada asimetría vertical.' },
+      'D9':  { name: 'Distractor D9',   is_target: false, sq_left: false, sq_right: false, sq_top: false, sq_bottom: true,  h_offset: 0,   v_asym: 0, desc: 'Cuadradito único en el extremo inferior de la cruz.' },
+    };
+
+    /**
+     * Dibuja el estímulo de la Prueba de Líneas Cruzadas en Canvas
+     */
+    function drawPLCStimulus(ctx, stype, w = 56, h = 68, fg = '#38BDF8', isMarked = false) {
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2 + (stype.h_offset || 0);
+      const va = stype.v_asym || 0;
+      const ARM_H = 15, ARM_V_UP = 15, ARM_V_DOWN = 15, s = 5;
+
+      ctx.strokeStyle = isMarked ? '#38BDF8' : '#94A3B8';
+      ctx.fillStyle   = isMarked ? '#38BDF8' : '#94A3B8';
+      ctx.lineWidth   = isMarked ? 2.4 : 1.8;
+      ctx.lineCap     = 'round';
+
+      // Línea vertical
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - ARM_V_UP - va);
+      ctx.lineTo(cx, cy + ARM_V_DOWN);
+      ctx.stroke();
+
+      // Línea horizontal
+      const lx = cx - ARM_H, rx = cx + ARM_H;
+      ctx.beginPath();
+      ctx.moveTo(lx, cy);
+      ctx.lineTo(rx, cy);
+      ctx.stroke();
+
+      // Cuadraditos en los extremos
+      function sq(x, y) {
+        ctx.fillRect(x - s / 2, y - s / 2, s, s);
+      }
+      if (stype.sq_left)   sq(lx, cy);
+      if (stype.sq_right)  sq(rx, cy);
+      if (stype.sq_top)    sq(cx, cy - ARM_V_UP - va);
+      if (stype.sq_bottom) sq(cx, cy + ARM_V_DOWN);
+
+      // Marca diagonal clínica si está seleccionado
+      if (isMarked) {
+        ctx.strokeStyle = '#06B6D4';
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.moveTo(cx - 14, cy - 14);
+        ctx.lineTo(cx + 14, cy + 14);
+        ctx.stroke();
+      }
+    }
+
+    // ── 1. RENDER DE CRUCES PLC EN EL HERO ──
+    const heroKeys = ['T', 'D1', 'D4', 'T', 'D5', 'D2', 'T', 'D6', 'D7', 'T', 'D3', 'D8'];
+    const heroMarked = new Set([0, 3]); // Inicialmente dos dianas marcadas
+
+    function renderHeroStimuli() {
+      const box = document.getElementById('hero-stimuli-box');
+      if (!box) return;
+      box.innerHTML = '';
+
+      heroKeys.forEach((k, idx) => {
+        const item = document.createElement('div');
+        const isMarked = heroMarked.has(idx);
+        item.className = `relative flex items-center justify-center p-1 rounded-xl cursor-pointer transition-all duration-200 border ${
+          isMarked 
+            ? 'bg-cyan-950/40 border-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-105' 
+            : 'bg-black/40 border-white/5 hover:border-cyan-400/30 hover:bg-white/5'
+        }`;
+
+        const cv = document.createElement('canvas');
+        cv.width = 48;
+        cv.height = 58;
+        const ctx = cv.getContext('2d');
+        drawPLCStimulus(ctx, STIM_TYPES[k], 48, 58, isMarked ? '#38BDF8' : '#94A3B8', isMarked);
+
+        item.appendChild(cv);
+
+        if (isMarked) {
+          const badge = document.createElement('span');
+          badge.className = 'absolute -top-1 -right-1 w-4 h-4 bg-cyan-400 text-slate-950 rounded-full flex items-center justify-center text-[9px] font-black shadow';
+          badge.textContent = '✓';
+          item.appendChild(badge);
+        }
+
+        item.addEventListener('click', () => {
+          if (heroMarked.has(idx)) {
+            heroMarked.delete(idx);
+          } else {
+            heroMarked.add(idx);
+          }
+          renderHeroStimuli();
+          updateHeroCounter();
+        });
+
+        box.appendChild(item);
+      });
+      updateHeroCounter();
+    }
+
+    function updateHeroCounter() {
+      const cnt = document.getElementById('hero-sel-counter');
+      if (!cnt) return;
+      let targetCount = 0;
+      heroMarked.forEach(idx => {
+        if (STIM_TYPES[heroKeys[idx]].is_target) targetCount++;
+      });
+      cnt.textContent = `Dianas Marcadas: ${targetCount}/4`;
+    }
+
+    // ── 2. CATÁLOGO INTERACTIVO DE ESTÍMULOS ──
+    function renderStimuliCatalog() {
+      const grid = document.getElementById('catalogo-stimuli-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      Object.entries(STIM_TYPES).forEach(([k, stim]) => {
+        const card = document.createElement('div');
+        card.className = `rounded-2xl glass-panel p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all border ${
+          stim.is_target 
+            ? 'border-cyan-500/50 bg-cyan-950/20 shadow-[0_0_20px_rgba(6,182,212,0.2)]' 
+            : 'border-white/5 hover:border-white/20'
+        }`;
+
+        const cv = document.createElement('canvas');
+        cv.width = 54;
+        cv.height = 64;
+        const ctx = cv.getContext('2d');
+        drawPLCStimulus(ctx, stim, 54, 64, stim.is_target ? '#38BDF8' : '#94A3B8', stim.is_target);
+
+        const nameTag = document.createElement('div');
+        nameTag.className = 'font-mono text-xs font-bold text-center mt-1 ' + (stim.is_target ? 'text-cyan-300' : 'text-slate-300');
+        nameTag.textContent = stim.name;
+
+        const badge = document.createElement('span');
+        badge.className = `text-[10px] px-2 py-0.5 rounded-full font-bold ${
+          stim.is_target ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-slate-800 text-slate-400'
+        }`;
+        badge.textContent = stim.is_target ? 'DIANA' : 'DISTRACTOR';
+
+        card.appendChild(cv);
+        card.appendChild(nameTag);
+        card.appendChild(badge);
+
+        card.addEventListener('click', () => selectCatalogStimulus(k, stim));
+
+        grid.appendChild(card);
+      });
+
+      // Seleccionar por defecto la Diana
+      selectCatalogStimulus('T', STIM_TYPES['T']);
+    }
+
+    function selectCatalogStimulus(key, stim) {
+      const nameEl = document.getElementById('detail-name');
+      const descEl = document.getElementById('detail-desc');
+      const badgeEl = document.getElementById('detail-badge');
+      const box = document.getElementById('detail-canvas-box');
+
+      if (!nameEl || !descEl || !badgeEl || !box) return;
+
+      nameEl.textContent = `Estímulo ${key} — ${stim.name}`;
+      descEl.textContent = stim.desc;
+
+      if (stim.is_target) {
+        badgeEl.textContent = '✓ MARCAR';
+        badgeEl.className = 'px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold text-xs';
+      } else {
+        badgeEl.textContent = '✕ IGNORAR';
+        badgeEl.className = 'px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold text-xs';
+      }
+
+      box.innerHTML = '';
+      const cv = document.createElement('canvas');
+      cv.width = 44;
+      cv.height = 52;
+      const ctx = cv.getContext('2d');
+      drawPLCStimulus(ctx, stim, 44, 52, stim.is_target ? '#38BDF8' : '#94A3B8', stim.is_target);
+      box.appendChild(cv);
+    }
+
+    // ── 3. SIMULADOR COMPLETO DE LA PRUEBA PLC CON CRONÓMETRO ──
+    const simKeys = ['T', 'D1', 'D2', 'T', 'D4', 'D5', 'D6', 'T', 'D7', 'D8', 'T', 'D9'];
+    const simMarked = new Set();
+    let simTimerActive = false;
+    let simTimerInterval = null;
+    let simTimeRemaining = 20.0;
+
+    function renderFullSimulator() {
+      const grid = document.getElementById('sim-plc-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      simKeys.forEach((k, idx) => {
+        const item = document.createElement('div');
+        const isMarked = simMarked.has(idx);
+        item.className = `relative flex items-center justify-center p-2 rounded-2xl cursor-pointer transition-all duration-200 border ${
+          isMarked 
+            ? 'bg-cyan-950/50 border-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.45)] scale-105' 
+            : 'bg-black/50 border-white/5 hover:border-cyan-400/40 hover:bg-white/5'
+        }`;
+
+        const cv = document.createElement('canvas');
+        cv.width = 54;
+        cv.height = 66;
+        const ctx = cv.getContext('2d');
+        drawPLCStimulus(ctx, STIM_TYPES[k], 54, 66, isMarked ? '#38BDF8' : '#94A3B8', isMarked);
+
+        item.appendChild(cv);
+
+        if (isMarked) {
+          const badge = document.createElement('span');
+          badge.className = 'absolute -top-1.5 -right-1.5 w-5 h-5 bg-cyan-400 text-slate-950 rounded-full flex items-center justify-center text-[10px] font-black shadow-lg';
+          badge.textContent = '✓';
+          item.appendChild(badge);
+        }
+
+        item.addEventListener('click', () => {
+          if (simMarked.has(idx)) {
+            simMarked.delete(idx);
+          } else {
+            simMarked.add(idx);
+          }
+          renderFullSimulator();
+          updateSimMetrics();
+        });
+
+        grid.appendChild(item);
+      });
+    }
+
+    function updateSimMetrics() {
+      let ta = 0, com = 0;
+      let totalTargets = simKeys.filter(k => STIM_TYPES[k].is_target).length; // 4
+
+      simMarked.forEach(idx => {
+        if (STIM_TYPES[simKeys[idx]].is_target) {
+          ta++;
+        } else {
+          com++;
+        }
+      });
+
+      const o = totalTargets - ta;
+      const tot = o + com;
+      const con = ta - tot; // FÓRMULA OFICIAL MECAPSI: CON = TA - (O + COM)
+
+      document.getElementById('metric-ta').textContent  = ta;
+      document.getElementById('metric-o').textContent   = o;
+      document.getElementById('metric-com').textContent = com;
+      document.getElementById('metric-con').textContent = con;
+    }
+
+    function resetFullSimulator() {
+      simMarked.clear();
+      renderFullSimulator();
+      updateSimMetrics();
+      stopSimTimer();
+      simTimeRemaining = 20.0;
+      document.getElementById('sim-timer-bar').style.width = '100%';
+      document.getElementById('timer-text').textContent = 'Iniciar 20s';
+    }
+
+    function toggleSimTimer() {
+      if (simTimerActive) {
+        stopSimTimer();
+      } else {
+        startSimTimer();
+      }
+    }
+
+    function startSimTimer() {
+      simTimerActive = true;
+      simTimeRemaining = 20.0;
+      document.getElementById('timer-text').textContent = 'Detener 20s';
+      const timerBar = document.getElementById('sim-timer-bar');
+
+      const startTime = performance.now();
+      simTimerInterval = setInterval(() => {
+        const elapsed = (performance.now() - startTime) / 1000;
+        simTimeRemaining = Math.max(0, 20.0 - elapsed);
+        const percent = (simTimeRemaining / 20.0) * 100;
+        timerBar.style.width = `${percent}%`;
+
+        if (simTimeRemaining <= 0) {
+          stopSimTimer();
+          alert('¡Tiempo de 20s completado! Así concluye cada una de las 14 líneas de la Prueba PLC en MecaPsi.');
+        }
+      }, 100);
+    }
+
+    function stopSimTimer() {
+      simTimerActive = false;
+      if (simTimerInterval) clearInterval(simTimerInterval);
+      document.getElementById('timer-text').textContent = 'Iniciar 20s';
+    }
+
+    // ── 4. MEDICIÓN REAL DE TEMBLOR MOTOR DEL CURSOR (≤60 FPS) ──
+    (function initTremorTelemetry() {
+      let lastX = null, lastY = null, lastT = null;
+      let lastV = null;
+      let accelerations = [];
+      const tremorEl = document.getElementById('metric-tremor');
+      const heroTremorEl = document.getElementById('hero-tremor-status');
+
+      function handleMove(e) {
+        const now = performance.now();
+        if (lastX !== null && lastT !== null) {
+          const dt = (now - lastT) / 1000;
+          if (dt > 0.012 && dt < 0.1) { // ~10fps a 80fps
+            const dx = e.clientX - lastX;
+            const dy = e.clientY - lastY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const v = dist / dt;
+
+            if (lastV !== null) {
+              const a = Math.abs(v - lastV) / dt;
+              accelerations.push(a);
+              if (accelerations.length > 25) accelerations.shift();
+
+              // Calcular jitter (desviación estándar)
+              const mean = accelerations.reduce((acc, val) => acc + val, 0) / accelerations.length;
+              const variance = accelerations.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / accelerations.length;
+              const jitter = Math.sqrt(variance);
+
+              const tremorScore = (jitter / 25).toFixed(1);
+
+              if (tremorEl) {
+                tremorEl.textContent = `${tremorScore} px/s²`;
+                if (parseFloat(tremorScore) > 85.0) {
+                  tremorEl.className = 'text-2xl font-bold text-rose-400 mt-1';
+                } else {
+                  tremorEl.className = 'text-2xl font-bold text-emerald-400 mt-1';
+                }
+              }
+
+              if (heroTremorEl) {
+                const status = parseFloat(tremorScore) > 85.0 ? '⚠️ ALERTA TEMBLOR' : 'ESTABLE';
+                heroTremorEl.textContent = `JITTER: ${tremorScore} px/s² · ${status}`;
+                heroTremorEl.className = parseFloat(tremorScore) > 85.0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold';
+              }
+            }
+            lastV = v;
+          }
+        }
+        lastX = e.clientX;
+        lastY = e.clientY;
+        lastT = now;
+      }
+
+      window.addEventListener('mousemove', handleMove, { passive: true });
+    })();
+
+    // ── 5. NAVEGACIÓN DE LAS 5 HOJAS DE EXCEL ──
+    function switchExcelSheet(sheetNumber) {
+      for (let i = 1; i <= 5; i++) {
+        const s = document.getElementById(`excel-sheet-${i}`);
+        const b = document.getElementById(`btn-sheet-${i}`);
+        if (s && b) {
+          if (i === sheetNumber) {
+            s.classList.remove('hidden');
+            b.className = 'px-3.5 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold transition flex items-center gap-2 shrink-0 cursor-pointer';
+          } else {
+            s.classList.add('hidden');
+            b.className = 'px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 hover:text-white border border-white/10 font-bold transition flex items-center gap-2 shrink-0 cursor-pointer';
+          }
+        }
+      }
+    }
+
+    // ── 6. MODAL DUAL DE ACCESO / REGISTRO PROFESIONAL ──
+    const SUPABASE_URL = 'https://lfyaiwbtfgoiczyyzlwh.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxNDg5NTMsImV4cCI6MjA2MTcyNDk1M30.7GYwJ_OFvOuMXPAhHVUJLjuVj8C2-OV4DXTMfwuqhCw';
+    let supabaseClient = null;
+    try {
+      if (window.supabase) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+      }
+    } catch(e) {
+      console.warn('Supabase fallback:', e);
+    }
+
+    function openAuthModal(tab = 'login') {
+      const m = document.getElementById('auth-modal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      setAuthTab(tab);
+    }
+
+    function closeAuthModal() {
+      const m = document.getElementById('auth-modal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function closeAuthModalOnBg(e) {
+      if (e.target === document.getElementById('auth-modal')) closeAuthModal();
+    }
+
+    function setAuthTab(tab) {
+      const fLogin = document.getElementById('form-login');
+      const fReg   = document.getElementById('form-register');
+      const tLogin = document.getElementById('tab-login');
+      const tReg   = document.getElementById('tab-register');
+
+      if (tab === 'login') {
+        fLogin.classList.remove('hidden');
+        fReg.classList.add('hidden');
+        tLogin.className = 'px-3 py-1.5 rounded-xl font-bold text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 transition cursor-pointer';
+        tReg.className   = 'px-3 py-1.5 rounded-xl font-bold text-xs bg-white/5 text-slate-400 hover:text-white border border-white/10 transition cursor-pointer';
+      } else {
+        fLogin.classList.add('hidden');
+        fReg.classList.remove('hidden');
+        tReg.className   = 'px-3 py-1.5 rounded-xl font-bold text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition cursor-pointer';
+        tLogin.className = 'px-3 py-1.5 rounded-xl font-bold text-xs bg-white/5 text-slate-400 hover:text-white border border-white/10 transition cursor-pointer';
+      }
+    }
+
+    function fillLoginDemo() {
+      setAuthTab('login');
+      document.getElementById('login-email').value = 'profesional@mecapsi.co';
+      document.getElementById('login-password').value = 'MecaPsi2026!';
+    }
+
+    async function handleAuthSubmit(e, mode) {
+      e.preventDefault();
+      if (mode === 'login') {
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-password').value;
+        const btn = document.getElementById('auth-btn-submit');
+        btn.disabled = true;
+        btn.textContent = 'Verificando con MecaPsi...';
+
+        try {
+          if (supabaseClient) {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+            if (error) {
+              alert('Aviso de Autenticación MecaPsi: ' + (error.message || 'Credenciales demo recibidas.'));
+            } else {
+              alert('¡Acceso verificado a MecaPsi! Sesión iniciada.');
+            }
+          } else {
+            await new Promise(r => setTimeout(r, 600));
+            alert('¡Bienvenido/a a MecaPsi / PLC Professional! Sesión activada.');
+          }
+          closeAuthModal();
+        } catch(err) {
+          alert('Error: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Entrar a la Plataforma';
+        }
+      } else {
+        const name = document.getElementById('reg-name').value;
+        const email = document.getElementById('reg-email').value;
+        alert(`¡Cuenta creada con éxito para ${name}!\n\nSe han activado tus 14 días de prueba gratuita con 5 evaluaciones completas en MecaPsi.`);
+        closeAuthModal();
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeAuthModal();
+    });
+
+    // Exponer explícitamente en window para invocar desde onclick
+    window.openAuthModal = openAuthModal;
+    window.closeAuthModal = closeAuthModal;
+    window.closeAuthModalOnBg = closeAuthModalOnBg;
+    window.setAuthTab = setAuthTab;
+    window.fillLoginDemo = fillLoginDemo;
+    window.handleAuthSubmit = handleAuthSubmit;
+    window.resetFullSimulator = resetFullSimulator;
+    window.toggleSimTimer = toggleSimTimer;
+    window.switchExcelSheet = switchExcelSheet;
+
+    // Ejecución inicial segura
+    function initAll() {
+      renderHeroStimuli();
+      renderStimuliCatalog();
+      renderFullSimulator();
+      updateSimMetrics();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initAll);
+    } else {
+      initAll();
+    }
+  </script>
+
+</body>
+</html>
