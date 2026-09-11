@@ -23,6 +23,8 @@ class LineData(BaseModel):
     blinks_count: Optional[int] = None # Conteo de parpadeos en la línea
     gaze_diverted: Optional[bool] = None # Desvío de mirada detectado fuera del canvas
     fer_expression: Optional[str] = None # Expresión/tensión facial observada en la línea
+    # ── Pupilometría Cognitiva y Carga Mental (MediaPipe Iris) ────────────────
+    pupil_dilation_avg: Optional[float] = None # Dilatación relativa normalizada vs reposo (ej. 1.15 = +15%)
 
 
 
@@ -71,6 +73,9 @@ class PredictRequest(BaseModel):
     fer_dominant: Optional[str] = None
     fer_tension_score: Optional[float] = None
     fer_frustration_events: Optional[int] = None
+    # ── Pupilometría Cognitiva y Carga Mental (MediaPipe Iris) ────────────────
+    pupil_dilation_avg: Optional[float] = None
+    cognitive_load_peaks: Optional[int] = None
 
 
 class MetricsData(BaseModel):
@@ -121,6 +126,10 @@ class MetricsData(BaseModel):
     fer_dominant: Optional[str] = None
     fer_tension_score: Optional[float] = None
     fer_frustration_events: Optional[int] = None
+    # ── Pupilometría Cognitiva y Carga Mental (MediaPipe Iris) ────────────────
+    pupil_dilation_avg: Optional[float] = None # Dilatación pupilar relativa media (vs reposo)
+    cognitive_load_peaks: Optional[int] = None # Conteo de sobreesfuerzos (>120% dilatación basal por >300ms)
+    pupil_baseline: Optional[float] = None     # Línea base en reposo calibrada
     # ── Identidad Multi-Test y Cadena de Custodia Digital ─────────────────────
     test_type: Optional[str] = "PLC"
     session_tag: Optional[str] = None

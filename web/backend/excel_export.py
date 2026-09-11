@@ -324,11 +324,23 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         except (ValueError, TypeError):
             fer_frust = 0
 
+        try:
+            pupil_avg = float(metrics.get('pupil_dilation_avg') or 1.0)
+        except (ValueError, TypeError):
+            pupil_avg = 1.0
+
+        try:
+            load_peaks = int(metrics.get('cognitive_load_peaks') or 0)
+        except (ValueError, TypeError):
+            load_peaks = 0
+
         biomarkers_ia_rows = [
-            {"Biomarcador IA": "Estado Cámara Web", "Registro": "ACTIVA (Captura de mirada/emociones)" if cam_active else "DESACTIVADA POR EL USUARIO"},
+            {"Biomarcador IA": "Estado Cámara Web", "Registro": "ACTIVA (Captura de mirada/emociones/iris)" if cam_active else "DESACTIVADA POR EL USUARIO"},
             {"Biomarcador IA": "Expresión Facial Dominante (FER)", "Registro": fer_dom if cam_active else "N/A"},
             {"Biomarcador IA": "Nivel de Tensión Facial Estimado", "Registro": f"{fer_tens:.1f}% ({'Sobreesfuerzo/Tensión' if fer_tens > 60 else 'Foco Atento Sereno'})" if cam_active else "N/A"},
             {"Biomarcador IA": "Episodios de Frustración Facial", "Registro": f"{fer_frust} eventos" if cam_active else "N/A"},
+            {"Biomarcador IA": "Dilatación Pupilar Media (Carga Mental)", "Registro": f"{pupil_avg:.2f}x (Normalizada vs Reposo)" if cam_active else "N/A"},
+            {"Biomarcador IA": "Picos de Sobreesfuerzo Cognitivo", "Registro": f"{load_peaks} eventos (>120% dilatación basal)" if cam_active else "N/A"},
             {"Biomarcador IA": "EAR Promedio (Apertura Ocular)", "Registro": f"{ear_m:.3f}" if ear_m is not None else "N/A"},
             {"Biomarcador IA": "Parpadeos Totales / Frecuencia", "Registro": f"{blinks_tot} ({blinks_rate:.1f}/min)" if cam_active else "N/A"},
             {"Biomarcador IA": "Desvíos de Mirada del Canvas", "Registro": f"{gaze_div} eventos ({gaze_div_s}s acumulados)" if cam_active else "N/A"},
@@ -356,7 +368,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         # ── Hoja 2: Análisis por Línea ─────────────────────────────────────
         d2 = []
         for l in lines_data:
-            try: ts = round(float(l.get('tremor_score') or 0.0), 2)
+            try: ts = round(float(l.get('tremor_score') or 0.0), 3)
             except: ts = 0.0
 
             try:
@@ -379,6 +391,13 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             else:
                 blinks_str = "N/A"
 
+            pupil_line_val = l.get('pupil_dilation_avg')
+            if pupil_line_val is not None:
+                try: pupil_line_str = f"{float(pupil_line_val):.2f}x"
+                except: pupil_line_str = "N/A"
+            else:
+                pupil_line_str = "N/A"
+
             d2.append({
                 "Nº Línea": l.get('linea', 1),
                 "Estímulos Blancos": l.get('targets_total', 0),
@@ -395,7 +414,8 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
                 "Regularidad Barrido (%)": sr,
                 "Parpadeos (Línea)": blinks_str,
                 "Desvío de Mirada": "SÍ" if l.get('gaze_diverted') else "NO",
-                "Expresión Facial (FER)": l.get('fer_expression') or "Neutro/Concentrado"
+                "Expresión Facial (FER)": l.get('fer_expression') or "Neutro/Concentrado",
+                "Carga Mental (Pupila Normalizada)": pupil_line_str
             })
         df_l = pd.DataFrame(d2)
         df_l.to_excel(writer, sheet_name='02_Analisis_Lineas', index=False, startrow=4)
@@ -404,7 +424,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         _add_educational_header(ws2, "Disección Iterativa de la Ejecución (Línea por Línea)",
                                 "Desglose longitudinal de la instrumentación. Útil para ubicar focos precisos de aparición de fallos por latencia crónica o desgaste temprano. (Targets Totales = Exactitud + Omisión).")
         _style_hdr(ws2, row=5)
-        _set_widths(ws2, [10, 18, 28, 22, 25, 25, 28, 24, 22, 26, 36, 24, 20, 20, 26])
+        _set_widths(ws2, [10, 18, 28, 22, 25, 25, 28, 24, 22, 26, 36, 24, 20, 20, 26, 32])
         
         # ── Hoja 3: Glosario de Métricas ───────────────────────────────────
         glosario = [

@@ -55,6 +55,7 @@ const App = {
   earSamples: [],             // [{ ear, t, line }]
   gazeEvents: [],             // [{ start_t, duration_ms, line }]
   ferSamples: [],             // [{ tension, expr, is_frustration_peak, t, line }]
+  pupilSamples: [],           // [{ rawDilation, irisDiam, t, line }]
   _gazeDivertedStartTime: null,
   _lastFaceMeshTs: 0,
   _faceMeshBusy: false,
@@ -1017,6 +1018,8 @@ const App = {
     try {
       this.earSamples = [];
       this.gazeEvents = [];
+      this.ferSamples = [];
+      this.pupilSamples = [];
       this._gazeDivertedStartTime = null;
       this._lastFaceMeshTs = 0;
 
@@ -1145,6 +1148,12 @@ const App = {
           t: now,
           line: this.currentLine + 1
         });
+
+        // 4. Pupilometría Cognitiva (MediaPipe Iris)
+        const pupilSample = computePupilSample(landmarks, earAvg, now, this.currentLine + 1);
+        if (pupilSample) {
+          this.pupilSamples.push(pupilSample);
+        }
       });
 
       this.faceMeshRunning = true;
@@ -1425,6 +1434,12 @@ const App = {
     );
     const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, this.metrics.totalTime, hasCameraStream);
     const ferMetrics = computeFERMetrics(this.ferSamples, hasCameraStream);
+    const pupiloMetrics = analyzePupillometry(this.pupilSamples, hasCameraStream, 8.0);
+
+    // Asignación de pupilometría normalizada por línea
+    this.linesData.forEach(l => {
+      l.pupil_dilation_avg = pupiloMetrics.pupil_by_line[l.linea] !== undefined ? pupiloMetrics.pupil_by_line[l.linea] : null;
+    });
 
     // Promedios motores globales
     const validTremors = this.linesData.map(l => (l.microtremor_score !== undefined && l.microtremor_score !== null) ? Number(l.microtremor_score) : 0);
@@ -1448,6 +1463,9 @@ const App = {
     this.metrics.fer_dominant = ferMetrics.fer_dominant;
     this.metrics.fer_tension_score = ferMetrics.fer_tension_score;
     this.metrics.fer_frustration_events = ferMetrics.fer_frustration_events;
+    this.metrics.pupil_dilation_avg = pupiloMetrics.pupil_dilation_avg;
+    this.metrics.cognitive_load_peaks = pupiloMetrics.cognitive_load_peaks;
+    this.metrics.pupil_baseline = pupiloMetrics.pupil_baseline;
 
     // ML prediction via API
     try {
@@ -1472,7 +1490,9 @@ const App = {
           sweep_regularity_avg: this.metrics.sweep_regularity_avg,
           fer_dominant: this.metrics.fer_dominant,
           fer_tension_score: this.metrics.fer_tension_score,
-          fer_frustration_events: this.metrics.fer_frustration_events
+          fer_frustration_events: this.metrics.fer_frustration_events,
+          pupil_dilation_avg: this.metrics.pupil_dilation_avg,
+          cognitive_load_peaks: this.metrics.cognitive_load_peaks
         })
       });
       this.mlPred = await resp.json();
@@ -1510,7 +1530,6 @@ const App = {
             isIncomplete: this.metrics.isIncomplete, lastLine: this.metrics.lastLine,
             lastChar: this.metrics.lastChar,
             tremor_lines: this.linesData.filter(l => l.tremor_flag).map(l => l.linea),
-            // Nuevos biomarcadores en metrics
             camera_active: this.metrics.camera_active,
             ear_mean: this.metrics.ear_mean,
             blink_count: this.metrics.blink_count,
@@ -1522,6 +1541,9 @@ const App = {
             fer_dominant: this.metrics.fer_dominant,
             fer_tension_score: this.metrics.fer_tension_score,
             fer_frustration_events: this.metrics.fer_frustration_events,
+            pupil_dilation_avg: this.metrics.pupil_dilation_avg,
+            cognitive_load_peaks: this.metrics.cognitive_load_peaks,
+            pupil_baseline: this.metrics.pupil_baseline,
             test_type: this.testType || 'PLC',
             session_uid: timestampStr
           },
@@ -1576,6 +1598,9 @@ const App = {
             fer_dominant: this.metrics.fer_dominant,
             fer_tension_score: this.metrics.fer_tension_score,
             fer_frustration_events: this.metrics.fer_frustration_events,
+            pupil_dilation_avg: this.metrics.pupil_dilation_avg,
+            cognitive_load_peaks: this.metrics.cognitive_load_peaks,
+            pupil_baseline: this.metrics.pupil_baseline,
             test_type: this.testType || 'PLC',
             session_tag: this.sessionTag,
             session_uid: timestampStr,
@@ -1987,6 +2012,63 @@ const App = {
               </div>
             </div>
 
+            <!-- Columna 4: Pupilometría Cognitiva & Carga Mental (MediaPipe Iris) -->
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <span style="font-weight:700;font-size:0.95rem;color:#1E293B;">🧿 Pupilometría & Carga Mental</span>
+                <span style="font-size:0.75rem;font-weight:600;padding:2px 8px;border-radius:12px;${m.camera_active ? 'background:#E0F2FE;color:#0369A1;' : 'background:#ECEFF1;color:#607D8B;'}">
+                  ${m.camera_active ? 'IRIS TRACKING' : 'SIN CÁMARA'}
+                </span>
+              </div>
+
+              ${m.camera_active ? `
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;text-align:center;margin-bottom:14px;">
+                  <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.15rem;font-weight:700;color:${(m.pupil_dilation_avg || 1.0) >= 1.15 ? '#D84315' : '#0284C7'};">
+                      ${m.pupil_dilation_avg !== undefined && m.pupil_dilation_avg !== null ? (Number(m.pupil_dilation_avg) * 100).toFixed(1) + '%' : '100.0%'}
+                    </div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Dilatación Media</div>
+                  </div>
+                  <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.15rem;font-weight:700;color:${(m.cognitive_load_peaks || 0) > 3 ? '#C62828' : ((m.cognitive_load_peaks || 0) > 0 ? '#EA580C' : '#2E7D32')};">
+                      ${m.cognitive_load_peaks !== undefined && m.cognitive_load_peaks !== null ? m.cognitive_load_peaks : 0}
+                    </div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Picos Sobreesfuerzo</div>
+                  </div>
+                  <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.15rem;font-weight:700;color:#0F766E;">
+                      ${m.pupil_baseline !== undefined && m.pupil_baseline !== null ? Number(m.pupil_baseline).toFixed(3) : 'Calibrada'}
+                    </div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Línea Base Reposo</div>
+                  </div>
+                </div>
+
+                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #0284C7;color:#334155;">
+                  ${(function(){
+                    let notes = [];
+                    const peaks = Number(m.cognitive_load_peaks || 0);
+                    const dil = Number(m.pupil_dilation_avg || 1.0);
+                    if (peaks >= 4) {
+                      notes.push(`<strong>Sobrecarga de memoria de trabajo:</strong> Se registraron <strong>${peaks} picos de dilatación sostenida (&gt;120% basal)</strong>, indicando episodios de sobreesfuerzo cognitivo durante tareas de discriminación compleja.`);
+                    } else if (peaks > 0) {
+                      notes.push(`<strong>Demanda cognitiva fluctuante:</strong> ${peaks} pico(s) de esfuerzo mental transitorio por encima del umbral de sobrecarga.`);
+                    }
+                    if (dil > 1.12) {
+                      notes.push(`<strong>Activación noradrenérgica elevada:</strong> Dilatación pupilar media sostenida un ${((dil - 1.0) * 100).toFixed(1)}% sobre la línea base.`);
+                    }
+                    if (notes.length === 0) {
+                      return '<span style="color:#2E7D32;">✓ Diámetro pupilar estable y armónico respecto a la línea base, coherente con una adecuada dosificación del esfuerzo mental.</span>';
+                    }
+                    return notes.join('<br/>');
+                  })()}
+                </div>
+              ` : `
+                <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
+                  ℹ️ La cámara no estuvo habilitada. La pupilometría cognitiva y detección de sobreesfuerzo mental requieren seguimiento óptico del iris.
+                </div>
+              `}
+            </div>
+
           </div>
         </div>
 
@@ -2330,6 +2412,8 @@ const App = {
         sweepAvg = parseFloat(Number(sweepAvg !== undefined ? sweepAvg : 100).toFixed(1));
 
         const tremorLines = metrics.tremor_lines || (lines ? lines.filter(l => l.tremor_flag).map(l => l.linea) : []);
+        const pupilAvg = (metrics.pupil_dilation_avg !== undefined && metrics.pupil_dilation_avg !== null) ? Number(metrics.pupil_dilation_avg) : null;
+        const pupilPeaks = (metrics.cognitive_load_peaks !== undefined && metrics.cognitive_load_peaks !== null) ? Number(metrics.cognitive_load_peaks) : 0;
 
         extraEl.innerHTML = `
           <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-left:4px solid #00BCD4;border-radius:10px;padding:16px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
@@ -2425,6 +2509,42 @@ const App = {
                     <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Págs Tremor</div>
                   </div>
                 </div>
+              </div>
+
+              <!-- Panel Pupilometría & Carga Mental -->
+              <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                  <span style="font-weight:700;font-size:0.88rem;color:#1E293B;">🧿 Pupilometría & Carga</span>
+                  <span style="font-size:0.7rem;font-weight:600;padding:2px 6px;border-radius:8px;${camActive ? 'background:#E0F2FE;color:#0369A1;' : 'background:#ECEFF1;color:#607D8B;'}">
+                    ${camActive ? 'IRIS' : 'N/A'}
+                  </span>
+                </div>
+                ${camActive ? `
+                  <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;text-align:center;">
+                    <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                      <div style="font-size:1.05rem;font-weight:700;color:${(pupilAvg || 1.0) >= 1.15 ? '#D84315' : '#0284C7'};">
+                        ${pupilAvg !== null ? (pupilAvg * 100).toFixed(1) + '%' : '100.0%'}
+                      </div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Dilatación</div>
+                    </div>
+                    <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                      <div style="font-size:1.05rem;font-weight:700;color:${pupilPeaks > 3 ? '#C62828' : (pupilPeaks > 0 ? '#EA580C' : '#2E7D32')};">
+                        ${pupilPeaks}
+                      </div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Picos Carga</div>
+                    </div>
+                    <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                      <div style="font-size:1.05rem;font-weight:700;color:#0F766E;">
+                        ${metrics.pupil_baseline !== undefined && metrics.pupil_baseline !== null ? Number(metrics.pupil_baseline).toFixed(2) : 'OK'}
+                      </div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Basal</div>
+                    </div>
+                  </div>
+                ` : `
+                  <div style="font-size:0.8rem;color:#64748B;text-align:center;padding:12px;background:#FFF;border-radius:6px;">
+                    Sin seguimiento de iris en esta evaluación.
+                  </div>
+                `}
               </div>
             </div>
           </div>

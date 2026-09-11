@@ -400,6 +400,140 @@ function computeFERMetrics(ferSamples, cameraWasActive = false) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   PUPILOMETRÍA COGNITIVA & CARGA MENTAL (Edge-AI MediaPipe Iris)
+   ────────────────────────────────────────────────────────────────────────────
+   Aprovecha los landmarks refinados del iris de MediaPipe Face Mesh:
+   - Iris Izquierdo: centro 468, límites horizontales 469 (medial) y 471 (lateral)
+   - Iris Derecho:   centro 473, límites horizontales 474 (medial) y 476 (lateral)
+   - Apertura Palpebral: Izq (159, 145), Der (386, 374)
+   - Esquinas Oculares:  Izq (33, 133), Der (362, 263)
+
+   El diámetro horizontal del iris opera como referencia anatómica invariable
+   (~11.7 mm adulto) para normalizar automáticamente la distancia a la cámara.
+═══════════════════════════════════════════════════════════════════════════════ */
+function computePupilSample(landmarks, ear, timestamp, lineNum) {
+  if (!landmarks || landmarks.length < 478) return null;
+  // Supresión de parpadeo (Blink artifact suppression)
+  if (ear !== undefined && ear !== null && ear < 0.18) return null;
+
+  // Diámetro horizontal del iris como referencia métrica invariable
+  const irisL_d = Math.hypot(landmarks[469].x - landmarks[471].x, landmarks[469].y - landmarks[471].y);
+  const irisR_d = Math.hypot(landmarks[474].x - landmarks[476].x, landmarks[474].y - landmarks[476].y);
+  const irisDiam = (irisL_d + irisR_d) / 2.0;
+  if (irisDiam <= 0.005) return null; // Detección no confiable o fuera de encuadre
+
+  // Apertura palpebral vertical (eje Y)
+  const palpebralL = Math.hypot(landmarks[159].x - landmarks[145].x, landmarks[159].y - landmarks[145].y);
+  const palpebralR = Math.hypot(landmarks[386].x - landmarks[374].x, landmarks[386].y - landmarks[374].y);
+  const palpebralAvg = (palpebralL + palpebralR) / 2.0;
+
+  // Apertura pupilar relativa normalizada frente al diámetro del iris
+  const rawDilation = palpebralAvg / irisDiam;
+
+  return {
+    rawDilation: parseFloat(rawDilation.toFixed(4)),
+    irisDiam: parseFloat(irisDiam.toFixed(4)),
+    t: timestamp,
+    line: lineNum
+  };
+}
+
+function analyzePupillometry(pupilSamples, cameraWasActive = false, baselineSec = 8.0) {
+  const cameraActive = Boolean(cameraWasActive || (pupilSamples && pupilSamples.length > 0));
+  if (!cameraActive || !pupilSamples || pupilSamples.length === 0) {
+    return {
+      pupil_dilation_avg: null,
+      cognitive_load_peaks: 0,
+      pupil_baseline: null,
+      pupil_by_line: {}
+    };
+  }
+
+  const sorted = [...pupilSamples].sort((a, b) => a.t - b.t);
+  if (sorted.length === 0) {
+    return {
+      pupil_dilation_avg: null,
+      cognitive_load_peaks: 0,
+      pupil_baseline: null,
+      pupil_by_line: {}
+    };
+  }
+
+  const t0 = sorted[0].t;
+
+  // 1. Calibración de Línea Base en Reposo (primeros 5-10s de la prueba)
+  const baselineCutoffMs = baselineSec * 1000;
+  let baselineSamples = sorted.filter(s => (s.t - t0) <= baselineCutoffMs);
+  if (baselineSamples.length < 5) {
+    baselineSamples = sorted.slice(0, Math.min(15, sorted.length));
+  }
+
+  const baselineVals = baselineSamples.map(s => s.rawDilation).sort((a, b) => a - b);
+  const mid = Math.floor(baselineVals.length / 2);
+  const baseline = baselineVals.length % 2 !== 0 
+    ? baselineVals[mid] 
+    : (baselineVals[mid - 1] + baselineVals[mid]) / 2.0;
+  const safeBaseline = baseline > 0 ? baseline : 1.0;
+
+  // 2. Normalización de cada muestra respecto a la línea base
+  let totalNormDilation = 0;
+  const lineDilationMap = {};
+  const normSamples = sorted.map(s => {
+    const norm = s.rawDilation / safeBaseline;
+    totalNormDilation += norm;
+    if (!lineDilationMap[s.line]) lineDilationMap[s.line] = [];
+    lineDilationMap[s.line].push(norm);
+    return {
+      ...s,
+      normDilation: norm
+    };
+  });
+
+  const pupil_dilation_avg = parseFloat((totalNormDilation / normSamples.length).toFixed(2));
+
+  // 3. Detección de picos de sobreesfuerzo cognitivo (Cognitive Load Peaks)
+  // Dilatación pupilar > 120% (1.20x) sostenida por más de 300 ms
+  let cognitive_load_peaks = 0;
+  let peakStart = null;
+  const OVERLOAD_THRESHOLD = 1.20; // 120% de línea base
+  const MIN_PEAK_DURATION_MS = 300;
+
+  for (let i = 0; i < normSamples.length; i++) {
+    const s = normSamples[i];
+    if (s.normDilation >= OVERLOAD_THRESHOLD) {
+      if (peakStart === null) {
+        peakStart = s.t;
+      }
+    } else {
+      if (peakStart !== null) {
+        const dur = s.t - peakStart;
+        if (dur >= MIN_PEAK_DURATION_MS) {
+          cognitive_load_peaks++;
+        }
+        peakStart = null;
+      }
+    }
+  }
+  if (peakStart !== null && (normSamples[normSamples.length - 1].t - peakStart) >= MIN_PEAK_DURATION_MS) {
+    cognitive_load_peaks++;
+  }
+
+  // 4. Promedios por línea
+  const pupil_by_line = {};
+  for (const [lineStr, vals] of Object.entries(lineDilationMap)) {
+    const sum = vals.reduce((a, b) => a + b, 0);
+    pupil_by_line[lineStr] = parseFloat((sum / vals.length).toFixed(2));
+  }
+
+  return {
+    pupil_dilation_avg,
+    cognitive_load_peaks,
+    pupil_baseline: parseFloat(safeBaseline.toFixed(3)),
+    pupil_by_line
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    CADENA DE CUSTODIA DIGITAL — Estandarización de Nomenclatura Forense
    Patrón: {TEST}_{SESSION_ID}_{PATIENT_CLEAN_ID}_{YYYYMMDD_HHMMSS}
    ──────────────────────────────────────────────────────────────────────────── */
