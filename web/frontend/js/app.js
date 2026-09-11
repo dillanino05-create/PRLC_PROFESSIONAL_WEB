@@ -2035,13 +2035,22 @@ const App = {
         </div>
       </div>
 
-      <!-- Modal de Video (Inyectado) -->
+      <!-- Modal de Video (Inyectado con Descarga Directa) -->
       <div id="video-modal" class="modal-overlay">
-        <div class="modal-video">
+        <div class="modal-video" style="max-width:850px;width:95%;padding:28px 24px;">
           <button class="modal-close" onclick="App.closeVideoModal()">×</button>
-          <div class="section-title" id="video-modal-title">🎥 Grabación de la Sesión</div>
-          <div class="video-container">
-            <video id="player-video" controls></video>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <div class="section-title" id="video-modal-title" style="margin:0;font-size:1.25rem;">🎥 Grabación de la Sesión</div>
+            <button id="modal-btn-download-video" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:7px 16px;background:#1565C0;color:#FFF;border-radius:8px;box-shadow:0 2px 8px rgba(21,101,192,0.3);cursor:pointer;" onclick="App.downloadCurrentVideo(this)">
+              ⬇️ Descargar Video (.webm)
+            </button>
+          </div>
+          <div class="video-container" style="background:#000;border-radius:12px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.25);">
+            <video id="player-video" controls style="width:100%;max-height:65vh;display:block;outline:none;"></video>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:0.8rem;color:#64748B;flex-wrap:wrap;gap:8px;">
+            <span>💡 Grabación de pantalla y oculometría sincronizada en formato WebM</span>
+            <span id="modal-video-status-info" style="font-weight:600;color:#1E293B;"></span>
           </div>
         </div>
       </div>
@@ -2113,8 +2122,11 @@ const App = {
             ? 'background:#FFF3E0;color:#E65100;border:1px solid #FFE0B2;' 
             : 'background:#E3F2FD;color:#1565C0;border:1px solid #BBDEFB;';
         videoBadgeHtml = `
-          <div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;">
-            <button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;padding:2px 8px;" onclick="App.playVideo(${r.id}, this)">🎥 Video</button>
+          <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;">
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;padding:2px 7px;font-size:0.75rem;font-weight:600;" onclick="App.playVideo(${r.id}, this)" title="Reproducir video de la sesión">🎥 Ver</button>
+              <button class="btn btn-ghost btn-sm" style="background:#E0F2FE;color:#0284C7;padding:2px 7px;font-size:0.75rem;font-weight:600;" onclick="App.downloadVideo(${r.id}, this)" title="Descargar archivo de video (.webm) a tu equipo">⬇️ Bajar</button>
+            </div>
             <span style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:4px;${badgeStyle}" title="Día ${dayCurrent} de 30 de retención clínica">⏳ Quedan ${daysLeft}d (${dayCurrent}/30)</span>
           </div>
         `;
@@ -2299,7 +2311,13 @@ const App = {
           <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-left:4px solid #00BCD4;border-radius:10px;padding:16px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
               <span style="font-weight:700;font-size:0.95rem;color:#00838F;">⚡ Datos Extras de IA — Telemetría Oculomotora, Facial (FER) y Cinemática</span>
-              <span class="badge" style="background:#E0F7FA;color:#006064;font-size:0.75rem;padding:3px 8px;border-radius:6px;font-weight:700;">PARACLÍNICO DE APOYO</span>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                ${metrics.video_path ? `
+                  <button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;padding:2px 8px;font-size:0.75rem;font-weight:700;" onclick="App.playVideo(${id}, this)">🎥 Ver Video</button>
+                  <button class="btn btn-ghost btn-sm" style="background:#E0F2FE;color:#0284C7;padding:2px 8px;font-size:0.75rem;font-weight:700;" onclick="App.downloadVideo(${id}, this)">⬇️ Bajar Video</button>
+                ` : ''}
+                <span class="badge" style="background:#E0F7FA;color:#006064;font-size:0.75rem;padding:3px 8px;border-radius:6px;font-weight:700;">PARACLÍNICO DE APOYO</span>
+              </div>
             </div>
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;">
@@ -2454,13 +2472,29 @@ const App = {
       const d = await r.json();
       
       if (btn) {
-        btn.textContent = "🎥 Video";
+        btn.textContent = "🎥 Ver";
         btn.disabled = false;
       }
       
       if (d.url) {
+        this.currentVideoId = id;
+        this.currentVideoUrl = d.url;
+        this.currentVideoDownloadUrl = d.download_url || d.url;
+        this.currentVideoFilename = d.filename || (`PLC_Sesion_${id}.webm`);
+
         const modal = document.getElementById('video-modal');
         const player = document.getElementById('player-video');
+        const titleEl = document.getElementById('video-modal-title');
+        const statusEl = document.getElementById('modal-video-status-info');
+        const dlBtn = document.getElementById('modal-btn-download-video');
+        
+        if (titleEl) titleEl.textContent = `🎥 Grabación de la Sesión #${id}`;
+        if (statusEl) statusEl.textContent = `Archivo: ${this.currentVideoFilename}`;
+        if (dlBtn) {
+          dlBtn.innerHTML = `⬇️ Descargar Video (.webm)`;
+          dlBtn.disabled = false;
+        }
+
         player.src = d.url;
         modal.classList.add('active');
       } else {
@@ -2469,7 +2503,102 @@ const App = {
     } catch (e) {
       alert("Error al cargar la grabación");
       if (btn) {
-        btn.textContent = "🎥 Video";
+        btn.textContent = "🎥 Ver";
+        btn.disabled = false;
+      }
+    }
+  },
+
+  downloadCurrentVideo(btn) {
+    if (!this.currentVideoId) return;
+    this.downloadVideo(this.currentVideoId, btn);
+  },
+
+  async downloadVideo(id, btn) {
+    if (btn) {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      var prevHtml = btn.innerHTML;
+      btn.innerHTML = "⏳ Descargando...";
+    }
+    try {
+      const sess = await this.supabase.auth.getSession();
+      const token = sess.data.session ? sess.data.session.access_token : '';
+      
+      // 1. Obtener URL de video con flag de descarga
+      const r = await fetch(`${API_BASE}/api/video/${id}?download=true`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const d = await r.json();
+      
+      if (!r.ok || (!d.url && !d.download_url)) {
+        throw new Error(d.detail || "No se encontró el video o ha expirado.");
+      }
+
+      const targetUrl = d.download_url || d.url;
+      const filename = d.filename || `PLC_Sesion_${id}.webm`;
+
+      // 2. Intentar descarga limpia vía Blob en browser
+      let downloadedViaBlob = false;
+      try {
+        const fileResp = await fetch(targetUrl);
+        if (fileResp.ok) {
+          const blob = await fileResp.blob();
+          const objUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => window.URL.revokeObjectURL(objUrl), 60000);
+          downloadedViaBlob = true;
+        }
+      } catch (blobErr) {
+        console.warn("Descarga Blob directa no permitida por CORS de storage; activando fallback de streaming / ancla:", blobErr);
+      }
+
+      // 3. Fallback A: Servidor FastAPI Streaming Endpoint (100% inmune a CORS)
+      if (!downloadedViaBlob) {
+        try {
+          const streamResp = await fetch(`${API_BASE}/api/video/${id}/stream`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (streamResp.ok) {
+            const blob = await streamResp.blob();
+            const objUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = objUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => window.URL.revokeObjectURL(objUrl), 60000);
+            downloadedViaBlob = true;
+          }
+        } catch (streamErr) {
+          console.warn("Fallback stream falló, usando ancla de navegación directa:", streamErr);
+        }
+      }
+
+      // 4. Fallback B: Ancla directa hacia URL firmada con Content-Disposition attachment
+      if (!downloadedViaBlob) {
+        const a = document.createElement('a');
+        a.href = targetUrl;
+        a.download = filename;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
+    } catch (e) {
+      console.error("Error al descargar video:", e);
+      alert("Error al descargar el video: " + e.message);
+    } finally {
+      if (btn) {
+        btn.innerHTML = prevHtml;
         btn.disabled = false;
       }
     }

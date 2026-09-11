@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from supabase import create_client, Client, ClientOptions
 import httpx
@@ -337,11 +337,11 @@ def history(auth_ctx: dict = Depends(get_supabase)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/api/video/{eval_id}')
-async def get_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
+async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
     # Defensa IDOR: Verificamos propiedad del registro antes de firmar la URL del video
-    res = sb.table("evaluations").select("metrics_json, created_at").eq("id", eval_id).eq("user_id", uid).execute()
+    res = sb.table("evaluations").select("metrics_json, created_at, participant_name, participant_id").eq("id", eval_id).eq("user_id", uid).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Evaluación no encontrada")
     
@@ -382,13 +382,66 @@ async def get_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     except Exception as e:
         print(f"Error verificando retención de video: {e}")
         
+    part_name = (row.get("participant_name") or "Evaluacion").strip().replace(" ", "_")
+    clean_name = "".join(c for c in part_name if c.isalnum() or c in ("-", "_"))
+    download_filename = f"PLC_Sesion_{eval_id}_{clean_name}.webm"
+
     try:
-        # Enlace firmado válido por 5 minutos (300s) para reproducir la sesión
-        signed_res = sb.storage.from_("exports").create_signed_url(video_path, 300)
+        # Enlace firmado válido por 10 minutos (600s) para reproducir o descargar
+        signed_res = None
+        try:
+            signed_res = sb.storage.from_("exports").create_signed_url(
+                video_path, 600, options={"download": download_filename}
+            )
+        except Exception:
+            signed_res = sb.storage.from_("exports").create_signed_url(video_path, 600)
+
         secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
-        return {"url": secure_url}
+        
+        # Generar download_url con parámetro de descarga forzada
+        download_url = secure_url
+        if secure_url and "download=" not in secure_url:
+            sep = "&" if "?" in secure_url else "?"
+            download_url = f"{secure_url}{sep}download={download_filename}"
+
+        return {
+            "url": secure_url,
+            "download_url": download_url,
+            "filename": download_filename
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"No se pudo firmar el archivo de video: {str(e)}")
+
+@app.get('/api/video/{eval_id}/stream')
+async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
+    sb = auth_ctx["client"]
+    uid = auth_ctx["user_id"]
+    res = sb.table("evaluations").select("metrics_json, participant_name").eq("id", eval_id).eq("user_id", uid).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Evaluación no encontrada")
+    
+    row = res.data[0]
+    metrics = row.get("metrics_json") or {}
+    video_path = metrics.get("video_path")
+    if not video_path or metrics.get("video_expired", False):
+        raise HTTPException(status_code=404, detail="No hay video disponible para esta evaluación.")
+
+    part_name = (row.get("participant_name") or "Evaluacion").strip().replace(" ", "_")
+    clean_name = "".join(c for c in part_name if c.isalnum() or c in ("-", "_"))
+    filename = f"PLC_Sesion_{eval_id}_{clean_name}.webm"
+
+    try:
+        file_bytes = sb.storage.from_("exports").download(video_path)
+        return Response(
+            content=file_bytes,
+            media_type="video/webm",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al descargar stream de video: {str(e)}")
 
 @app.delete('/api/history/{eval_id}')
 def delete_eval(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
