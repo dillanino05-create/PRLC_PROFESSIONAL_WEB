@@ -182,3 +182,217 @@ function renderResultCharts(linesData, metrics, mlPred) {
     }
   }
 }
+
+/**
+ * ── Renderizador de Gráficas para el Test de Bloques de Corsi ─────────────
+ * Genera los 5 gráficos analíticos:
+ * 1. Curva de Progresión Visoespacial (Nivel y Éxito/Fallo)
+ * 2. Cronometría Cognitiva: Duda Previa (Hesitation) vs TR Medio
+ * 3. Distribución de Éxito vs Error (Precisión Global)
+ * 4. Campana Normativa de Span Visoespacial (Gauss poblacional)
+ * 5. Cinemática Motora y Temblor del Cursor por Ensayo
+ */
+function renderCorsiResultCharts(trialsData, metrics, mlPred) {
+  destroyCharts();
+
+  const trials = Array.isArray(trialsData) ? trialsData : [];
+  const labels = trials.map((t, idx) => `E${idx + 1} (N${t.sequence_length || t.level || 2})`);
+  const levels = trials.map(t => t.sequence_length || t.level || 2);
+  const hits   = trials.map(t => (t.success !== undefined ? t.success : t.isCorrect) ? 1 : 0);
+  const hesitations = trials.map(t => Math.round(t.hesitation_time_ms || t.hesitationTimeMs || 0));
+  const rts = trials.map(t => Math.round(t.mean_reaction_time_ms || t.meanReactionTimeMs || 0));
+  const tremors = trials.map(t => +(t.tremor_score || 0).toFixed(1));
+
+  // ── Chart 1: Progresión Visoespacial (Nivel y Éxito) ─────────────────
+  const ctxProg = document.getElementById('chart-behavior');
+  if (ctxProg) {
+    chartInstances.behavior = new Chart(ctxProg.getContext('2d'), {
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            type: 'line',
+            label: 'Nivel Evaluado (Bloques)',
+            data: levels,
+            borderColor: '#3949AB',
+            backgroundColor: 'rgba(57, 73, 171, 0.1)',
+            fill: true,
+            tension: 0.2,
+            pointRadius: 6,
+            pointBackgroundColor: hits.map(h => h === 1 ? '#2E7D32' : '#C62828'),
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 2,
+            borderWidth: 2.5
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+          title: { display: true, text: 'Curva de Progresión Visoespacial (● Verde: Acierto / ● Rojo: Error)', font: { size: 12, weight: 'bold' }, color: '#1A237E' }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Ensayo (Nivel)' }, grid: { color: 'rgba(0,0,0,.05)' } },
+          y: { title: { display: true, text: 'Cantidad de Bloques' }, beginAtZero: true, min: 1, max: 10, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,.05)' } }
+        }
+      }
+    });
+  }
+
+  // ── Chart 2: Cronometría Cognitiva (Duda Inicial vs TR Medio) ───────────
+  const ctxTiming = document.getElementById('chart-metrics');
+  if (ctxTiming) {
+    chartInstances.metrics = new Chart(ctxTiming.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Duda Previa (Hesitation ms)', data: hesitations, backgroundColor: 'rgba(239, 108, 0, 0.85)', borderRadius: 4 },
+          { label: 'TR Medio por Bloque (ms)', data: rts, backgroundColor: 'rgba(21, 101, 192, 0.85)', borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+          title: { display: true, text: 'Cronometría: Duda Previa vs TR Medio (ms)', font: { size: 12, weight: 'bold' }, color: '#1A237E' }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, title: { display: true, text: 'Milisegundos (ms)' }, grid: { color: 'rgba(0,0,0,.05)' } }
+        }
+      }
+    });
+  }
+
+  // ── Chart 3: Distribución de Aciertos vs Errores ────────────────────────
+  const ctxAcc = document.getElementById('chart-errors');
+  if (ctxAcc) {
+    const totalCorrect = metrics.correct_trials || hits.filter(h => h === 1).length;
+    const totalErrors = metrics.error_trials || (hits.length - totalCorrect);
+    chartInstances.errors = new Chart(ctxAcc.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: ['Correctos (Éxito)', 'Errores (Fallo)'],
+        datasets: [{
+          data: [totalCorrect, totalErrors],
+          backgroundColor: ['#2E7D32', '#C62828'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: `Precisión Global: ${metrics.accuracy_pct?.toFixed(1) || 0}%`, font: { size: 12, weight: 'bold' }, color: '#1A237E' }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,.05)' } }
+        }
+      }
+    });
+  }
+
+  // ── Chart 4: Curva Normativa de Span Visoespacial (Gauss) ───────────────
+  const ctxNorm = document.getElementById('chart-normal');
+  if (ctxNorm) {
+    const isReverse = metrics.corsi_mode === 'reverse';
+    const mu = isReverse ? 4.8 : 5.4; // Normas estandarizadas Milner / Kessels
+    const sigma = isReverse ? 1.0 : 1.1;
+    const score = Number(metrics.corsi_span) || 4;
+
+    const xMin = 1.0, xMax = 9.0;
+    const xPts = Array.from({ length: 80 }, (_, i) => xMin + (xMax - xMin) * i / 79);
+    const gaussian = x => (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * ((x - mu) / sigma) ** 2);
+    const yPts = xPts.map(gaussian);
+
+    const erf = z => {
+      const t = 1 / (1 + 0.3275911 * Math.abs(z));
+      const p = 1 - t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429)))) * Math.exp(-z * z);
+      return z < 0 ? -p : p;
+    };
+    const zScore = (score - mu) / sigma;
+    const pct = Math.min(99, Math.max(1, Math.round((1 + erf(zScore / Math.sqrt(2))) / 2 * 100)));
+
+    chartInstances.normal = new Chart(ctxNorm.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: xPts.map(x => x.toFixed(1)),
+        datasets: [
+          {
+            label: `Distribución Normativa (μ=${mu}, σ=${sigma})`,
+            data: yPts,
+            borderColor: '#5C6BC0',
+            backgroundColor: 'rgba(92, 107, 192, 0.15)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            borderWidth: 2
+          },
+          {
+            label: `Evaluado (Span=${score} bloques)`,
+            data: xPts.map((x, i) => x <= score ? yPts[i] : null),
+            borderColor: 'transparent',
+            backgroundColor: 'rgba(239, 108, 0, 0.35)',
+            fill: true,
+            pointRadius: 0,
+            tension: 0.4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+          title: { display: true, text: `Campana Normativa Corsi (Percentil ≈ ${pct})`, font: { size: 12, weight: 'bold' }, color: '#1A237E' }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Span de Bloques' }, ticks: { maxTicksLimit: 9 } },
+          y: { display: false, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // ── Chart 5: Cinemática Motora y Temblor del Mouse por Ensayo ───────────
+  const ctxJumps = document.getElementById('chart-jumps');
+  if (ctxJumps) {
+    chartInstances.jumps = new Chart(ctxJumps.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Micro-temblor Motor (Jitter px/s²)',
+            data: tremors,
+            borderColor: '#7B1FA2',
+            backgroundColor: 'rgba(123, 31, 162, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 5,
+            pointBackgroundColor: '#7B1FA2',
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+          title: { display: true, text: 'Dinámica Motora: Estabilidad del Trazo del Cursor por Ensayo', font: { size: 12, weight: 'bold' }, color: '#1A237E' }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Ensayo' }, grid: { color: 'rgba(0,0,0,.05)' } },
+          y: { title: { display: true, text: 'Jitter (px/s²)' }, beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' } }
+        }
+      }
+    });
+  }
+}
