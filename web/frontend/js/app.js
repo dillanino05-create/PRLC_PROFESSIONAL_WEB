@@ -3547,61 +3547,117 @@ const App = {
       const lines = data.lines_json;
       const ml = data.ml_json;
 
-      // Si es una evaluación del Test de Corsi, enrutar a su vista interactiva de resultados
-      if (metrics.test_type === 'CORSI' || data.test_type === 'CORSI') {
-        this.metrics = metrics;
-        this.participant = {
-          name: data.participant_name,
-          id: data.participant_id,
-          age: data.age
-        };
-        this.evalId = data.id;
-        this.linesData = lines;
-        this.sessionTag = data.session_tag || (metrics ? metrics.session_tag : null);
-        this.nav('results');
-        if (btn) { btn.textContent = "👁️ Ver Web"; btn.disabled = false; }
-        return;
-      }
+      const isCorsi = (metrics.test_type === 'CORSI' || data.test_type === 'CORSI');
+      const isReverse = isCorsi && (metrics.corsi_mode === 'reverse' || String(data.corsi_mode).toLowerCase() === 'reverse');
 
-      const lastAttemptedIndex = lines ? lines.map(l => l.evaluados || 0).reduce((maxIdx, val, idx) => val > 0 ? idx : maxIdx, -1) : -1;
-      const isIncomplete = lastAttemptedIndex >= 0 && (lastAttemptedIndex + 1) < lines.length;
-      const lastLine = lastAttemptedIndex >= 0 ? lines[lastAttemptedIndex].linea : 0;
-      const lastChar = lastAttemptedIndex >= 0 ? lines[lastAttemptedIndex].evaluados : 0;
+      this.metrics = metrics;
+      this.participant = {
+        name: data.participant_name,
+        id: data.participant_id,
+        age: data.age
+      };
+      this.evalId = data.id;
+      this.linesData = lines;
+      this.sessionTag = data.session_tag || (metrics ? metrics.session_tag : null);
+      this.testType = isCorsi ? 'CORSI' : 'PLC';
+      this.corsiMode = isReverse ? 'reverse' : 'direct';
 
-      // 1. Mostrar Modal
+      // 1. Mostrar Modal Clínico
       document.getElementById('clinical-modal').classList.add('active');
-      document.getElementById('modal-patient-info').innerHTML = `
-        Paciente: <span style="color:var(--text);font-weight:400;">${data.participant_name}</span> 
-        | ID: <span style="color:var(--text);font-weight:400;">${data.participant_id}</span> 
-        | Prueba: <span style="color:var(--text);font-weight:400;">${new Date(data.created_at).toLocaleString()}</span>
-        ${isIncomplete ? `<br/><span style="color:#C62828;font-weight:700;">⚠️ APLICACIÓN INCOMPLETA (Detención anticipada en Página ${lastLine}, Estímulo ${lastChar})</span>` : ''}
-      `;
 
-      // 2. Semáforo Normativo basado en el Perfil de Eficiencia (CP)
-      const cp = metrics.CP || 0;
-      let sColor = 'yellow', sTitle = 'Atípico - Monitorear', sDesc = 'Variabilidad atencional límite.';
-      if (cp >= 75) {
-        sColor = 'green'; sTitle = 'Rango Normativo'; sDesc = 'Rendimiento esperado p/ edad.';
-      } else if (cp < 25) {
-        sColor = 'red'; sTitle = 'Alerta Clínica'; sDesc = 'Desempeño fuera de rango poblacional.';
+      if (isCorsi) {
+        const lastTrial = (lines && lines.length) ? lines[lines.length - 1] : null;
+        const maxLvl = metrics.max_level || (lastTrial ? (lastTrial.sequence_length || lastTrial.level) : (metrics.corsi_span || 2));
+        document.getElementById('modal-patient-info').innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+            <div>
+              Paciente: <span style="color:var(--text);font-weight:400;">${data.participant_name}</span> 
+              | ID: <span style="color:var(--text);font-weight:400;">${data.participant_id}</span> 
+              | Prueba: <span style="color:var(--text);font-weight:400;">${new Date(data.created_at).toLocaleString()}</span>
+              | Modalidad: <span style="color:${isReverse ? '#7B1FA2' : '#0284C7'};font-weight:700;">${isReverse ? '🧊 Corsi Inverso' : '🧊 Corsi Directo'}</span>
+              ${data.session_tag ? ` | Tag: <span style="color:#3949AB;font-weight:600;">${data.session_tag}</span>` : ''}
+              <br/><span style="color:#455A64;font-size:0.85rem;font-weight:600;">Nivel Máximo Administrado: ${maxLvl} bloques | Ensayos Evaluados: ${(lines && lines.length) || metrics.total_trials || 0}</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="background:#EDE7F6;color:#4527A0;font-weight:700;padding:5px 12px;border-radius:8px;" onclick="App.openFullReportFromModal(${id})" title="Abrir informe clínico completo en vista expandida">
+              🖥️ Ver Pantalla Completa
+            </button>
+          </div>
+        `;
+      } else {
+        const lastAttemptedIndex = lines ? lines.map(l => l.evaluados || 0).reduce((maxIdx, val, idx) => val > 0 ? idx : maxIdx, -1) : -1;
+        const isIncomplete = lastAttemptedIndex >= 0 && (lastAttemptedIndex + 1) < lines.length;
+        const lastLine = lastAttemptedIndex >= 0 ? lines[lastAttemptedIndex].linea : 0;
+        const lastChar = lastAttemptedIndex >= 0 ? lines[lastAttemptedIndex].evaluados : 0;
+
+        document.getElementById('modal-patient-info').innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+            <div>
+              Paciente: <span style="color:var(--text);font-weight:400;">${data.participant_name}</span> 
+              | ID: <span style="color:var(--text);font-weight:400;">${data.participant_id}</span> 
+              | Prueba: <span style="color:var(--text);font-weight:400;">${new Date(data.created_at).toLocaleString()}</span>
+              ${isIncomplete ? `<br/><span style="color:#C62828;font-weight:700;">⚠️ APLICACIÓN INCOMPLETA (Detención anticipada en Página ${lastLine}, Estímulo ${lastChar})</span>` : ''}
+            </div>
+            <button class="btn btn-ghost btn-sm" style="background:#EDE7F6;color:#4527A0;font-weight:700;padding:5px 12px;border-radius:8px;" onclick="App.openFullReportFromModal(${id})" title="Abrir informe clínico completo en vista expandida">
+              🖥️ Ver Pantalla Completa
+            </button>
+          </div>
+        `;
       }
 
-      document.getElementById('modal-semaforo').innerHTML = `
-        <div class="semaforo-box semaforo-${sColor}">
-          <div class="semaforo-indicator"></div>
-          <div class="semaforo-text">
-            <div class="st-title">${sTitle}</div>
-            <div class="st-desc" style="font-size:0.8rem;">CP: ${cp.toFixed(1)}% | ${sDesc}</div>
+      // 2. Semáforo Normativo
+      if (isCorsi) {
+        const span = metrics.corsi_span || 0;
+        const composite = metrics.composite_score || (span * (metrics.correct_trials || 0));
+        const acc = Number(metrics.accuracy_pct || 0).toFixed(1);
+        let sColor = 'yellow', sTitle = 'Promedio Límite', sDesc = 'Amplitud de memoria de trabajo visoespacial limítrofe.';
+        if (span >= 5) {
+          sColor = 'green'; sTitle = 'Rango Normativo'; sDesc = 'Capacidad de retención y memoria visoespacial óptima.';
+        } else if (span <= 3) {
+          sColor = 'red'; sTitle = 'Déficit Visoespacial'; sDesc = 'Rendimiento amnésico/atencional descendido respecto al grupo de edad.';
+        }
+
+        document.getElementById('modal-semaforo').innerHTML = `
+          <div class="semaforo-box semaforo-${sColor}">
+            <div class="semaforo-indicator"></div>
+            <div class="semaforo-text">
+              <div class="st-title">${sTitle.toUpperCase()}</div>
+              <div class="st-desc" style="font-size:0.8rem;">SPAN: ${span} bloques | ${sDesc}</div>
+            </div>
           </div>
-        </div>
-        <div class="semaforo-box semaforo-blue" style="background:var(--a-light);border:1px solid var(--border);">
-          <div class="semaforo-indicator" style="background:var(--accent);"></div>
-          <div class="semaforo-text">
-            <div class="st-title">Confiabilidad Bayesiana</div>
-            <div class="st-desc" style="font-size:0.8rem;">${(ml && ml.confidence_percent ? ml.confidence_percent : "0%")} (Calidad del ML)</div>
+          <div class="semaforo-box semaforo-blue" style="background:var(--a-light);border:1px solid var(--border);">
+            <div class="semaforo-indicator" style="background:var(--accent);"></div>
+            <div class="semaforo-text">
+              <div class="st-title">Puntaje Compuesto: ${composite} pts</div>
+              <div class="st-desc" style="font-size:0.8rem;">Precisión: ${acc}% (${metrics.correct_trials || 0} de ${metrics.total_trials || (lines && lines.length) || 0} correctos)</div>
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      } else {
+        const cp = metrics.CP || 0;
+        let sColor = 'yellow', sTitle = 'Atípico - Monitorear', sDesc = 'Variabilidad atencional límite.';
+        if (cp >= 75) {
+          sColor = 'green'; sTitle = 'Rango Normativo'; sDesc = 'Rendimiento esperado p/ edad.';
+        } else if (cp < 25) {
+          sColor = 'red'; sTitle = 'Alerta Clínica'; sDesc = 'Desempeño fuera de rango poblacional.';
+        }
+
+        document.getElementById('modal-semaforo').innerHTML = `
+          <div class="semaforo-box semaforo-${sColor}">
+            <div class="semaforo-indicator"></div>
+            <div class="semaforo-text">
+              <div class="st-title">${sTitle}</div>
+              <div class="st-desc" style="font-size:0.8rem;">CP: ${cp.toFixed(1)}% | ${sDesc}</div>
+            </div>
+          </div>
+          <div class="semaforo-box semaforo-blue" style="background:var(--a-light);border:1px solid var(--border);">
+            <div class="semaforo-indicator" style="background:var(--accent);"></div>
+            <div class="semaforo-text">
+              <div class="st-title">Confiabilidad Bayesiana</div>
+              <div class="st-desc" style="font-size:0.8rem;">${(ml && ml.confidence_percent ? ml.confidence_percent : "0%")} (Calidad del ML)</div>
+            </div>
+          </div>
+        `;
+      }
 
       // 2.2. Bloque de Telemetría Oculomotora y Cinemática (Biomarcadores IA) en el modal
       const extraEl = document.getElementById('modal-biomarkers-extra');
@@ -3630,12 +3686,17 @@ const App = {
         const pupilAvg = (metrics.pupil_dilation_avg !== undefined && metrics.pupil_dilation_avg !== null) ? Number(metrics.pupil_dilation_avg) : null;
         const pupilPeaks = (metrics.cognitive_load_peaks !== undefined && metrics.cognitive_load_peaks !== null) ? Number(metrics.cognitive_load_peaks) : 0;
 
+        const secondColVal = isCorsi ? `${Number(metrics.accuracy_pct || 0).toFixed(1)}%` : `${sweepAvg}%`;
+        const secondColLbl = isCorsi ? 'Precisión' : 'Barrido';
+        const thirdColVal = isCorsi ? (metrics.error_trials || 0) : tremorLines.length;
+        const thirdColLbl = isCorsi ? 'Ensayos Err.' : 'Págs Tremor';
+
         extraEl.innerHTML = `
           <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-left:4px solid #00BCD4;border-radius:10px;padding:16px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
               <span style="font-weight:700;font-size:0.95rem;color:#00838F;">⚡ Datos Extras de IA — Telemetría Oculomotora, Facial (FER) y Cinemática</span>
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                ${metrics.video_path ? `
+                ${(metrics.video_path || data.video_path) ? `
                   <button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;padding:2px 8px;font-size:0.75rem;font-weight:700;" onclick="App.playVideo(${id}, this)">🎥 Ver Video</button>
                   <button class="btn btn-ghost btn-sm" style="background:#E0F2FE;color:#0284C7;padding:2px 8px;font-size:0.75rem;font-weight:700;" onclick="App.downloadVideo(${id}, this)">⬇️ Bajar Video</button>
                 ` : ''}
@@ -3716,12 +3777,12 @@ const App = {
                     <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Jitter Prom.</div>
                   </div>
                   <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
-                    <div style="font-size:1.05rem;font-weight:700;color:${sweepAvg < 80 ? '#C62828' : '#2E7D32'};">${sweepAvg}%</div>
-                    <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Barrido</div>
+                    <div style="font-size:1.05rem;font-weight:700;color:${(isCorsi ? (metrics.accuracy_pct || 0) < 60 : sweepAvg < 80) ? '#C62828' : '#2E7D32'};">${secondColVal}</div>
+                    <div style="font-size:0.68rem;color:#64748B;font-weight:600;">${secondColLbl}</div>
                   </div>
                   <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
-                    <div style="font-size:1.05rem;font-weight:700;color:${tremorLines.length > 0 ? '#C62828' : '#2E7D32'};">${tremorLines.length}</div>
-                    <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Págs Tremor</div>
+                    <div style="font-size:1.05rem;font-weight:700;color:${thirdColVal > 0 ? '#C62828' : '#2E7D32'};">${thirdColVal}</div>
+                    <div style="font-size:0.68rem;color:#64748B;font-weight:600;">${thirdColLbl}</div>
                   </div>
                 </div>
               </div>
@@ -3766,21 +3827,37 @@ const App = {
 `;
       }
 
-      // 2.5. Notas de Saltos Erráticos en el modal
+      // 2.5. Notas de Dinámica Motora / Saltos Erráticos en el modal
       const modalNotesEl = document.getElementById('modal-jumps-notes');
       if (modalNotesEl) {
-        const linesWithJumps = lines ? lines.filter(l => l.saltos_erraticos > 0) : [];
-        if (linesWithJumps.length === 0) {
-          modalNotesEl.innerHTML = '<div style="color:#2E7D32; font-weight:600;">✓ El paciente mantuvo un barrido visual disciplinado en todas las líneas.</div>';
+        if (isCorsi) {
+          const micro = Number(metrics.microtremor_avg || 0);
+          if (micro > 85) {
+            modalNotesEl.innerHTML = `<div style="color:#C62828; font-weight:600;">⚠️ Dinámica Motora Corsi: Jitter promedio de ${micro.toFixed(2)} px/s². Se detectan oscilaciones motoras o tensión psicomotora durante la secuencia visoespacial.</div>`;
+          } else {
+            modalNotesEl.innerHTML = `<div style="color:#2E7D32; font-weight:600;">✓ Dinámica Motora Corsi: Jitter promedio de ${micro.toFixed(2)} px/s². Control psicomotor fluido y dentro de rangos basales normales.</div>`;
+          }
         } else {
-          modalNotesEl.innerHTML = '<ul style="color:#BF360C; line-height: 1.6; margin: 0; padding-left: 20px;">' + 
-            linesWithJumps.map(l => '<li><strong>Línea ' + l.linea + ':</strong> Se detectó comportamiento errático (' + l.saltos_erraticos + ' saltos/retrocesos).</li>').join('') +
-            '</ul>';
+          const linesWithJumps = lines ? lines.filter(l => l.saltos_erraticos > 0) : [];
+          if (linesWithJumps.length === 0) {
+            modalNotesEl.innerHTML = '<div style="color:#2E7D32; font-weight:600;">✓ El paciente mantuvo un barrido visual disciplinado en todas las líneas.</div>';
+          } else {
+            modalNotesEl.innerHTML = '<ul style="color:#BF360C; line-height: 1.6; margin: 0; padding-left: 20px;">' + 
+              linesWithJumps.map(l => '<li><strong>Línea ' + l.linea + ':</strong> Se detectó comportamiento errático (' + l.saltos_erraticos + ' saltos/retrocesos).</li>').join('') +
+              '</ul>';
+          }
         }
       }
 
       // 3. Renderizar Gráficas (Destruye previas auto por función)
-      renderResultCharts(lines, metrics, ml);
+      if (isCorsi) {
+        const trials = (lines && lines.length) ? lines : (metrics.trials_data || []);
+        if (typeof renderCorsiResultCharts === 'function') {
+          renderCorsiResultCharts(trials, metrics, ml);
+        }
+      } else {
+        renderResultCharts(lines, metrics, ml);
+      }
 
     } catch (e) {
       alert("Error al cargar la visualización");
@@ -3790,6 +3867,13 @@ const App = {
       btn.textContent = "👁️ Ver Web";
       btn.disabled = false;
     }
+  },
+
+  openFullReportFromModal(id) {
+    const modal = document.getElementById('clinical-modal');
+    if (modal) modal.classList.remove('active');
+    if (typeof destroyCharts === 'function') destroyCharts();
+    this.nav('results');
   },
 
   async deleteEval(id, btn) {

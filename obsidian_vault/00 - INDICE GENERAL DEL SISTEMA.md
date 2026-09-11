@@ -19,6 +19,7 @@ graph TD
     A --> I["[[08 - Exportacion y Reportes Excel]]"]
     A --> J["[[09 - Protocolo de Ahorro de Tokens para LLMs]]"]
     A --> K["[[10 - Investigacion Vision Computacional y Eye Tracking]]"]
+    A --> L["[[11 - Test de Corsi y Memoria Visoespacial]]"]
 
     B --> C
     B --> D
@@ -29,6 +30,9 @@ graph TD
     C --> H
     D --> I
     G --> K
+    F --> L
+    L --> G
+    L --> I
 ```
 
 ---
@@ -65,5 +69,8 @@ graph TD
 10. 👁️ **[[10 - Investigacion Vision Computacional y Eye Tracking]]**:
     Módulo de R&D para Eye Tracking en webcam (MediaPipe Iris) y Facial Emotion Recognition (FER) a 3Hz, correlacionados con eventos del test PLC.
 
+11. 🧊 **[[11 - Test de Corsi y Memoria Visoespacial]]**:
+    Batería neuropsicológica de bloques de Corsi (Directo e Inverso), Span visoespacial, duda previa (ms), telemetría neuromuscular compartida y reporte forense Excel.
+
 ---
-*Versión de la plataforma: **v3.3 (R&D CV/FER)** · Actualizado: **Septiembre 2026** · Diseñado para Obsidian Graph View*
+*Versión de la plataforma: **v3.3 (Corsi + PLC Multi-Battery)** · Actualizado: **Septiembre 2026** · Diseñado para Obsidian Graph View*
