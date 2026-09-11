@@ -29,6 +29,9 @@ const App = {
   metrics: null,
   evalId: null,
   evalFilename: null,
+  testType: 'PLC',
+  sessionTag: null,
+  sessionUid: null,
   // Timer
   timerInterval: null,
   lineStartTime: null,
@@ -1480,10 +1483,13 @@ const App = {
       const narrative = generateNarrative(this.metrics);
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
+      const timestampStr = getSessionTimestamp();
 
       const saveResp = await fetch(API_BASE + '/api/save', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
+          test_type: this.testType || 'PLC',
+          session_uid: timestampStr,
           participant: this.participant,
           lines_data: this.linesData,
           click_log: this.clickLog,
@@ -1515,7 +1521,9 @@ const App = {
             sweep_regularity_avg: this.metrics.sweep_regularity_avg,
             fer_dominant: this.metrics.fer_dominant,
             fer_tension_score: this.metrics.fer_tension_score,
-            fer_frustration_events: this.metrics.fer_frustration_events
+            fer_frustration_events: this.metrics.fer_frustration_events,
+            test_type: this.testType || 'PLC',
+            session_uid: timestampStr
           },
           ml_prediction: this.mlPred,
           narrative
@@ -1524,14 +1532,16 @@ const App = {
       const sd = await saveResp.json();
       this.evalId = sd.id;
       this.evalStatus = sd.status;
-
+      this.sessionTag = sd.session_tag || generateSessionTag(this.testType || 'PLC', this.evalId, this.participant?.id, timestampStr);
+      const videoFilename = sd.video_filename || `${this.sessionTag}.webm`;
+      const excelFilename = sd.excel_filename || `${this.sessionTag}.xlsx`;
+      this.evalFilename = excelFilename;
 
       // 2. Si se grabó video, subirlo al bucket exports y actualizar el registro en base de datos
       if (videoBlob && this.evalId) {
-        const videoName = `recording_${this.evalId}.webm`;
         const { data, error } = await this.supabase.storage
           .from('exports')
-          .upload(videoName, videoBlob, {
+          .upload(videoFilename, videoBlob, {
             contentType: 'video/webm',
             cacheControl: '3600',
             upsert: true
@@ -1563,12 +1573,21 @@ const App = {
             gaze_diverted_ms: this.metrics.gaze_diverted_ms,
             microtremor_avg: this.metrics.microtremor_avg,
             sweep_regularity_avg: this.metrics.sweep_regularity_avg,
-            video_path: videoName
+            fer_dominant: this.metrics.fer_dominant,
+            fer_tension_score: this.metrics.fer_tension_score,
+            fer_frustration_events: this.metrics.fer_frustration_events,
+            test_type: this.testType || 'PLC',
+            session_tag: this.sessionTag,
+            session_uid: timestampStr,
+            video_path: videoFilename
           };
           
           await this.supabase
             .from('evaluations')
-            .update({ metrics_json: updatedMetrics })
+            .update({ 
+              excel_path: excelFilename,
+              metrics_json: updatedMetrics 
+            })
             .eq('id', this.evalId);
             
           this.metrics = updatedMetrics;
@@ -2136,7 +2155,12 @@ const App = {
 
       return `
       <tr>
-        <td>${r.id}</td>
+        <td>
+          <div style="display:inline-flex;align-items:center;gap:5px;">
+            <span style="font-weight:700;" title="${escapeHTML(r.session_tag || '')}">${r.id}</span>
+            <span class="badge" style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:4px;background:#EDE7F6;color:#4527A0;" title="Batería: ${escapeHTML(r.test_type || 'PLC')}">${escapeHTML(r.test_type || 'PLC')}</span>
+          </div>
+        </td>
         <td>${new Date(r.created_at).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })}</td>
         <td>${escapeHTML(r.participant_id)}</td>
         <td><strong>${escapeHTML(r.participant_name)}</strong></td>

@@ -399,3 +399,36 @@ function computeFERMetrics(ferSamples, cameraWasActive = false) {
   };
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   CADENA DE CUSTODIA DIGITAL — Estandarización de Nomenclatura Forense
+   Patrón: {TEST}_{SESSION_ID}_{PATIENT_CLEAN_ID}_{YYYYMMDD_HHMMSS}
+   ──────────────────────────────────────────────────────────────────────────── */
+function sanitizeTagPart(val, defaultVal = 'PACIENTE') {
+  if (!val) return defaultVal;
+  let s = String(val).trim();
+  if (!s) return defaultVal;
+  s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  s = s.replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  s = s.toUpperCase();
+  return s.slice(0, 40) || defaultVal;
+}
+
+function getSessionTimestamp(date = new Date()) {
+  const pad = n => String(n).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mi = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  return `${yyyy}${mm}${dd}_${hh}${mi}${ss}`;
+}
+
+function generateSessionTag(testType = 'PLC', sessionId = '0', patientId = 'PACIENTE', ts = null) {
+  const cleanTest = sanitizeTagPart(testType || 'PLC', 'PLC');
+  const cleanId = sanitizeTagPart(patientId, 'PACIENTE');
+  const cleanSid = (sessionId !== null && sessionId !== undefined && String(sessionId) !== '') ? String(sessionId) : '0';
+  const cleanTs = ts || getSessionTimestamp();
+  return `${cleanTest}_${cleanSid}_${cleanId}_${cleanTs}`;
+}
+

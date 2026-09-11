@@ -161,11 +161,36 @@ def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
     buf.seek(0)
     return buf
 
+# ── Estandarización Forense de Identificadores y Nomenclatura ────────────────
+def sanitize_tag_part(val: Any, default: str = "PACIENTE") -> str:
+    import unicodedata
+    import re
+    if val is None:
+        return default
+    s = str(val).strip()
+    if not s:
+        return default
+    s = unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8')
+    s = re.sub(r'[^a-zA-Z0-9_-]+', '_', s)
+    s = re.sub(r'_+', '_', s).strip('_')
+    s = s.upper()
+    return s[:40] if s else default
+
+def generate_session_tag(test_type: str = "PLC", session_id: Any = "0", patient_id: Any = "PACIENTE", ts: Optional[str] = None) -> str:
+    clean_test = sanitize_tag_part(test_type or "PLC", "PLC")
+    clean_id = sanitize_tag_part(patient_id, "PACIENTE")
+    clean_ts = ts or datetime.now().strftime('%Y%m%d_%H%M%S')
+    clean_sid = str(session_id) if session_id is not None and str(session_id) != "" else "0"
+    return f"{clean_test}_{clean_sid}_{clean_id}_{clean_ts}"
+
 # ── Exportación Directa a DataFrames ──────────────────────────────────────────
 def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
-               metrics: Dict, ml_pred: Optional[Dict], narrative: str) -> str:
-    ts  = datetime.now().strftime('%Y%m%d_%H%M%S')
-    fn  = f"PLC_{participant['id']}_{ts}.xlsx"
+               metrics: Dict, ml_pred: Optional[Dict], narrative: str,
+               test_type: str = "PLC", session_id: Optional[Any] = None,
+               timestamp_str: Optional[str] = None, session_tag: Optional[str] = None) -> str:
+    if not session_tag:
+        session_tag = generate_session_tag(test_type, session_id, participant.get('id', 'P01'), timestamp_str)
+    fn  = f"{session_tag}.xlsx"
     fp  = os.path.join(EXPORTS_DIR, fn)
 
     with pd.ExcelWriter(fp, engine='openpyxl') as writer:
@@ -179,6 +204,8 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
 
         # ── Hoja 1: Resumen Clínico ───────────────────────────────────────────
         df_demog = pd.DataFrame([
+            {"Parámetro": "Batería / Prueba", "Dato": test_type},
+            {"Parámetro": "Cadena Custodia / Tag", "Dato": session_tag},
             {"Parámetro": "ID Paciente", "Dato": participant['id']},
             {"Parámetro": "Nombre", "Dato": participant['name']},
             {"Parámetro": "Edad Cronométrica", "Dato": participant['age']},

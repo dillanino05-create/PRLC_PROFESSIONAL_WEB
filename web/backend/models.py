@@ -121,10 +121,16 @@ class MetricsData(BaseModel):
     fer_dominant: Optional[str] = None
     fer_tension_score: Optional[float] = None
     fer_frustration_events: Optional[int] = None
+    # ── Identidad Multi-Test y Cadena de Custodia Digital ─────────────────────
+    test_type: Optional[str] = "PLC"
+    session_tag: Optional[str] = None
+    session_uid: Optional[str] = None
 
 
 
 class SaveRequest(BaseModel):
+    test_type: Optional[str] = "PLC"
+    session_uid: Optional[str] = None
     participant: ParticipantInfo
     lines_data: List[LineData]
     click_log: List[ClickLogItem]

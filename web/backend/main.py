@@ -22,11 +22,35 @@ import httpx
 
 from .models import PredictRequest, SaveRequest
 from .predictor import predictor
-from .excel_export import save_excel, EXPORTS_DIR
+from .excel_export import save_excel, EXPORTS_DIR, sanitize_tag_part, generate_session_tag
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 WEB_DIR      = Path(__file__).parent.parent
 FRONTEND_DIR = WEB_DIR / 'frontend'
+
+# ── Helpers de Identidad y Cadena de Custodia Forense ──────────────────────────
+def compute_session_tag(row: dict) -> str:
+    """Recupera o calcula el tag forense estandarizado de una evaluación (retrocompatible)."""
+    metrics = row.get("metrics_json") or {}
+    if metrics.get("session_tag"):
+        return metrics["session_tag"]
+    
+    excel_path = row.get("excel_path") or ""
+    ts = None
+    if excel_path:
+        import re
+        m = re.search(r'(\d{8}_\d{6})', excel_path)
+        if m:
+            ts = m.group(1)
+            
+    if not ts:
+        cat = parse_iso_datetime(row.get("created_at"))
+        ts = cat.strftime('%Y%m%d_%H%M%S') if cat else datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        
+    test_type = metrics.get("test_type") or "PLC"
+    session_id = row.get("id", "0")
+    patient_id = row.get("participant_id") or row.get("participant_name") or "PACIENTE"
+    return generate_session_tag(test_type, session_id, patient_id, ts)
 
 # ── Cola Global FIFO ───────────────────────────────────────────────────────────
 task_queue = asyncio.Queue()
@@ -37,13 +61,19 @@ async def sequential_worker():
         try:
             # Polling eficiente: duerme la corrutina hasta que llega un reporte
             task = await task_queue.get()
-            eval_id, token, uid, part, lines, clicks, metrics, ml_pred, narrative = task
+            if len(task) == 12:
+                eval_id, token, uid, part, lines, clicks, metrics, ml_pred, narrative, test_type, session_tag, timestamp_str = task
+            else:
+                eval_id, token, uid, part, lines, clicks, metrics, ml_pred, narrative = task[:9]
+                test_type = "PLC"
+                session_tag = None
+                timestamp_str = None
             
-            print(f"[WORKER] Iniciando procesamiento orden FIFO de eval_id: {eval_id}")
+            print(f"[WORKER] Iniciando procesamiento orden FIFO de eval_id: {eval_id} (tag: {session_tag or 'N/A'})")
             
             # Delega el cálculo asíncronamente para no bloquear event-loop si hay peticiones
             await asyncio.to_thread(
-                process_excel_bg, token, eval_id, uid, part, lines, clicks, metrics, ml_pred, narrative
+                process_excel_bg, token, eval_id, uid, part, lines, clicks, metrics, ml_pred, narrative, test_type, session_tag, timestamp_str
             )
             
             # Recolección obligatoria de basura y liberación explícita VRAM/RAM
@@ -151,7 +181,8 @@ def status():
 def predict(req: PredictRequest):
     return predictor.predict(req.model_dump())
 
-def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, metrics, ml_pred, narrative):
+def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, metrics, ml_pred, narrative,
+                     test_type: str = "PLC", session_tag: Optional[str] = None, timestamp_str: Optional[str] = None):
     opts = ClientOptions(
         headers={'Authorization': f'Bearer {token}'},
         httpx_client=httpx.Client(http2=False, timeout=httpx.Timeout(60.0, connect=15.0))
@@ -164,7 +195,8 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
         except Exception as ue:
             print(f"⚠️ Error status processing: {ue}")
         
-        excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative)
+        excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative,
+                                test_type=test_type, session_id=eval_id, timestamp_str=timestamp_str, session_tag=session_tag)
         filename = os.path.basename(excel_path)
         
         with open(excel_path, "rb") as f:
@@ -210,6 +242,10 @@ def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = D
         ml_pred   = req.ml_prediction
         narrative = req.narrative
 
+        test_type = getattr(req, "test_type", None) or metrics.get("test_type") or "PLC"
+        clean_test = sanitize_tag_part(test_type, "PLC")
+        timestamp_str = req.session_uid or metrics.get("session_uid") or datetime.now().strftime('%Y%m%d_%H%M%S')
+
         # Inserción ruda de base de datos
         row_data = {
             "user_id": uid,
@@ -231,10 +267,36 @@ def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = D
         res = sb.table("evaluations").insert(row_data).execute()
         eval_id = res.data[0]["id"]
 
-        # Inyección a la Cola Restringida FIFO local en lugar de disparar threads irrestrictos
-        task_queue.put_nowait((eval_id, token, uid, part, lines, clicks, metrics, ml_pred, narrative))
+        # Generar Tag Forense Unificado: {TEST}_{SESSION_ID}_{PATIENT_CLEAN_ID}_{YYYYMMDD_HHMMSS}
+        session_tag = generate_session_tag(clean_test, eval_id, part["id"], timestamp_str)
+        video_filename = f"{session_tag}.webm"
+        excel_filename = f"{session_tag}.xlsx"
 
-        return {'id': eval_id, 'status': 'pending'}
+        # Propagar metadatos unificados a la base de datos
+        metrics["test_type"] = clean_test
+        metrics["session_tag"] = session_tag
+        metrics["session_uid"] = timestamp_str
+        metrics["video_path"] = video_filename
+
+        try:
+            sb.table("evaluations").update({
+                "excel_path": excel_filename,
+                "metrics_json": metrics
+            }).eq("id", eval_id).execute()
+        except Exception as up_err:
+            print(f"⚠️ Error actualizando metadatos de sesión {eval_id}: {up_err}")
+
+        # Inyección a la Cola Restringida FIFO local en lugar de disparar threads irrestrictos
+        task_queue.put_nowait((eval_id, token, uid, part, lines, clicks, metrics, ml_pred, narrative, clean_test, session_tag, timestamp_str))
+
+        return {
+            'id': eval_id,
+            'status': 'pending',
+            'session_tag': session_tag,
+            'test_type': clean_test,
+            'video_filename': video_filename,
+            'excel_filename': excel_filename
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -278,8 +340,11 @@ async def export(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
         ml_pred = row.get('ml_json')
         narrative = row.get('narrative', '')
 
-        excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative)
-        download_name = os.path.basename(excel_path)
+        session_tag = compute_session_tag(row)
+        test_type = metrics.get("test_type", "PLC")
+        excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative,
+                                test_type=test_type, session_id=eval_id, session_tag=session_tag)
+        download_name = f"{session_tag}.xlsx"
         
         return FileResponse(
             path=excel_path,
@@ -295,7 +360,7 @@ def history(auth_ctx: dict = Depends(get_supabase)):
     try:
         # Extrae de forma segura el historial vinculado por RLS.
         res = sb.table("evaluations").select(
-            "id, created_at, participant_id, participant_name, age, metrics_json, status"
+            "id, created_at, participant_id, participant_name, age, metrics_json, status, excel_path"
         ).order("id", desc=True).execute()
         
         result = []
@@ -319,6 +384,9 @@ def history(auth_ctx: dict = Depends(get_supabase)):
             else:
                 video_days_left = 30 if not is_expired else 0
 
+            test_type = m.get('test_type', 'PLC')
+            session_tag = m.get('session_tag') or compute_session_tag(r)
+
             result.append({
                 'id': r['id'],
                 'created_at': r['created_at'],
@@ -326,6 +394,8 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'participant_name': r['participant_name'],
                 'age': r['age'],
                 'status': r.get('status', 'completed'),
+                'test_type': test_type,
+                'session_tag': session_tag,
                 'CP': round(m.get('CP', 0), 1) if 'CP' in m else 0,
                 'TA': m.get('TA', 0),
                 'video_path': vpath if (not is_expired and video_days_left > 0) else '',
@@ -341,7 +411,7 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
     # Defensa IDOR: Verificamos propiedad del registro antes de firmar la URL del video
-    res = sb.table("evaluations").select("metrics_json, created_at, participant_name, participant_id").eq("id", eval_id).eq("user_id", uid).execute()
+    res = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path").eq("id", eval_id).eq("user_id", uid).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Evaluación no encontrada")
     
@@ -382,9 +452,8 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     except Exception as e:
         print(f"Error verificando retención de video: {e}")
         
-    part_name = (row.get("participant_name") or "Evaluacion").strip().replace(" ", "_")
-    clean_name = "".join(c for c in part_name if c.isalnum() or c in ("-", "_"))
-    download_filename = f"PLC_Sesion_{eval_id}_{clean_name}.webm"
+    session_tag = compute_session_tag(row)
+    download_filename = f"{session_tag}.webm"
 
     try:
         # Enlace firmado válido por 10 minutos (600s) para reproducir o descargar
@@ -416,7 +485,7 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
 async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
-    res = sb.table("evaluations").select("metrics_json, participant_name").eq("id", eval_id).eq("user_id", uid).execute()
+    res = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path").eq("id", eval_id).eq("user_id", uid).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Evaluación no encontrada")
     
@@ -426,9 +495,8 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     if not video_path or metrics.get("video_expired", False):
         raise HTTPException(status_code=404, detail="No hay video disponible para esta evaluación.")
 
-    part_name = (row.get("participant_name") or "Evaluacion").strip().replace(" ", "_")
-    clean_name = "".join(c for c in part_name if c.isalnum() or c in ("-", "_"))
-    filename = f"PLC_Sesion_{eval_id}_{clean_name}.webm"
+    session_tag = compute_session_tag(row)
+    filename = f"{session_tag}.webm"
 
     try:
         file_bytes = sb.storage.from_("exports").download(video_path)
