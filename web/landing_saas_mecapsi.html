@@ -735,27 +735,39 @@
   <section id="simulador" class="py-24 relative bg-slate-950/70 border-t border-white/10">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
       
-      <div class="text-center max-w-3xl mx-auto space-y-3" data-aos="fade-up">
+      <div class="text-center max-w-3xl mx-auto space-y-4" data-aos="fade-up">
         <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-mono uppercase tracking-widest">
           <i data-lucide="play" class="w-3.5 h-3.5 fill-blue-400"></i>
           <span>Simulador Clínico MecaPsi</span>
         </div>
         <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-          Experimenta una Línea de Prueba de 20 Segundos
+          Experimenta las Baterías Clínicas en Vivo
         </h2>
         <p class="text-slate-300 text-sm sm:text-base">
-          Haz clic en las dianas (cruces con cuadradito en ambos brazos). Puedes activar el cronómetro de 20 segundos para simular la presión temporal que experimenta el paciente real.
+          Elige entre la <strong class="text-cyan-400">Prueba PLC (Líneas Cruzadas)</strong> de atención concentrada o el <strong class="text-purple-400">Test de Bloques de Corsi</strong> de memoria visoespacial. Prueba la dinámica interactiva y observa las métricas en tiempo real.
         </p>
+
+        <!-- Selector de Pestañas entre PLC y CORSI -->
+        <div class="inline-flex p-1.5 rounded-2xl bg-black/50 border border-white/10 gap-2">
+          <button id="tab-sim-plc" onclick="switchSimulatorTab('plc')" class="px-5 py-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold transition flex items-center gap-2 text-xs sm:text-sm shadow-[0_0_20px_rgba(6,182,212,0.25)] cursor-pointer">
+            <i data-lucide="crosshair" class="w-4 h-4"></i>
+            <span>🎯 Prueba PLC (Líneas Cruzadas)</span>
+          </button>
+          <button id="tab-sim-corsi" onclick="switchSimulatorTab('corsi')" class="px-5 py-2.5 rounded-xl bg-transparent text-slate-400 hover:text-white border border-transparent font-bold transition flex items-center gap-2 text-xs sm:text-sm cursor-pointer">
+            <i data-lucide="grid" class="w-4 h-4"></i>
+            <span>🧊 Test de Bloques de Corsi</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Caja Principal del Simulador -->
-      <div class="rounded-3xl glass-panel p-6 sm:p-8 border border-cyan-500/30 shadow-2xl space-y-6" data-aos="zoom-in">
+      <!-- Caja Principal del Simulador PLC -->
+      <div id="sim-plc-container" class="rounded-3xl glass-panel p-6 sm:p-8 border border-cyan-500/30 shadow-2xl space-y-6" data-aos="zoom-in">
         
-        <!-- Barra Superior de Control del Simulador -->
+        <!-- Barra Superior de Control del Simulador PLC -->
         <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/10 text-xs font-mono">
           <div class="flex items-center gap-3">
             <span class="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></span>
-            <span class="text-white font-bold text-sm">LÍNEA DE PRUEBA // 12 ESTÍMULOS</span>
+            <span class="text-white font-bold text-sm">LÍNEA DE PRUEBA // 12 ESTÍMULOS PLC</span>
           </div>
 
           <div class="flex items-center gap-3">
@@ -811,6 +823,95 @@
         <div class="text-xs text-slate-400 flex flex-wrap items-center justify-between gap-2 pt-1 font-mono">
           <span>Fórmulas oficiales: <strong class="text-white">CON = TA - (O + COM)</strong> · TOT = O + COM</span>
           <span class="text-cyan-400">Umbral clínico normal: &lt;85.0 px/s²</span>
+        </div>
+
+      </div>
+
+      <!-- Caja Principal del Simulador Corsi (Test de Bloques de Corsi) -->
+      <div id="sim-corsi-container" class="rounded-3xl glass-panel p-6 sm:p-8 border border-purple-500/30 shadow-2xl space-y-6 hidden" data-aos="zoom-in">
+        
+        <!-- Barra Superior de Control Corsi -->
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/10 text-xs font-mono">
+          <div class="flex items-center gap-3">
+            <span class="w-3 h-3 rounded-full bg-purple-400 animate-pulse"></span>
+            <span class="text-white font-bold text-sm">TABLERO ESPACIAL // 9 BLOQUES CLÍNICOS</span>
+            <span id="corsi-sim-mode-badge" class="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] font-bold">MODALIDAD DIRECTA</span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <!-- Selector de Modo Directo / Inverso -->
+            <div class="inline-flex bg-black/60 rounded-xl p-1 border border-white/10">
+              <button id="btn-corsi-direct" onclick="setCorsiSimMode('direct')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-purple-500/30 text-purple-200 border border-purple-500/40 cursor-pointer">
+                Directo
+              </button>
+              <button id="btn-corsi-inverse" onclick="setCorsiSimMode('inverse')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer">
+                Inverso
+              </button>
+            </div>
+
+            <!-- Botón Reproducir Secuencia Demo -->
+            <button id="btn-corsi-play" onclick="playCorsiDemoSequence()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold transition flex items-center gap-2 shadow-[0_0_20px_rgba(168,85,247,0.35)] cursor-pointer">
+              <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i>
+              <span id="corsi-play-label">▶️ Iniciar Demo (3 Bloques)</span>
+            </button>
+
+            <!-- Botón Reiniciar -->
+            <button onclick="resetCorsiSimulator()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 transition cursor-pointer flex items-center gap-1.5 border border-white/10">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              <span>Limpiar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Estado / Feedback Interactivo -->
+        <div id="corsi-sim-status" class="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-center text-xs sm:text-sm font-mono text-purple-200 flex items-center justify-center gap-2 transition-all">
+          <i data-lucide="info" class="w-4 h-4 text-purple-400 shrink-0"></i>
+          <span id="corsi-status-msg">Presiona <strong>"▶️ Iniciar Demo"</strong> para observar la secuencia de iluminación de los cubos y luego reproducir el patrón.</span>
+        </div>
+
+        <!-- Tablero Espacial Interactivo (Coordenadas Berch / Milner 1982) -->
+        <div class="relative w-full h-72 sm:h-84 md:h-96 bg-gradient-to-b from-slate-950/95 to-[#050814] rounded-2xl border border-white/10 overflow-hidden select-none cyber-grid shadow-inner" id="corsi-sim-board">
+          <!-- 9 Cubos generados dinámicamente -->
+        </div>
+
+        <!-- Métricas Clínicas Corsi en Tiempo Real -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-4 border-t border-white/10 text-center font-mono text-xs">
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+            <div class="text-slate-400 text-[11px]">Span de Bloques</div>
+            <div id="corsi-metric-span" class="text-2xl font-bold text-purple-400 mt-1">3 cubos</div>
+          </div>
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+            <div class="text-slate-400 text-[11px]">Titubeo (Hesitation)</div>
+            <div id="corsi-metric-hesitation" class="text-2xl font-bold text-cyan-400 mt-1">-- ms</div>
+          </div>
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+            <div class="text-slate-400 text-[11px]">Latencia Media</div>
+            <div id="corsi-metric-rt" class="text-2xl font-bold text-blue-400 mt-1">-- ms</div>
+          </div>
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5">
+            <div class="text-slate-400 text-[11px]">Aciertos / Secuencia</div>
+            <div id="corsi-metric-acc" class="text-2xl font-bold text-emerald-400 mt-1">-- / 3</div>
+          </div>
+          <div class="bg-black/40 p-3 rounded-xl border border-white/5 col-span-2 sm:col-span-1">
+            <div class="text-slate-400 text-[11px]">Modalidad Activa</div>
+            <div id="corsi-metric-mode" class="text-2xl font-bold text-amber-400 mt-1">DIRECTO</div>
+          </div>
+        </div>
+
+        <!-- Banner de Inmersión Clínica y CTA hacia la App -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-slate-900/60 to-indigo-950/40 border border-purple-500/20 text-xs">
+          <div class="space-y-1 text-center sm:text-left">
+            <div class="font-bold text-white flex items-center gap-2 justify-center sm:justify-start">
+              <span>🧠 Batería Neuropsicológica Completa en Plataforma</span>
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              Evalúa span adaptativo (2 a 9 bloques), micro-temblor del mouse a 60fps, pupilometría con MediaPipe y reporte pericial en Excel (.XLSX).
+            </p>
+          </div>
+          <button onclick="goToLiveApp()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold transition shrink-0 flex items-center gap-2 shadow-lg shadow-purple-950 cursor-pointer">
+            <span>Iniciar Evaluación Completa</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
         </div>
 
       </div>
@@ -1642,6 +1743,284 @@
       document.getElementById('timer-text').textContent = 'Iniciar 20s';
     }
 
+    // ── 3.1 CONMUTADOR DE PESTAÑAS (PLC vs CORSI) ──
+    function switchSimulatorTab(tab) {
+      const plcCont = document.getElementById('sim-plc-container');
+      const corsiCont = document.getElementById('sim-corsi-container');
+      const btnPlc = document.getElementById('tab-sim-plc');
+      const btnCorsi = document.getElementById('tab-sim-corsi');
+
+      if (tab === 'plc') {
+        if (plcCont) plcCont.classList.remove('hidden');
+        if (corsiCont) corsiCont.classList.add('hidden');
+        if (btnPlc) {
+          btnPlc.className = 'px-5 py-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold transition flex items-center gap-2 text-xs sm:text-sm shadow-[0_0_20px_rgba(6,182,212,0.25)] cursor-pointer';
+        }
+        if (btnCorsi) {
+          btnCorsi.className = 'px-5 py-2.5 rounded-xl bg-transparent text-slate-400 hover:text-white border border-transparent font-bold transition flex items-center gap-2 text-xs sm:text-sm cursor-pointer';
+        }
+      } else {
+        if (plcCont) plcCont.classList.add('hidden');
+        if (corsiCont) corsiCont.classList.remove('hidden');
+        if (btnCorsi) {
+          btnCorsi.className = 'px-5 py-2.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold transition flex items-center gap-2 text-xs sm:text-sm shadow-[0_0_20px_rgba(168,85,247,0.25)] cursor-pointer';
+        }
+        if (btnPlc) {
+          btnPlc.className = 'px-5 py-2.5 rounded-xl bg-transparent text-slate-400 hover:text-white border border-transparent font-bold transition flex items-center gap-2 text-xs sm:text-sm cursor-pointer';
+        }
+        renderCorsiSimulator();
+      }
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // ── 3.2 SIMULADOR INTERACTIVO DEL TEST DE CORSI (9 BLOQUES) ──
+    const CORSI_SIM_POSITIONS = [
+      { id: 1, x: 14, y: 16 }, { id: 2, x: 76, y: 14 }, { id: 3, x: 46, y: 28 },
+      { id: 4, x: 24, y: 48 }, { id: 5, x: 68, y: 46 }, { id: 6, x: 86, y: 66 },
+      { id: 7, x: 10, y: 74 }, { id: 8, x: 44, y: 80 }, { id: 9, x: 74, y: 82 }
+    ];
+
+    let corsiSimMode = 'direct'; // 'direct' | 'inverse'
+    let corsiSimSequence = [2, 7, 4]; // Secuencia demo estándar de 3 cubos
+    let corsiSimUserInput = [];
+    let corsiSimIsPlaying = false;
+    let corsiSimCanClick = false;
+    let corsiSimStartTime = 0;
+    let corsiSimHesitation = 0;
+    let corsiSimClickTimes = [];
+    let corsiSimAudioCtx = null;
+
+    function playCorsiTone(freq = 520, duration = 0.25) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!corsiSimAudioCtx) corsiSimAudioCtx = new AudioCtx();
+        if (corsiSimAudioCtx.state === 'suspended') corsiSimAudioCtx.resume().catch(() => {});
+        const osc = corsiSimAudioCtx.createOscillator();
+        const gain = corsiSimAudioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, corsiSimAudioCtx.currentTime);
+        gain.gain.setValueAtTime(0.06, corsiSimAudioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, corsiSimAudioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(corsiSimAudioCtx.destination);
+        osc.start();
+        osc.stop(corsiSimAudioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    function renderCorsiSimulator() {
+      const board = document.getElementById('corsi-sim-board');
+      if (!board) return;
+      board.innerHTML = '';
+
+      CORSI_SIM_POSITIONS.forEach(pos => {
+        const cube = document.createElement('div');
+        cube.id = `corsi-cube-${pos.id}`;
+        cube.className = 'absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-slate-600/70 shadow-lg flex items-center justify-center font-mono font-black text-slate-300 cursor-pointer transition-all duration-200 select-none hover:scale-110 hover:border-purple-400 hover:shadow-[0_0_20px_rgba(168,85,247,0.4)]';
+        cube.style.left = `${pos.x}%`;
+        cube.style.top = `${pos.y}%`;
+        cube.style.transform = 'translate(-50%, -50%)';
+
+        cube.innerHTML = `
+          <span class="text-sm sm:text-base opacity-70">${pos.id}</span>
+          <span id="corsi-badge-${pos.id}" class="hidden absolute -top-2 -right-2 w-6 h-6 bg-cyan-400 text-slate-950 font-black rounded-full flex items-center justify-center text-xs shadow-md"></span>
+        `;
+
+        cube.addEventListener('click', () => handleCorsiCubeClick(pos.id));
+        board.appendChild(cube);
+      });
+    }
+
+    function setCorsiSimMode(mode) {
+      corsiSimMode = mode;
+      const btnDir = document.getElementById('btn-corsi-direct');
+      const btnInv = document.getElementById('btn-corsi-inverse');
+      const badge = document.getElementById('corsi-sim-mode-badge');
+      const metricMode = document.getElementById('corsi-metric-mode');
+
+      if (mode === 'direct') {
+        if (btnDir) btnDir.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-purple-500/30 text-purple-200 border border-purple-500/40 cursor-pointer';
+        if (btnInv) btnInv.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer';
+        if (badge) {
+          badge.textContent = 'MODALIDAD DIRECTA';
+          badge.className = 'px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] font-bold';
+        }
+        if (metricMode) {
+          metricMode.textContent = 'DIRECTO';
+          metricMode.className = 'text-2xl font-bold text-amber-400 mt-1';
+        }
+      } else {
+        if (btnInv) btnInv.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-amber-500/30 text-amber-200 border border-amber-500/40 cursor-pointer';
+        if (btnDir) btnDir.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer';
+        if (badge) {
+          badge.textContent = 'MODALIDAD INVERSA';
+          badge.className = 'px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold';
+        }
+        if (metricMode) {
+          metricMode.textContent = 'INVERSO';
+          metricMode.className = 'text-2xl font-bold text-amber-400 mt-1';
+        }
+      }
+      resetCorsiSimulator();
+    }
+
+    async function playCorsiDemoSequence() {
+      if (corsiSimIsPlaying) return;
+      corsiSimIsPlaying = true;
+      corsiSimCanClick = false;
+      corsiSimUserInput = [];
+      corsiSimClickTimes = [];
+      resetCorsiSimulator(false);
+
+      const statusEl = document.getElementById('corsi-status-msg');
+      const statusBox = document.getElementById('corsi-sim-status');
+      const playBtn = document.getElementById('btn-corsi-play');
+      const playLabel = document.getElementById('corsi-play-label');
+
+      if (playBtn) playBtn.disabled = true;
+      if (playLabel) playLabel.textContent = 'Reproduciendo...';
+
+      if (statusBox) statusBox.className = 'p-3.5 rounded-xl bg-purple-950/50 border border-purple-500/40 text-center text-xs sm:text-sm font-mono text-purple-200 flex items-center justify-center gap-2 transition-all';
+      if (statusEl) statusEl.innerHTML = `👀 <strong>Observa la secuencia:</strong> Mostrando patrón de ${corsiSimSequence.length} bloques...`;
+
+      // Pausa inicial
+      await new Promise(r => setTimeout(r, 600));
+
+      const freqs = [440, 554, 659];
+      for (let i = 0; i < corsiSimSequence.length; i++) {
+        const id = corsiSimSequence[i];
+        const el = document.getElementById(`corsi-cube-${id}`);
+        if (el) {
+          // Iluminación activa con glow morado
+          el.className = 'absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-500 border-2 border-white shadow-[0_0_35px_rgba(168,85,247,0.9)] flex items-center justify-center font-mono font-black text-white scale-125 z-20 transition-all duration-150';
+          playCorsiTone(freqs[i % freqs.length], 0.35);
+          if (statusEl) statusEl.innerHTML = `👀 Bloque <strong>#${id}</strong> iluminado (${i + 1} de ${corsiSimSequence.length})...`;
+        }
+        await new Promise(r => setTimeout(r, 800));
+        if (el) {
+          el.className = 'absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-slate-600/70 shadow-lg flex items-center justify-center font-mono font-black text-slate-300 cursor-pointer transition-all duration-200 select-none hover:scale-110 hover:border-purple-400';
+        }
+        await new Promise(r => setTimeout(r, 350));
+      }
+
+      corsiSimIsPlaying = false;
+      corsiSimCanClick = true;
+      corsiSimStartTime = performance.now();
+      if (playBtn) playBtn.disabled = false;
+      if (playLabel) playLabel.textContent = '▶️ Reiniciar Demo';
+
+      if (statusBox) statusBox.className = 'p-3.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-center text-xs sm:text-sm font-mono text-cyan-200 flex items-center justify-center gap-2 transition-all';
+      if (statusEl) {
+        if (corsiSimMode === 'direct') {
+          statusEl.innerHTML = `🟢 <strong>¡Tu turno!</strong> Haz clic en los 3 bloques en el <span class="text-cyan-300 font-bold underline">MISMO ORDEN</span> en que se iluminaron.`;
+        } else {
+          statusEl.innerHTML = `🔄 <strong>¡Tu turno (MODALIDAD INVERSA)!</strong> Haz clic en los bloques en <span class="text-amber-300 font-bold underline">ORDEN INVERSO</span> (del último que viste al primero).`;
+        }
+      }
+    }
+
+    function handleCorsiCubeClick(id) {
+      if (!corsiSimCanClick || corsiSimIsPlaying) return;
+      if (corsiSimUserInput.includes(id)) return; // Evitar repetir el mismo cubo en el demo
+
+      const now = performance.now();
+      if (corsiSimUserInput.length === 0) {
+        corsiSimHesitation = Math.round(now - corsiSimStartTime);
+        document.getElementById('corsi-metric-hesitation').textContent = `${corsiSimHesitation} ms`;
+      }
+      corsiSimClickTimes.push(now);
+      corsiSimUserInput.push(id);
+
+      const orderNum = corsiSimUserInput.length;
+      const el = document.getElementById(`corsi-cube-${id}`);
+      const badge = document.getElementById(`corsi-badge-${id}`);
+
+      playCorsiTone(700 + (orderNum * 100), 0.15);
+
+      if (el) {
+        el.className = 'absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-600 border-2 border-cyan-300 text-white shadow-[0_0_25px_rgba(6,182,212,0.8)] scale-110 z-10 font-mono font-black flex items-center justify-center transition-all duration-150';
+      }
+      if (badge) {
+        badge.textContent = orderNum;
+        badge.classList.remove('hidden');
+      }
+
+      // Si ha seleccionado los 3 bloques
+      if (corsiSimUserInput.length === corsiSimSequence.length) {
+        corsiSimCanClick = false;
+        evaluateCorsiDemo();
+      }
+    }
+
+    function evaluateCorsiDemo() {
+      const statusEl = document.getElementById('corsi-status-msg');
+      const statusBox = document.getElementById('corsi-sim-status');
+      const expected = corsiSimMode === 'direct' 
+        ? [...corsiSimSequence] 
+        : [...corsiSimSequence].reverse();
+
+      const isCorrect = corsiSimUserInput.every((val, idx) => val === expected[idx]);
+
+      // Latencia media
+      let totalRt = 0;
+      for (let i = 1; i < corsiSimClickTimes.length; i++) {
+        totalRt += (corsiSimClickTimes[i] - corsiSimClickTimes[i - 1]);
+      }
+      const meanRt = corsiSimClickTimes.length > 1 
+        ? Math.round(totalRt / (corsiSimClickTimes.length - 1)) 
+        : corsiSimHesitation;
+
+      document.getElementById('corsi-metric-rt').textContent = `${meanRt} ms`;
+
+      if (isCorrect) {
+        playCorsiTone(880, 0.4);
+        document.getElementById('corsi-metric-acc').textContent = '3 / 3 (100%)';
+        document.getElementById('corsi-metric-acc').className = 'text-2xl font-bold text-emerald-400 mt-1';
+        if (statusBox) statusBox.className = 'p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-center text-xs sm:text-sm font-mono text-emerald-200 flex items-center justify-center gap-2';
+        if (statusEl) {
+          statusEl.innerHTML = `🎉 <strong>¡Secuencia Perfecta!</strong> Reprodujiste los 3 bloques en orden ${corsiSimMode === 'inverse' ? 'INVERSO' : 'DIRECTO'}. Titubeo: ${corsiSimHesitation}ms, Latencia: ${meanRt}ms.`;
+        }
+      } else {
+        playCorsiTone(220, 0.5);
+        document.getElementById('corsi-metric-acc').textContent = 'Error';
+        document.getElementById('corsi-metric-acc').className = 'text-2xl font-bold text-rose-400 mt-1';
+        if (statusBox) statusBox.className = 'p-3.5 rounded-xl bg-rose-950/60 border border-rose-500/50 text-center text-xs sm:text-sm font-mono text-rose-200 flex items-center justify-center gap-2';
+        if (statusEl) {
+          statusEl.innerHTML = `⚠️ <strong>Secuencia Errónea.</strong> Seleccionaste [${corsiSimUserInput.join(' → ')}], pero el orden esperado (${corsiSimMode === 'inverse' ? 'Inverso' : 'Directo'}) era: [<strong>${expected.join(' → ')}</strong>].`;
+        }
+      }
+    }
+
+    function resetCorsiSimulator(resetMetrics = true) {
+      corsiSimUserInput = [];
+      corsiSimClickTimes = [];
+      corsiSimCanClick = false;
+
+      CORSI_SIM_POSITIONS.forEach(pos => {
+        const el = document.getElementById(`corsi-cube-${pos.id}`);
+        const badge = document.getElementById(`corsi-badge-${pos.id}`);
+        if (el) {
+          el.className = 'absolute w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-slate-600/70 shadow-lg flex items-center justify-center font-mono font-black text-slate-300 cursor-pointer transition-all duration-200 select-none hover:scale-110 hover:border-purple-400';
+        }
+        if (badge) {
+          badge.classList.add('hidden');
+          badge.textContent = '';
+        }
+      });
+
+      if (resetMetrics) {
+        document.getElementById('corsi-metric-hesitation').textContent = '-- ms';
+        document.getElementById('corsi-metric-rt').textContent = '-- ms';
+        document.getElementById('corsi-metric-acc').textContent = '-- / 3';
+        document.getElementById('corsi-metric-acc').className = 'text-2xl font-bold text-emerald-400 mt-1';
+        const statusEl = document.getElementById('corsi-status-msg');
+        const statusBox = document.getElementById('corsi-sim-status');
+        if (statusBox) statusBox.className = 'p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-center text-xs sm:text-sm font-mono text-purple-200 flex items-center justify-center gap-2 transition-all';
+        if (statusEl) statusEl.innerHTML = `Presiona <strong>"▶️ Iniciar Demo"</strong> para observar la secuencia de iluminación de los cubos y luego reproducir el patrón.`;
+      }
+    }
+
     // ── 4. MEDICIÓN REAL DE TEMBLOR MOTOR DEL CURSOR (≤60 FPS) ──
     (function initTremorTelemetry() {
       let lastX = null, lastY = null, lastT = null;
@@ -1836,6 +2215,11 @@
     window.handleAuthSubmit = handleAuthSubmit;
     window.resetFullSimulator = resetFullSimulator;
     window.toggleSimTimer = toggleSimTimer;
+    window.switchSimulatorTab = switchSimulatorTab;
+    window.setCorsiSimMode = setCorsiSimMode;
+    window.playCorsiDemoSequence = playCorsiDemoSequence;
+    window.resetCorsiSimulator = resetCorsiSimulator;
+    window.handleCorsiCubeClick = handleCorsiCubeClick;
     window.switchExcelSheet = switchExcelSheet;
     window.goToLiveApp = goToLiveApp;
     window.getAppRedirectUrl = getAppRedirectUrl;
@@ -1846,6 +2230,7 @@
       renderStimuliCatalog();
       renderFullSimulator();
       updateSimMetrics();
+      renderCorsiSimulator();
     }
 
     if (document.readyState === 'loading') {

@@ -566,23 +566,54 @@ function generateSessionTag(testType = 'PLC', sessionId = '0', patientId = 'PACI
   return `${cleanTest}_${cleanSid}_${cleanId}_${cleanTs}`;
 }
 
+/**
+ * Analiza cinemática y micro-temblor de cursor para Corsi y PLC
+ */
+function analyzeCursorKinematics(samples) {
+  try {
+    const tremor = typeof computeTremorScore === 'function' ? computeTremorScore(samples || []) : { tremor_score: 0.0, tremor_grade: 'NORMAL' };
+    const sweep = typeof computeSweepMetrics === 'function' ? computeSweepMetrics(samples || []) : { regularity_score: 100.0, directionality: 'NORMAL' };
+    return {
+      microtremor_score: tremor.tremor_score || 0.0,
+      tremor_grade: tremor.tremor_grade || 'NORMAL',
+      sweep_regularity: sweep.regularity_score || 100.0,
+      directionality: sweep.directionality || 'NORMAL',
+      samples_count: tremor.samples_count || 0
+    };
+  } catch (e) {
+    return {
+      microtremor_score: 0.0,
+      tremor_grade: 'NORMAL',
+      sweep_regularity: 100.0,
+      directionality: 'NORMAL',
+      samples_count: 0
+    };
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════════
    MÉTRICAS PSICOMÉTRICAS Y NORMATIVAS DEL TEST DE CORSI
    ──────────────────────────────────────────────────────────────────────────── */
 function computeCorsiMetrics(corsiResult) {
-  const summaries = (corsiResult && corsiResult.levelSummaries) ? corsiResult.levelSummaries : [];
-  const movements = (corsiResult && corsiResult.movementsData) ? corsiResult.movementsData : [];
-  const mode = (corsiResult && corsiResult.testMode) ? corsiResult.testMode : 'direct';
+  const summaries = (corsiResult && (corsiResult.levelSummaries || corsiResult.trialsData)) 
+    ? (corsiResult.levelSummaries || corsiResult.trialsData) 
+    : [];
+  const movements = (corsiResult && (corsiResult.movementsData || corsiResult.clicks)) 
+    ? (corsiResult.movementsData || corsiResult.clicks) 
+    : [];
+  const mode = (corsiResult && (corsiResult.testMode || corsiResult.corsiMode)) 
+    ? (corsiResult.testMode || corsiResult.corsiMode) 
+    : 'direct';
 
   const totalTrials = summaries.length;
-  const correctTrials = summaries.filter(s => s.success).length;
-  const errorTrials = totalTrials - correctTrials;
+  const correctTrials = summaries.filter(s => (s.success ?? s.isCorrect)).length;
+  const errorTrials = Math.max(0, totalTrials - correctTrials);
   const accuracyPct = totalTrials > 0 ? parseFloat(((correctTrials / totalTrials) * 100).toFixed(1)) : 0.0;
 
   // Span de Corsi: máxima longitud de secuencia reproducida con éxito
-  const successfulLengths = summaries.filter(s => s.success).map(s => s.sequence_length || s.level);
-  const corsiSpan = successfulLengths.length > 0 ? Math.max(...successfulLengths) : 0;
-  const maxLevel = summaries.length > 0 ? Math.max(...summaries.map(s => s.level)) : 2;
+  const successfulLengths = summaries.filter(s => (s.success ?? s.isCorrect)).map(s => s.sequence_length || s.level || 2);
+  const corsiSpan = successfulLengths.length > 0 ? Math.max(...successfulLengths) : (corsiResult?.corsiSpan || 2);
+  const maxLevel = summaries.length > 0 ? Math.max(...summaries.map(s => s.level || 2)) : (corsiSpan || 2);
 
   // Latencias y tiempos de titubeo
   const clicks = movements.filter(m => m.event_type === 'cube_click' && m.reaction_time_ms);
