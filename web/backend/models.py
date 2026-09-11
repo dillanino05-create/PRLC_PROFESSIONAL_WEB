@@ -15,6 +15,14 @@ class LineData(BaseModel):
     # ── Biomarcadores Digitales: Cinemática del Cursor ──────────────────────────
     tremor_score: float = 0.0   # Índice de variabilidad cinemática (Jitter)
     tremor_flag: bool = False    # True si supera el umbral clínico de alerta
+    microtremor_score: float = 0.0 # Amplitud de microtemblor instantáneo
+    sweep_regularity: float = 100.0 # Regularidad de avance izquierda a derecha (%)
+    retrocesos_mouse: int = 0   # Rectificaciones bruscas hacia atrás
+    # ── Biomarcadores Oculomotores (MediaPipe Face Mesh) ────────────────────────
+    ear_avg: Optional[float] = None # Eye Aspect Ratio promedio en la línea
+    blinks_count: Optional[int] = None # Conteo de parpadeos en la línea
+    gaze_diverted: Optional[bool] = None # Desvío de mirada detectado fuera del canvas
+
 
 
 class ClickLogItem(BaseModel):
@@ -49,6 +57,15 @@ class PredictRequest(BaseModel):
     fatigue_hits: float
     consistency: float
     block_hits: List[int]
+    # ── Biomarcadores Oculomotores y Conductuales ──────────────────────────────
+    camera_active: Optional[bool] = False
+    ear_mean: Optional[float] = None
+    blink_count: Optional[int] = None
+    blink_rate_min: Optional[float] = None
+    gaze_diverted_count: Optional[int] = None
+    gaze_diverted_ms: Optional[float] = None
+    microtremor_avg: Optional[float] = None
+    sweep_regularity_avg: Optional[float] = None
 
 
 class MetricsData(BaseModel):
@@ -84,8 +101,18 @@ class MetricsData(BaseModel):
     isIncomplete: bool = False
     lastLine: int = 0
     lastChar: int = 0
-    # ── Biomarcadores Digitales agregados ──────────────────────────────────────
+    # ── Biomarcadores Digitales y Oculomotores agregados ───────────────────────
     tremor_lines: Optional[List[int]] = None   # Nº de páginas con tremor detectado
+    camera_active: Optional[bool] = False
+    ear_mean: Optional[float] = None
+    blink_count: Optional[int] = None
+    blink_rate_min: Optional[float] = None
+    gaze_diverted_count: Optional[int] = None
+    gaze_diverted_ms: Optional[float] = None
+    microtremor_avg: Optional[float] = None
+    sweep_regularity_avg: Optional[float] = None
+    video_path: Optional[str] = None
+
 
 
 class SaveRequest(BaseModel):

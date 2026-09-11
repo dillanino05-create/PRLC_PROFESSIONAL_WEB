@@ -219,5 +219,115 @@ function computeTremorScore(samples) {
   const dirChangesPerSec = dirChanges.length / totalDurationSec;
   const score = jitter * (1 + 0.3 * dirChangesPerSec);
 
-  return { score: parseFloat(score.toFixed(2)), flag: score > TREMOR_THRESHOLD };
+  return { 
+    score: parseFloat(score.toFixed(2)), 
+    flag: score > TREMOR_THRESHOLD,
+    microtremor: parseFloat(jitter.toFixed(2))
+  };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   BIOMARCADORES CONDUCTUALES — Validación de Barrido Izquierda a Derecha
+   ────────────────────────────────────────────────────────────────────────────
+   Evalúa la progresión espacial del cursor para detectar retrocesos erráticos
+   y calcula la regularidad direccional del barrido visual/motor.
+═══════════════════════════════════════════════════════════════════════════════ */
+function computeSweepMetrics(samples) {
+  if (!samples || samples.length < 5) {
+    return { sweep_regularity: 100.0, retrocesos: 0, microtremors_count: 0 };
+  }
+
+  let forwardPx = 0;
+  let backwardPx = 0;
+  let retrocesos = 0;
+  let microtremorsCount = 0;
+
+  for (let i = 1; i < samples.length; i++) {
+    const dx = samples[i].x - samples[i-1].x;
+    const dy = samples[i].y - samples[i-1].y;
+    const dt = Math.max(samples[i].t - samples[i-1].t, 1);
+
+    if (dx > 0) {
+      forwardPx += dx;
+    } else if (dx < 0) {
+      backwardPx += Math.abs(dx);
+      if (Math.abs(dx) > 25) {
+        retrocesos++; // Movimiento brusco hacia atrás
+      }
+    }
+
+    // Microtemblor instantáneo (fluctuación de alta aceleración)
+    const vel = Math.sqrt(dx*dx + dy*dy) / (dt / 1000);
+    if (vel > 350 && Math.abs(dx) < 15 && Math.abs(dy) < 15) {
+      microtremorsCount++;
+    }
+  }
+
+  const totalHorizontal = forwardPx + backwardPx;
+  const sweep_regularity = totalHorizontal > 0 
+    ? parseFloat(Math.min(100, Math.max(0, (forwardPx / totalHorizontal) * 100)).toFixed(1))
+    : 100.0;
+
+  return {
+    sweep_regularity,
+    retrocesos,
+    microtremors_count: microtremorsCount
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   BIOMARCADORES OCULOMOTORES (MediaPipe Face Mesh)
+   ────────────────────────────────────────────────────────────────────────────
+   Calcula parpadeos (EAR), tasa de parpadeo por minuto y eventos de desvío
+   de la mirada respecto al área del Canvas.
+═══════════════════════════════════════════════════════════════════════════════ */
+function computeOculomotorMetrics(earSamples, gazeEvents, durationSec) {
+  if (!earSamples || earSamples.length === 0) {
+    return {
+      camera_active: false,
+      ear_mean: 0.0,
+      blink_count: 0,
+      blink_rate_min: 0.0,
+      gaze_diverted_count: 0,
+      gaze_diverted_ms: 0.0
+    };
+  }
+
+  // Media de EAR
+  const sumEar = earSamples.reduce((acc, s) => acc + (s.ear || 0), 0);
+  const ear_mean = parseFloat((sumEar / earSamples.length).toFixed(3));
+
+  // Conteo de parpadeos (transiciones de EAR > 0.20 a EAR < 0.20)
+  let blinkCount = 0;
+  let inBlink = false;
+  for (let i = 0; i < earSamples.length; i++) {
+    const ear = earSamples[i].ear || 0;
+    if (ear < 0.20 && !inBlink) {
+      blinkCount++;
+      inBlink = true;
+    } else if (ear >= 0.20) {
+      inBlink = false;
+    }
+  }
+
+  const validDurationSec = Math.max(durationSec || 1, 1);
+  const blink_rate_min = parseFloat(((blinkCount / validDurationSec) * 60).toFixed(1));
+
+  // Conteo y tiempo total de desvíos de mirada
+  let gazeDivertedCount = 0;
+  let gazeDivertedMs = 0;
+  if (gazeEvents && gazeEvents.length > 0) {
+    gazeDivertedCount = gazeEvents.length;
+    gazeDivertedMs = gazeEvents.reduce((acc, ev) => acc + (ev.duration_ms || 0), 0);
+  }
+
+  return {
+    camera_active: true,
+    ear_mean,
+    blink_count: blinkCount,
+    blink_rate_min,
+    gaze_diverted_count: gazeDivertedCount,
+    gaze_diverted_ms: parseFloat(gazeDivertedMs.toFixed(1))
+  };
+}
+

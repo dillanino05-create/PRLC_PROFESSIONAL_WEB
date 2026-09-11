@@ -235,18 +235,39 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             {"🧠 Biomarcadores Motores Digitales (Jitter del Cursor)": n} for n in tremor_note_rows
         ])
 
+        # ── Biomarcadores Extras de IA (Oculometría + Cinemática) ───────────
+        cam_active = metrics.get('camera_active', False)
+        ear_m = metrics.get('ear_mean')
+        blinks_tot = metrics.get('blink_count', 0)
+        blinks_rate = metrics.get('blink_rate_min', 0.0)
+        gaze_div = metrics.get('gaze_diverted_count', 0)
+        gaze_div_s = round(metrics.get('gaze_diverted_ms', 0.0) / 1000.0, 1)
+        microtremor_avg = metrics.get('microtremor_avg', 0.0)
+        sweep_reg = metrics.get('sweep_regularity_avg', 100.0)
+
+        biomarkers_ia_rows = [
+            {"Biomarcador IA": "Estado Cámara Web", "Registro": "ACTIVA (Captura de mirada/parpadeo)" if cam_active else "DESACTIVADA POR EL USUARIO"},
+            {"Biomarcador IA": "EAR Promedio (Apertura Ocular)", "Registro": f"{ear_m:.3f}" if ear_m is not None else "N/A"},
+            {"Biomarcador IA": "Parpadeos Totales / Frecuencia", "Registro": f"{blinks_tot} ({blinks_rate}/min)" if cam_active else "N/A"},
+            {"Biomarcador IA": "Desvíos de Mirada del Canvas", "Registro": f"{gaze_div} eventos ({gaze_div_s}s acumulados)" if cam_active else "N/A"},
+            {"Biomarcador IA": "Microtemblor Promedio (Jitter)", "Registro": f"{microtremor_avg:.2f} px/s²"},
+            {"Biomarcador IA": "Regularidad de Barrido (Izq → Der)", "Registro": f"{sweep_reg:.1f}%"}
+        ]
+        df_biomarkers_ia = pd.DataFrame(biomarkers_ia_rows)
+
         df_demog.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=4, startcol=0)
         df_metricas.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=4, startcol=3)
         df_patrones.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=15, startcol=0)
         df_notas.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=15, startcol=3)
         df_tremor.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=26, startcol=0)
+        df_biomarkers_ia.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=26, startcol=3)
         
         ws1 = writer.sheets['01_Resumen_Clinico']
         _add_educational_header(ws1, "Resumen Transversal Objetivo del Desempeño",
                                 "Esta hoja presenta un consolidado de ejecución biométrica. Contiene parámetros de demografía, totales numéricos y descripciones generadas a paridad poblacional.", 
                                 disclaimer=True)
-        _style_hdr(ws1, row=5); _style_hdr(ws1, row=16)
-        _set_widths(ws1, [25, 30, 2, 40, 20])
+        _style_hdr(ws1, row=5); _style_hdr(ws1, row=16); _style_hdr(ws1, row=27)
+        _set_widths(ws1, [25, 30, 2, 40, 25])
         for row in ws1.iter_rows(min_row=5, max_col=5):
             for cell in row: cell.alignment = W_ALIGN
 
@@ -265,7 +286,10 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
                 "Proporción Exactitud (%)": round((l['aciertos']/max(l['targets_total'],1))*100, 1),
                 # ── Biomarcadores Digitales (Cinématica del Cursor) ────────────────
                 "Tremor Score (Jitter Motor)": round(l.get('tremor_score', 0.0), 2),
-                "⚠️ Indicador Temblor Motor": "SÍ — Variabilidad cinématica elevada" if l.get('tremor_flag', False) else "Normal"
+                "⚠️ Indicador Temblor Motor": "SÍ — Variabilidad cinématica elevada" if l.get('tremor_flag', False) else "Normal",
+                "Regularidad Barrido (%)": round(l.get('sweep_regularity', 100.0), 1),
+                "Parpadeos (Línea)": l.get('blinks_count') if l.get('blinks_count') is not None else "N/A",
+                "Desvío de Mirada": "SÍ" if l.get('gaze_diverted') else "NO"
             })
         df_l = pd.DataFrame(d2)
         df_l.to_excel(writer, sheet_name='02_Analisis_Lineas', index=False, startrow=4)
@@ -274,7 +298,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         _add_educational_header(ws2, "Disección Iterativa de la Ejecución (Línea por Línea)",
                                 "Desglose longitudinal de la instrumentación. Útil para ubicar focos precisos de aparición de fallos por latencia crónica o desgaste temprano. (Targets Totales = Exactitud + Omisión).")
         _style_hdr(ws2, row=5)
-        _set_widths(ws2, [10, 18, 28, 22, 25, 25, 28, 24, 22, 26, 36])
+        _set_widths(ws2, [10, 18, 28, 22, 25, 25, 28, 24, 22, 26, 36, 24, 20, 20])
         
         # ── Hoja 3: Glosario de Métricas ───────────────────────────────────
         glosario = [

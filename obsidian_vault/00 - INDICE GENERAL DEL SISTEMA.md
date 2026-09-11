@@ -18,6 +18,7 @@ graph TD
     A --> H["[[07 - SuperAdmin Dashboard]]"]
     A --> I["[[08 - Exportacion y Reportes Excel]]"]
     A --> J["[[09 - Protocolo de Ahorro de Tokens para LLMs]]"]
+    A --> K["[[10 - Investigacion Vision Computacional y Eye Tracking]]"]
 
     B --> C
     B --> D
@@ -27,6 +28,7 @@ graph TD
     F --> G
     C --> H
     D --> I
+    G --> K
 ```
 
 ---
@@ -55,10 +57,13 @@ graph TD
    Consola exclusiva de Dilan para auditar todas las cuentas de psicólogos, volumen de evaluaciones globales, métricas y gráficas sin RLS.
 
 8. 📊 **[[08 - Exportacion y Reportes Excel]]**:
-   Motor `openpyxl` en `web/backend/excel_export.py` que compila el reporte clínico profesional en 2 hojas de cálculo con gráficos y alertas.
+   Motor `openpyxl` en `web/backend/excel_export.py` que compila el reporte clínico profesional en 5 hojas de cálculo con gráficos y alertas.
 
 9. ⚡ **[[09 - Protocolo de Ahorro de Tokens para LLMs]]**:
    Reglas de consulta económica para modelos LLM (Claude/Gemini): qué leer primero y cómo evitar escanear archivos gigantes.
 
+10. 👁️ **[[10 - Investigacion Vision Computacional y Eye Tracking]]**:
+    Módulo de R&D para Eye Tracking en webcam (MediaPipe Iris) y Facial Emotion Recognition (FER) a 3Hz, correlacionados con eventos del test PLC.
+
 ---
-*Versión de la plataforma: **v3.2** · Actualizado: **Septiembre 2026** · Diseñado para Obsidian Graph View*
+*Versión de la plataforma: **v3.3 (R&D CV/FER)** · Actualizado: **Septiembre 2026** · Diseñado para Obsidian Graph View*

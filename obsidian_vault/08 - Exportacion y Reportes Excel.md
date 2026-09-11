@@ -4,30 +4,35 @@ El módulo `web/backend/excel_export.py` compila reportes clínicos neuropsicol�
 
 ---
 
-## 📑 Estructura del Libro de Cálculo
+## 📑 Estructura del Libro de Cálculo (5 Hojas Especializadas)
 
-El archivo generado consta de dos hojas de cálculo altamente estructuradas con diseño visual profesional:
+El archivo `.xlsx` generado por `excel_export.py` consta de cinco hojas de cálculo estructuradas con diseño visual profesional para historia clínica y peritaje forense:
 
-### Hoja 1: "Resumen Clínico"
+### Hoja 1: "01_Resumen_Clinico"
+- **Encabezado Institucional:** Datos del evaluado anonimizado (`ID: ******829`, Edad, Escolaridad, Mano dominante, Fecha).
+- **Métricas Clínicas Principales:** $TN, TA, O, COM, TOT, CON, CP, FA, GQ, VAR, TRM, IVR$.
+- **Patrones Observacionales Algorítmicos:** Perfil primario de la Red Neuronal Keras (MLP).
+- **Notas de Barrido Visual:** Registro de saltos erráticos y retrocesos de línea.
+- **Biomarcadores Motores Digitales:** Jitter del cursor y páginas con alerta de tremor motor.
 
-- **Encabezado Institucional:** Datos del evaluado (Nombre, Documento, Edad, Escolaridad, Mano dominante, Fecha).
-- **Diagnóstico del Modelo de Inteligencia Artificial (MLP):** Perfil clasificado y porcentaje de confianza predictiva.
-- **Tabla de Métricas Clínicas Principales:** $TN, TA, O, COM, TOT, CON, CP, FA, GQ, VAR, TRM, IVR$.
-- **Sección de Biomarcadores Motores Digitales:** Resumen del Temblor del Cursor (promedio de Jitter, páginas con alerta de tremor motor y observaciones cinemáticas).
-- **Interpretación Neurocognitiva Automatizada:** Narrativa clínica generada para adjuntar en la historia clínica del paciente.
-
-### Hoja 2: "Análisis por Línea"
-
-- Desglose minucioso de cada una de las 14 páginas del test:
-  - Estímulos diana totales por línea.
-  - Aciertos ($TA$).
-  - Omisiones ($O$).
-  - Comisiones ($COM$).
-  - Estímulos evaluados hasta el último clic.
-  - Tiempo empleado por página (s) y porcentaje del tiempo total.
+### Hoja 2: "02_Analisis_Lineas"
+- Desglose minucioso de cada una de las 14 líneas de 20 segundos del test:
+  - Estímulos diana totales y evaluados hasta el último clic.
+  - Aciertos ($TA$), Omisiones ($O$) y Comisiones ($COM$).
   - Saltos erráticos / retrocesos en el barrido visual.
-  - **Tremor Score (Jitter Motor):** Puntuación cuantitativa de temblor del mouse.
-  - **⚠️ Indicador Temblor Motor:** `NORMAL` o `⚠️ ALERTA MOTOR`.
+  - Latencia invertida por línea (s) y porcentaje de exactitud.
+  - **Tremor Score (Jitter Motor):** Puntuación cuantitativa de aceleración del mouse.
+  - **⚠️ Indicador Temblor Motor:** `Normal` o `SÍ — Variabilidad cinemática elevada`.
+
+### Hoja 3: "03_Glosario_Metricas"
+- Diccionario biomédico estandarizado con acrónimos, terminología clínica y definición teórica de cada indicador ($TA, O, COM, CON, CP\%, TRM, IVR$).
+
+### Hoja 4: "04_Registro_Eventos_CRUDOS"
+- Auditoría milimétrica clic por clic a nivel de milisegundo (`elapsed_ms`), línea, columna visomotora y acción emitida para validez legal y peritaje forense.
+
+### Hoja 5: "05_Arrays_Para_Graficas"
+- Matrices vectoriales crudas para análisis estadístico (SPSS / R / Python) y 3 gráficos vectoriales nativos incrustados (`openpyxl` charts): Curva de Aciertos, Tasa de Falla (O vs C vs SE) y Saltos Erráticos.
+- Gráfica compuesta de 6 paneles generada por Matplotlib (`_charts_png`).
 
 ---
 

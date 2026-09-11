@@ -46,6 +46,14 @@ const App = {
   _mouseMoveThrottleTs: 0,    // timestamp del último evento registrado
   _mouseMoveHandler: null,    // ref a la función listener para poder removerla
 
+  // ── Biomarcadores Oculomotores (MediaPipe Face Mesh) ─────────────────────────
+  faceMeshInstance: null,
+  faceMeshRunning: false,
+  earSamples: [],             // [{ ear, t, line }]
+  gazeEvents: [],             // [{ start_t, duration_ms, line }]
+  _gazeDivertedStartTime: null,
+  _lastFaceMeshTs: 0,
+
   TOTAL_LINES: 14,
   TIME_PER_LINE: 20,
   CHARS_PER_LINE: 47,
@@ -814,6 +822,9 @@ const App = {
 
     this.recordingActive = true;
 
+    // Inicializar MediaPipe Face Mesh para análisis de parpadeo (EAR) y desvío de mirada
+    this.initFaceMeshTracking(cameraVideo);
+
     // Control estricto de FPS para evitar sobrecargar CPU en pantallas de alta tasa de refresco (ej. 144Hz)
     const fps = 15;
     const fpsInterval = 1000 / fps;
@@ -827,6 +838,14 @@ const App = {
       if (elapsed < fpsInterval) return;
 
       lastDrawTime = timestamp - (elapsed % fpsInterval);
+
+      // Inferencia MediaPipe Face Mesh a ~10 fps en background sin degradar el canvas
+      if (this.faceMeshRunning && this.faceMeshInstance && cameraVideo.readyState >= 2) {
+        if (timestamp - this._lastFaceMeshTs >= 100) {
+          this._lastFaceMeshTs = timestamp;
+          this.faceMeshInstance.send({ image: cameraVideo }).catch(() => {});
+        }
+      }
 
       // Dibujar captura de pantalla
       if (screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
@@ -920,13 +939,111 @@ const App = {
 
           const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
           this.recordedVideoBlob = blob;
+
+          // Detener y liberar MediaPipe Face Mesh
+          this.faceMeshRunning = false;
+          if (this.faceMeshInstance) {
+            try { this.faceMeshInstance.close(); } catch (e) {}
+            this.faceMeshInstance = null;
+          }
+
           resolve(blob);
         };
         this.mediaRecorder.stop();
       } else {
+        this.faceMeshRunning = false;
         resolve(null);
       }
     });
+  },
+
+  /* ── Inferencia MediaPipe Face Mesh (Edge-AI Oculometría) ─────────────── */
+  initFaceMeshTracking(videoElement) {
+    if (!window.FaceMesh) {
+      console.warn("MediaPipe FaceMesh no cargado en window.");
+      return;
+    }
+    try {
+      this.earSamples = [];
+      this.gazeEvents = [];
+      this._gazeDivertedStartTime = null;
+      this._lastFaceMeshTs = 0;
+
+      this.faceMeshInstance = new window.FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+      });
+
+      this.faceMeshInstance.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+
+      this.faceMeshInstance.onResults((results) => {
+        if (!this.recordingActive) return;
+        const now = performance.now();
+
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+          if (!this._gazeDivertedStartTime) {
+            this._gazeDivertedStartTime = now;
+          }
+          return;
+        }
+
+        const landmarks = results.multiFaceLandmarks[0];
+
+        // Cálculo de EAR (Eye Aspect Ratio)
+        // Ojo Izquierdo: top 159, bot 145, left 33, right 133
+        const distL_v = Math.hypot(landmarks[159].x - landmarks[145].x, landmarks[159].y - landmarks[145].y);
+        const distL_h = Math.hypot(landmarks[33].x - landmarks[133].x, landmarks[33].y - landmarks[133].y);
+        const earL = distL_h > 0 ? (distL_v / distL_h) : 0.28;
+
+        // Ojo Derecho: top 386, bot 374, left 362, right 263
+        const distR_v = Math.hypot(landmarks[386].x - landmarks[374].x, landmarks[386].y - landmarks[374].y);
+        const distR_h = Math.hypot(landmarks[362].x - landmarks[263].x, landmarks[362].y - landmarks[263].y);
+        const earR = distR_h > 0 ? (distR_v / distR_h) : 0.28;
+
+        const earAvg = (earL + earR) / 2.0;
+        this.earSamples.push({
+          ear: parseFloat(earAvg.toFixed(3)),
+          t: now,
+          line: this.currentLine + 1
+        });
+
+        // Detección de Desvío de Mirada / Postura Cefálica (Yaw / Pitch)
+        const faceWidth = Math.hypot(landmarks[234].x - landmarks[454].x, landmarks[234].y - landmarks[454].y);
+        const noseX = landmarks[1].x;
+        const midFaceX = (landmarks[234].x + landmarks[454].x) / 2;
+        const yawOffset = faceWidth > 0 ? (noseX - midFaceX) / faceWidth : 0;
+
+        // Umbral de desvío: giro de cabeza o mirada fuera del canvas
+        const isDiverted = Math.abs(yawOffset) > 0.16;
+
+        if (isDiverted) {
+          if (!this._gazeDivertedStartTime) {
+            this._gazeDivertedStartTime = now;
+          }
+        } else {
+          if (this._gazeDivertedStartTime) {
+            const duration = now - this._gazeDivertedStartTime;
+            if (duration >= 350) { // Desvío continuo de más de 350 ms
+              this.gazeEvents.push({
+                start_t: this._gazeDivertedStartTime,
+                duration_ms: duration,
+                line: this.currentLine + 1
+              });
+            }
+            this._gazeDivertedStartTime = null;
+          }
+        }
+      });
+
+      this.faceMeshRunning = true;
+    } catch (err) {
+      console.warn("No se pudo iniciar FaceMesh:", err);
+      this.faceMeshRunning = false;
+    }
   },
 
   renderTest(app) {
@@ -1123,13 +1240,28 @@ const App = {
        lastIdx = c.stim_idx;
     }
 
-    // 4. Biomarcadores Motor: limpiar listener y calcular tremor del cursor
+    // 4. Biomarcadores Motor: limpiar listener y calcular tremor y barrido del cursor
     const _saEl = document.getElementById('stim-area');
     if (_saEl && this._mouseMoveHandler) {
       _saEl.removeEventListener('mousemove', this._mouseMoveHandler);
       this._mouseMoveHandler = null;
     }
-    const tremorResult = computeTremorScore(this.mouseTrackPerLine[this.currentLine] || []);
+    const currentSamples = this.mouseTrackPerLine[this.currentLine] || [];
+    const tremorResult = computeTremorScore(currentSamples);
+    const sweepResult = computeSweepMetrics(currentSamples);
+
+    // Oculometría de la línea actual
+    const lineEarSamples = this.earSamples.filter(s => s.line === this.currentLine + 1);
+    const lineEarAvg = lineEarSamples.length > 0
+      ? parseFloat((lineEarSamples.reduce((a, b) => a + b.ear, 0) / lineEarSamples.length).toFixed(3))
+      : null;
+    let lineBlinks = 0;
+    let inBlink = false;
+    for (let s of lineEarSamples) {
+      if (s.ear < 0.20 && !inBlink) { lineBlinks++; inBlink = true; }
+      else if (s.ear >= 0.20) { inBlink = false; }
+    }
+    const lineGazeDiverted = this.gazeEvents.some(ev => ev.line === this.currentLine + 1);
 
     this.linesData.push({
       linea: this.currentLine + 1,
@@ -1141,6 +1273,12 @@ const App = {
       saltos_erraticos: jumps,
       tremor_score: tremorResult.score,
       tremor_flag: tremorResult.flag,
+      microtremor_score: tremorResult.microtremor || tremorResult.score,
+      sweep_regularity: sweepResult.sweep_regularity,
+      retrocesos_mouse: sweepResult.retrocesos,
+      ear_avg: lineEarAvg,
+      blinks_count: lineEarSamples.length > 0 ? lineBlinks : null,
+      gaze_diverted: lineGazeDiverted,
       tiempo_s: +elapsed.toFixed(3),
       tiempo_pct: +(Math.min(elapsed, this.TIME_PER_LINE) / this.TIME_PER_LINE * 100).toFixed(1)
     });
@@ -1164,6 +1302,38 @@ const App = {
     this.metrics._age = this.participant.age;
     this.metrics._linesDataRef = this.linesData;
 
+    // Detener tracking de MediaPipe si estaba activo y cerrar eventos pendientes
+    this.faceMeshRunning = false;
+    if (this._gazeDivertedStartTime) {
+      const dur = performance.now() - this._gazeDivertedStartTime;
+      if (dur >= 350) {
+        this.gazeEvents.push({ start_t: this._gazeDivertedStartTime, duration_ms: dur, line: this.currentLine + 1 });
+      }
+      this._gazeDivertedStartTime = null;
+    }
+
+    const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, this.metrics.totalTime);
+
+    // Promedios motores globales
+    const validTremors = this.linesData.map(l => l.microtremor_score || 0);
+    const microtremor_avg = validTremors.length > 0
+      ? parseFloat((validTremors.reduce((a, b) => a + b, 0) / validTremors.length).toFixed(2))
+      : 0.0;
+    const validSweeps = this.linesData.map(l => l.sweep_regularity !== undefined ? l.sweep_regularity : 100.0);
+    const sweep_regularity_avg = validSweeps.length > 0
+      ? parseFloat((validSweeps.reduce((a, b) => a + b, 0) / validSweeps.length).toFixed(1))
+      : 100.0;
+
+    // Consolidar en this.metrics
+    this.metrics.camera_active = oculoMetrics.camera_active;
+    this.metrics.ear_mean = oculoMetrics.ear_mean;
+    this.metrics.blink_count = oculoMetrics.blink_count;
+    this.metrics.blink_rate_min = oculoMetrics.blink_rate_min;
+    this.metrics.gaze_diverted_count = oculoMetrics.gaze_diverted_count;
+    this.metrics.gaze_diverted_ms = oculoMetrics.gaze_diverted_ms;
+    this.metrics.microtremor_avg = microtremor_avg;
+    this.metrics.sweep_regularity_avg = sweep_regularity_avg;
+
     // ML prediction via API
     try {
       const resp = await fetch(API_BASE + '/api/predict', {
@@ -1175,7 +1345,16 @@ const App = {
           O: this.metrics.O, C: this.metrics.COM,
           total_time: this.metrics.totalTime, cv_time: this.metrics.cvTime,
           fatigue_hits: this.metrics.TRM, consistency: this.metrics.consistency,
-          block_hits: this.metrics.blockHits
+          block_hits: this.metrics.blockHits,
+          // Nuevos biomarcadores conductuales y oculomotores
+          camera_active: this.metrics.camera_active,
+          ear_mean: this.metrics.ear_mean,
+          blink_count: this.metrics.blink_count,
+          blink_rate_min: this.metrics.blink_rate_min,
+          gaze_diverted_count: this.metrics.gaze_diverted_count,
+          gaze_diverted_ms: this.metrics.gaze_diverted_ms,
+          microtremor_avg: this.metrics.microtremor_avg,
+          sweep_regularity_avg: this.metrics.sweep_regularity_avg
         })
       });
       this.mlPred = await resp.json();
@@ -1209,7 +1388,16 @@ const App = {
             attnDesc: this.metrics.attnDesc, focusType: this.metrics.focusType,
             isIncomplete: this.metrics.isIncomplete, lastLine: this.metrics.lastLine,
             lastChar: this.metrics.lastChar,
-            tremor_lines: this.linesData.filter(l => l.tremor_flag).map(l => l.linea)
+            tremor_lines: this.linesData.filter(l => l.tremor_flag).map(l => l.linea),
+            // Nuevos biomarcadores en metrics
+            camera_active: this.metrics.camera_active,
+            ear_mean: this.metrics.ear_mean,
+            blink_count: this.metrics.blink_count,
+            blink_rate_min: this.metrics.blink_rate_min,
+            gaze_diverted_count: this.metrics.gaze_diverted_count,
+            gaze_diverted_ms: this.metrics.gaze_diverted_ms,
+            microtremor_avg: this.metrics.microtremor_avg,
+            sweep_regularity_avg: this.metrics.sweep_regularity_avg
           },
           ml_prediction: this.mlPred,
           narrative
@@ -1218,6 +1406,7 @@ const App = {
       const sd = await saveResp.json();
       this.evalId = sd.id;
       this.evalStatus = sd.status;
+
 
       // 2. Si se grabó video, subirlo al bucket exports y actualizar el registro en base de datos
       if (videoBlob && this.evalId) {
@@ -1248,6 +1437,14 @@ const App = {
             isIncomplete: this.metrics.isIncomplete, lastLine: this.metrics.lastLine,
             lastChar: this.metrics.lastChar,
             tremor_lines: this.linesData.filter(l => l.tremor_flag).map(l => l.linea),
+            camera_active: this.metrics.camera_active,
+            ear_mean: this.metrics.ear_mean,
+            blink_count: this.metrics.blink_count,
+            blink_rate_min: this.metrics.blink_rate_min,
+            gaze_diverted_count: this.metrics.gaze_diverted_count,
+            gaze_diverted_ms: this.metrics.gaze_diverted_ms,
+            microtremor_avg: this.metrics.microtremor_avg,
+            sweep_regularity_avg: this.metrics.sweep_regularity_avg,
             video_path: videoName
           };
           
@@ -1505,6 +1702,109 @@ const App = {
         </div>
 
 
+
+        <!-- C.2) Datos Extras de IA: Biomarcadores Oculomotores y Cinemáticos -->
+        <div class="card mb-4" style="border-left: 4px solid #00BCD4;">
+          <div style="display:flex;align-items:center;justify-content:between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            <div class="section-title" style="margin-bottom:0;color:#00838F;">Datos Extras de IA — Telemetría Oculomotora y Cinemática</div>
+            <span class="badge" style="background:#E0F7FA;color:#006064;font-size:0.75rem;padding:4px 8px;border-radius:6px;font-weight:700;">APOYO AL CRITERIO CLÍNICO</span>
+          </div>
+          <p style="font-size:0.88rem;color:#546E7A;margin-bottom:16px;line-height:1.45;">
+            Biomarcadores objetivos capturados en Edge-AI en el navegador del paciente. Operan como exámenes paraclínicos complementarios para que el profesional corrobore el patrón atencional y el nivel de tensión motriz. El sistema asiste y expone los datos crudos; el psicólogo conserva la exclusiva potestad diagnóstica.
+          </p>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px;">
+            
+            <!-- Columna 1: Oculometría (MediaPipe Face Mesh) -->
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <span style="font-weight:700;font-size:0.95rem;color:#1E293B;">👁️ Oculometría & Foco Visual</span>
+                <span style="font-size:0.75rem;font-weight:600;padding:2px 8px;border-radius:12px;${m.camera_active ? 'background:#E8F5E9;color:#2E7D32;' : 'background:#ECEFF1;color:#607D8B;'}">
+                  ${m.camera_active ? 'CÁMARA ACTIVA' : 'CÁMARA INACTIVA'}
+                </span>
+              </div>
+
+              ${m.camera_active ? `
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;text-align:center;margin-bottom:14px;">
+                  <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.15rem;font-weight:700;color:#00838F;">${m.ear_mean !== null && m.ear_mean !== undefined ? m.ear_mean.toFixed(2) : 'N/A'}</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">EAR Promedio</div>
+                  </div>
+                  <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.15rem;font-weight:700;color:#1565C0;">${m.blink_count || 0}</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Parpadeos (${m.blink_rate_min || 0}/m)</div>
+                  </div>
+                  <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.15rem;font-weight:700;color:${(m.gaze_diverted_count || 0) > 2 ? '#C62828' : '#2E7D32'};">${m.gaze_diverted_count || 0}</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Desvíos Mirada</div>
+                  </div>
+                </div>
+
+                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #00ACC1;color:#334155;">
+                  ${(function(){
+                    let notes = [];
+                    if ((m.gaze_diverted_count || 0) > 2) {
+                      notes.push(`<strong>Pérdida de fijación:</strong> Se detectaron ${m.gaze_diverted_count} desvíos de la mirada fuera del área del test (${((m.gaze_diverted_ms || 0)/1000).toFixed(1)}s en total). Posible distracción externa o fatiga.`);
+                    }
+                    if ((m.blink_rate_min || 0) > 26) {
+                      notes.push(`<strong>Sobreesfuerzo:</strong> Frecuencia de parpadeo elevada (${m.blink_rate_min}/min), común ante tensión visual o carga cognitiva.`);
+                    }
+                    if (notes.length === 0) {
+                      return '<span style="color:#2E7D32;">✓ Fijación ocular continua y parpadeo dentro de parámetros fisiológicos estándar.</span>';
+                    }
+                    return notes.join('<br/>');
+                  })()}
+                </div>
+              ` : `
+                <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
+                  ℹ️ La persona decidió no activar la cámara web. Los biomarcadores de parpadeo (EAR) y desvío de mirada no aplican para esta sesión.
+                </div>
+              `}
+            </div>
+
+            <!-- Columna 2: Cinemática del Mouse & Microtemblores -->
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <span style="font-weight:700;font-size:0.95rem;color:#1E293B;">🖱️ Cinemática Motora & Microtemblor</span>
+                <span style="font-size:0.75rem;font-weight:600;padding:2px 8px;border-radius:12px;background:#EDE7F6;color:#512DA8;">
+                  60 FPS MUESTREO
+                </span>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;text-align:center;margin-bottom:14px;">
+                <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                  <div style="font-size:1.15rem;font-weight:700;color:${(m.microtremor_avg || 0) > 85 ? '#D84315' : '#1565C0'};">${m.microtremor_avg !== undefined ? m.microtremor_avg : 0}</div>
+                  <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Jitter Promedio</div>
+                </div>
+                <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                  <div style="font-size:1.15rem;font-weight:700;color:${(m.sweep_regularity_avg || 100) < 80 ? '#C62828' : '#2E7D32'};">${m.sweep_regularity_avg !== undefined ? m.sweep_regularity_avg : 100}%</div>
+                  <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Regularidad Barrido</div>
+                </div>
+                <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
+                  <div style="font-size:1.15rem;font-weight:700;color:${(m.tremor_lines && m.tremor_lines.length > 0) ? '#C62828' : '#2E7D32'};">${m.tremor_lines ? m.tremor_lines.length : 0}</div>
+                  <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Págs con Tremor</div>
+                </div>
+              </div>
+
+              <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #7E57C2;color:#334155;">
+                ${(function(){
+                  let notes = [];
+                  if ((m.sweep_regularity_avg || 100) < 80) {
+                    notes.push(`<strong>Barrido no lineal:</strong> Retrocesos frecuentes del cursor detectados. El evaluado rectificó su avance horizontal repetidamente.`);
+                  }
+                  if (m.tremor_lines && m.tremor_lines.length > 0) {
+                    notes.push(`<strong>Tensión motora:</strong> Alerta de microtemblor superó el umbral clínico en páginas: <strong>${m.tremor_lines.join(', ')}</strong>.`);
+                  }
+                  if (notes.length === 0) {
+                    return '<span style="color:#2E7D32;">✓ Desplazamiento motor estable y barrido horizontal de izquierda a derecha altamente disciplinado.</span>';
+                  }
+                  return notes.join('<br/>');
+                })()}
+              </div>
+            </div>
+
+          </div>
+        </div>
 
         <!-- D) Narrativa técnica -->
         <div class="card mb-4">

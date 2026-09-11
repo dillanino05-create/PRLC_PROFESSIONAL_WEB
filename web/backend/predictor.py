@@ -60,15 +60,15 @@ class PLCMLPredictor:
         try:
             if os.path.exists(mp):
                 self.model = load_model(mp)
-                print(f'✅ MLP cargado desde {mp}')
+                print(f'[OK] MLP cargado desde {mp}')
         except Exception as e:
-            print(f'⚠️ Model error: {e}')
+            print(f'[WARN] Model error: {e}')
         try:
             if os.path.exists(sp):
                 self.scaler = joblib.load(sp)
-                print(f'✅ Scaler cargado')
+                print(f'[OK] Scaler cargado')
         except Exception as e:
-            print(f'⚠️ Scaler error: {e}')
+            print(f'[WARN] Scaler error: {e}')
         self.available = self.model is not None
 
     def predict(self, data: dict) -> dict:
@@ -115,6 +115,34 @@ class PLCMLPredictor:
             pc   = int(np.argmax(probs))
             conf = float(probs[pc])
             info = self.PROFILES.get(pc, self.PROFILES[0])
+
+            # ── Procesamiento de Biomarcadores Oculomotores y Conductuales ─────
+            camera_active = data.get('camera_active', False)
+            ear_mean = data.get('ear_mean')
+            blink_count = data.get('blink_count', 0)
+            blink_rate_min = data.get('blink_rate_min', 0.0)
+            gaze_diverted_count = data.get('gaze_diverted_count', 0)
+            gaze_diverted_ms = data.get('gaze_diverted_ms', 0.0)
+            microtremor_avg = data.get('microtremor_avg', 0.0)
+            sweep_regularity_avg = data.get('sweep_regularity_avg', 100.0)
+
+            biomarkers_summary = {
+                'camera_active': camera_active,
+                'oculomotor': {
+                    'ear_mean': ear_mean,
+                    'blink_count': blink_count,
+                    'blink_rate_min': blink_rate_min,
+                    'gaze_diverted_count': gaze_diverted_count,
+                    'gaze_diverted_ms': gaze_diverted_ms,
+                    'status': 'Foco Sostenido' if gaze_diverted_count <= 2 else 'Fluctuación / Desvíos Frecuentes'
+                } if camera_active else {'status': 'Cámara Desactivada por el Usuario'},
+                'motor_kinematics': {
+                    'microtremor_avg': microtremor_avg,
+                    'sweep_regularity_avg': sweep_regularity_avg,
+                    'status': 'Estabilidad Normal' if (microtremor_avg <= 85 and sweep_regularity_avg >= 80) else 'Tensión / Barrido Irregular'
+                }
+            }
+
             return {
                 'model_used': True,
                 'predicted_code': pc,
@@ -122,7 +150,8 @@ class PLCMLPredictor:
                 'confidence': conf,
                 'confidence_percent': f'{conf * 100:.1f}%',
                 'profile_info': info,
-                'all_probs': {self.PROFILES[i]['key']: float(p) for i, p in enumerate(probs)}
+                'all_probs': {self.PROFILES[i]['key']: float(p) for i, p in enumerate(probs)},
+                'biomarkers_summary': biomarkers_summary
             }
         except Exception as e:
             return {'model_used': False, 'error': str(e)}
