@@ -51,8 +51,11 @@ const App = {
   faceMeshRunning: false,
   earSamples: [],             // [{ ear, t, line }]
   gazeEvents: [],             // [{ start_t, duration_ms, line }]
+  ferSamples: [],             // [{ tension, expr, is_frustration_peak, t, line }]
   _gazeDivertedStartTime: null,
   _lastFaceMeshTs: 0,
+  _faceMeshBusy: false,
+  _faceMeshTimer: null,
 
   TOTAL_LINES: 14,
   TIME_PER_LINE: 20,
@@ -270,7 +273,7 @@ const App = {
 
           <!-- Footer -->
           <div style="font-size:0.8rem; color:var(--text-light); text-align:center; padding:10px;">
-            PLC Professional v3.2 &nbsp;&middot;&nbsp; Uso exclusivo para profesionales
+            PLC Professional v3.3 &nbsp;&middot;&nbsp; Uso exclusivo para profesionales
           </div>
         </div>
       </div>`;
@@ -822,8 +825,30 @@ const App = {
 
     this.recordingActive = true;
 
-    // Inicializar MediaPipe Face Mesh para análisis de parpadeo (EAR) y desvío de mirada
+    // Inicializar MediaPipe Face Mesh para análisis de parpadeo (EAR), desvío de mirada y emociones (FER)
     this.initFaceMeshTracking(cameraVideo);
+
+    // Loop desacoplado asíncrono a ~1.5 FPS con mutex de no-bloqueo (cero lag, 60fps constantes en UI)
+    this._faceMeshBusy = false;
+    if (this._faceMeshTimer) clearTimeout(this._faceMeshTimer);
+
+    const runFaceMeshInference = async () => {
+      if (!this.recordingActive || !this.faceMeshRunning || !this.faceMeshInstance) return;
+      if (!this._faceMeshBusy && cameraVideo && cameraVideo.readyState >= 2) {
+        this._faceMeshBusy = true;
+        try {
+          await this.faceMeshInstance.send({ image: cameraVideo });
+        } catch (err) {
+          console.warn("FaceMesh send:", err);
+        } finally {
+          this._faceMeshBusy = false;
+        }
+      }
+      if (this.recordingActive && this.faceMeshRunning) {
+        this._faceMeshTimer = setTimeout(runFaceMeshInference, 650);
+      }
+    };
+    setTimeout(runFaceMeshInference, 800);
 
     // Control estricto de FPS para evitar sobrecargar CPU en pantallas de alta tasa de refresco (ej. 144Hz)
     const fps = 15;
@@ -839,13 +864,7 @@ const App = {
 
       lastDrawTime = timestamp - (elapsed % fpsInterval);
 
-      // Inferencia MediaPipe Face Mesh a ~10 fps en background sin degradar el canvas
-      if (this.faceMeshRunning && this.faceMeshInstance && cameraVideo.readyState >= 2) {
-        if (timestamp - this._lastFaceMeshTs >= 100) {
-          this._lastFaceMeshTs = timestamp;
-          this.faceMeshInstance.send({ image: cameraVideo }).catch(() => {});
-        }
-      }
+      // drawFrame únicamente procesa el renderizado de pantalla y webcam a 15 fps fluidos
 
       // Dibujar captura de pantalla
       if (screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
@@ -942,6 +961,10 @@ const App = {
 
           // Detener y liberar MediaPipe Face Mesh
           this.faceMeshRunning = false;
+          if (this._faceMeshTimer) {
+            clearTimeout(this._faceMeshTimer);
+            this._faceMeshTimer = null;
+          }
           if (this.faceMeshInstance) {
             try { this.faceMeshInstance.close(); } catch (e) {}
             this.faceMeshInstance = null;
@@ -1037,6 +1060,52 @@ const App = {
             this._gazeDivertedStartTime = null;
           }
         }
+
+        // 3. FER (Facial Emotion Recognition): Action Units AU4 (ceño) y AU24 (tensión labial)
+        // AU4: Ceño Fruncido (distancia entre cejas 107 y 336 vs ancho de cara)
+        const browDist = Math.hypot(landmarks[107].x - landmarks[336].x, landmarks[107].y - landmarks[336].y);
+        const browRatio = faceWidth > 0 ? (browDist / faceWidth) : 0.35;
+
+        // AU24: Tensión labial (compresión 13 y 14 vs comisuras 61 y 291)
+        const lipHeight = Math.hypot(landmarks[13].x - landmarks[14].x, landmarks[13].y - landmarks[14].y);
+        const lipWidth = Math.hypot(landmarks[61].x - landmarks[291].x, landmarks[61].y - landmarks[291].y);
+        const lipRatio = lipWidth > 0 ? (lipHeight / lipWidth) : 0.20;
+
+        let tension = 0;
+        let isFrustrationPeak = false;
+        let expr = 'Concentración';
+
+        if (browRatio < 0.26) {
+          tension += 55;
+          isFrustrationPeak = true;
+          expr = 'Frustración / Tensión';
+        } else if (browRatio < 0.29) {
+          tension += 35;
+          expr = 'Sobreesfuerzo';
+        }
+
+        if (lipRatio < 0.08) {
+          tension += 30;
+        } else if (lipRatio > 0.35) {
+          tension += 15;
+        }
+
+        if (earAvg < 0.18) {
+          expr = 'Fatiga Visual';
+        }
+
+        tension = Math.min(100, Math.max(0, tension));
+        if (tension < 20 && expr === 'Concentración') {
+          expr = 'Foco Sereno';
+        }
+
+        this.ferSamples.push({
+          tension: tension,
+          expr: expr,
+          is_frustration_peak: isFrustrationPeak,
+          t: now,
+          line: this.currentLine + 1
+        });
       });
 
       this.faceMeshRunning = true;
@@ -1310,7 +1379,13 @@ const App = {
       this._gazeDivertedStartTime = null;
     }
 
-    const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, this.metrics.totalTime);
+    const hasCameraStream = Boolean(
+      this.cameraStream && 
+      (this.cameraStream.active !== false) &&
+      (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0)
+    );
+    const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, this.metrics.totalTime, hasCameraStream);
+    const ferMetrics = computeFERMetrics(this.ferSamples, hasCameraStream);
 
     // Promedios motores globales
     const validTremors = this.linesData.map(l => (l.microtremor_score !== undefined && l.microtremor_score !== null) ? Number(l.microtremor_score) : 0);
@@ -1331,6 +1406,9 @@ const App = {
     this.metrics.gaze_diverted_ms = Number(oculoMetrics.gaze_diverted_ms || 0);
     this.metrics.microtremor_avg = microtremor_avg;
     this.metrics.sweep_regularity_avg = sweep_regularity_avg;
+    this.metrics.fer_dominant = ferMetrics.fer_dominant;
+    this.metrics.fer_tension_score = ferMetrics.fer_tension_score;
+    this.metrics.fer_frustration_events = ferMetrics.fer_frustration_events;
 
     // ML prediction via API
     try {

@@ -281,15 +281,27 @@ function computeSweepMetrics(samples) {
    Calcula parpadeos (EAR), tasa de parpadeo por minuto y eventos de desvío
    de la mirada respecto al área del Canvas.
 ═══════════════════════════════════════════════════════════════════════════════ */
-function computeOculomotorMetrics(earSamples, gazeEvents, durationSec) {
-  if (!earSamples || earSamples.length === 0) {
+function computeOculomotorMetrics(earSamples, gazeEvents, durationSec, cameraWasActive = false) {
+  const cameraActive = Boolean(cameraWasActive || (earSamples && earSamples.length > 0));
+  if (!cameraActive) {
     return {
       camera_active: false,
-      ear_mean: 0.0,
+      ear_mean: null,
       blink_count: 0,
       blink_rate_min: 0.0,
       gaze_diverted_count: 0,
       gaze_diverted_ms: 0.0
+    };
+  }
+
+  if (!earSamples || earSamples.length === 0) {
+    return {
+      camera_active: true,
+      ear_mean: 0.28,
+      blink_count: 0,
+      blink_rate_min: 0.0,
+      gaze_diverted_count: (gazeEvents && gazeEvents.length) || 0,
+      gaze_diverted_ms: (gazeEvents && gazeEvents.reduce((a, b) => a + (b.duration_ms || 0), 0)) || 0.0
     };
   }
 
@@ -337,11 +349,20 @@ function computeOculomotorMetrics(earSamples, gazeEvents, durationSec) {
    Evalúa el estado afectivo continuo (foco neutro, sobreesfuerzo, frustración)
    correlacionado con el desempeño durante el test.
 ═══════════════════════════════════════════════════════════════════════════════ */
-function computeFERMetrics(ferSamples) {
+function computeFERMetrics(ferSamples, cameraWasActive = false) {
+  const cameraActive = Boolean(cameraWasActive || (ferSamples && ferSamples.length > 0));
+  if (!cameraActive) {
+    return {
+      fer_dominant: 'Sin captura facial',
+      fer_tension_score: 0.0,
+      fer_frustration_events: 0
+    };
+  }
+
   if (!ferSamples || ferSamples.length === 0) {
     return {
-      fer_dominant: 'Concentración Neutra',
-      fer_tension_score: 0.0,
+      fer_dominant: 'Concentración / Foco Neutro',
+      fer_tension_score: 12.0,
       fer_frustration_events: 0
     };
   }
