@@ -622,6 +622,10 @@ const App = {
      PANTALLA 3.5: PRÁCTICA
   ══════════════════════════════════════════════════════════════════════ */
   renderPractice(app) {
+    if (this.testType === 'CORSI') {
+      this.renderCorsiPractice(app);
+      return;
+    }
     app.innerHTML = `
       <div class="plc-header">
         <div><h1>Mini-Prueba de Práctica</h1>
@@ -751,6 +755,274 @@ const App = {
   },
 
   /* ══════════════════════════════════════════════════════════════════════
+     PANTALLA 3.5-CORSI: PRÁCTICA INTERACTIVA DE 3 CUBOS (DIRECTO / INVERSO)
+  ══════════════════════════════════════════════════════════════════════ */
+  renderCorsiPractice(app) {
+    const isReverse = this.corsiMode === 'reverse';
+    this._corsiPracticeSequence = [0, 4, 8]; // 3 cubos didácticos: Cubo 1, Cubo 5, Cubo 9
+    this._corsiPracticeUserClicks = [];
+    this._corsiPracticeCanClick = false;
+
+    app.innerHTML = `
+      <div class="plc-header">
+        <div>
+          <h1 style="display:flex;align-items:center;gap:10px;">
+            Mini-Prueba de Práctica — Test de Bloques de Corsi
+            <span class="badge" style="background:${isReverse ? '#7E22CE' : '#0284C7'};color:#fff;font-size:0.8rem;padding:4px 10px;border-radius:12px;">
+              ${isReverse ? 'Modalidad Inversa' : 'Modalidad Directa'}
+            </span>
+          </h1>
+          <div class="sub">
+            Ensayo didáctico interactivo de 3 cubos. ${isReverse ? 'Deberás reproducir la secuencia al revés (del último al primero).' : 'Deberás reproducir la secuencia en el mismo orden exacto.'}
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="App.nav('pretest')">← Volver a Instrucciones</button>
+      </div>
+
+      <div class="page fade-in" style="max-width: 960px;">
+        <div class="card" style="padding: 24px; background: #0F172A; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; box-shadow: 0 12px 36px rgba(0,0,0,0.5);">
+          
+          <!-- Banner de Estado de la Práctica -->
+          <div id="corsi-p-banner" style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); color: #E0F2FE; padding: 12px 20px; border-radius: 12px; font-size: 1rem; font-weight: 600; text-align: center; margin-bottom: 18px; transition: all 0.3s ease;">
+            Preparando demostración de 3 cubos...
+          </div>
+
+          <!-- Tablero Espacial de Corsi para la Práctica (480px alto responsivo) -->
+          <div id="corsi-practice-board" style="position: relative; width: 100%; height: 480px; background: rgba(15, 23, 42, 0.8); border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); box-shadow: inset 0 4px 24px rgba(0,0,0,0.6); overflow: hidden; margin-bottom: 20px;">
+          </div>
+
+          <!-- Feedback de progreso -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; background: rgba(255,255,255,0.03); padding: 12px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);">
+            <div style="color: #94A3B8; font-size: 0.9rem;">
+              Secuencia objetivo: <strong style="color: #38BDF8;">3 cubos</strong> |
+              Modo: <strong style="color: ${isReverse ? '#C084FC' : '#38BDF8'};">${isReverse ? 'Inverso (al revés)' : 'Directo (mismo orden)'}</strong>
+            </div>
+            <div id="corsi-p-feedback" style="font-weight: 700; font-size: 0.95rem; color: #FBBF24;">
+              Demostración en curso...
+            </div>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div class="flex flex-between items-center" style="gap: 16px; flex-wrap: wrap;">
+            <button class="btn btn-warn" style="padding: 12px 22px; font-weight: 600; border-radius: 10px;" onclick="App.startCorsiPracticeDemo()">
+              🔄 Repetir práctica (ver secuencia otra vez)
+            </button>
+            <button class="btn btn-primary btn-lg" id="btn-start-corsi-real" disabled style="padding: 14px 36px; font-size: 1.08rem; border-radius: 10px; font-weight: 700; box-shadow: 0 4px 16px rgba(40, 53, 147, 0.3);" onclick="App.startTest()">
+              Iniciar Prueba Real de Corsi &nbsp;→
+            </button>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    this.initCorsiPracticeBoard();
+    setTimeout(() => {
+      this.startCorsiPracticeDemo();
+    }, 600);
+  },
+
+  initCorsiPracticeBoard() {
+    const board = document.getElementById('corsi-practice-board');
+    if (!board) return;
+    board.innerHTML = '';
+
+    const cubePositions = (window.CorsiRunner && window.CorsiRunner.cubePositions) ? window.CorsiRunner.cubePositions : [
+      { x: 14, y: 16 }, { x: 76, y: 14 }, { x: 46, y: 28 },
+      { x: 24, y: 48 }, { x: 68, y: 46 }, { x: 86, y: 66 },
+      { x: 10, y: 74 }, { x: 44, y: 80 }, { x: 74, y: 82 }
+    ];
+
+    cubePositions.forEach((pos, idx) => {
+      const cube = document.createElement('div');
+      cube.id = `corsi-p-cube-${idx}`;
+      cube.className = 'corsi-cube';
+      cube.dataset.id = idx;
+
+      cube.style.position = 'absolute';
+      cube.style.left = `calc(${pos.x}% - 36px)`;
+      cube.style.top = `calc(${pos.y}% - 36px)`;
+      cube.style.width = '72px';
+      cube.style.height = '72px';
+      cube.style.borderRadius = '14px';
+      cube.style.background = 'linear-gradient(145deg, #334155 0%, #1E293B 100%)';
+      cube.style.border = '2px solid rgba(148, 163, 184, 0.2)';
+      cube.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.15)';
+      cube.style.display = 'flex';
+      cube.style.alignItems = 'center';
+      cube.style.justifyContent = 'center';
+      cube.style.cursor = 'pointer';
+      cube.style.transition = 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)';
+      cube.style.userSelect = 'none';
+
+      const label = document.createElement('span');
+      label.textContent = idx + 1;
+      label.style.fontSize = '1.15rem';
+      label.style.fontWeight = '700';
+      label.style.color = 'rgba(255, 255, 255, 0.35)';
+      cube.appendChild(label);
+
+      cube.onclick = () => this.handleCorsiPracticeClick(idx);
+
+      board.appendChild(cube);
+    });
+  },
+
+  async startCorsiPracticeDemo() {
+    this._corsiPracticeCanClick = false;
+    this._corsiPracticeUserClicks = [];
+    const banner = document.getElementById('corsi-p-banner');
+    const feedback = document.getElementById('corsi-p-feedback');
+    const startBtn = document.getElementById('btn-start-corsi-real');
+    if (startBtn) startBtn.disabled = true;
+
+    // Limpiar estilos de los cubos
+    for (let i = 0; i < 9; i++) {
+      const c = document.getElementById(`corsi-p-cube-${i}`);
+      if (c) {
+        c.style.background = 'linear-gradient(145deg, #334155 0%, #1E293B 100%)';
+        c.style.borderColor = 'rgba(148, 163, 184, 0.2)';
+        c.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+        c.style.transform = 'scale(1)';
+        const lbl = c.querySelector('span');
+        if (lbl) {
+          lbl.textContent = i + 1;
+          lbl.style.color = 'rgba(255, 255, 255, 0.35)';
+        }
+      }
+    }
+
+    if (banner) {
+      banner.textContent = '👀 Observa con atención la secuencia didáctica de 3 cubos...';
+      banner.style.background = 'rgba(56, 189, 248, 0.12)';
+      banner.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+      banner.style.color = '#E0F2FE';
+    }
+    if (feedback) feedback.textContent = 'Demostración en curso...';
+
+    await new Promise(r => setTimeout(r, 600));
+
+    // Iluminar la secuencia didáctica [0, 4, 8]
+    const seq = this._corsiPracticeSequence;
+    for (let i = 0; i < seq.length; i++) {
+      const cubeId = seq[i];
+      const cubeEl = document.getElementById(`corsi-p-cube-${cubeId}`);
+      if (!cubeEl) continue;
+
+      // Flash del cubo
+      cubeEl.style.background = 'radial-gradient(circle, #FDE047 0%, #EAB308 70%, #CA8A04 100%)';
+      cubeEl.style.borderColor = '#FEF08A';
+      cubeEl.style.boxShadow = '0 0 35px rgba(250, 204, 21, 0.8), inset 0 2px 4px rgba(255,255,255,0.6)';
+      cubeEl.style.transform = 'scale(1.08)';
+
+      if (window.CorsiRunner && window.CorsiRunner.playTone) {
+        window.CorsiRunner.playTone(520 + (cubeId * 40), 500);
+      }
+
+      await new Promise(r => setTimeout(r, 800));
+
+      cubeEl.style.background = 'linear-gradient(145deg, #334155 0%, #1E293B 100%)';
+      cubeEl.style.borderColor = 'rgba(148, 163, 184, 0.2)';
+      cubeEl.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+      cubeEl.style.transform = 'scale(1)';
+
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    // Turno del participante
+    const isReverse = this.corsiMode === 'reverse';
+    this._corsiPracticeCanClick = true;
+
+    if (banner) {
+      if (isReverse) {
+        banner.textContent = '🎯 ¡Tu turno! Haz clic en los 3 cubos en ORDEN INVERSO (del último al primero).';
+        banner.style.background = 'rgba(192, 132, 252, 0.15)';
+        banner.style.borderColor = 'rgba(192, 132, 252, 0.4)';
+        banner.style.color = '#F3E8FF';
+      } else {
+        banner.textContent = '🎯 ¡Tu turno! Haz clic en los 3 cubos en el MISMO ORDEN (1º, 2º y 3º).';
+        banner.style.background = 'rgba(74, 222, 128, 0.15)';
+        banner.style.borderColor = 'rgba(74, 222, 128, 0.4)';
+        banner.style.color = '#DCFCE7';
+      }
+    }
+    if (feedback) feedback.textContent = 'Esperando tus clics (0 / 3)...';
+  },
+
+  handleCorsiPracticeClick(cubeIdx) {
+    if (!this._corsiPracticeCanClick) return;
+    if (this._corsiPracticeUserClicks.includes(cubeIdx)) return; // Evitar doble clic sobre el mismo cubo
+
+    this._corsiPracticeUserClicks.push(cubeIdx);
+    const clickOrder = this._corsiPracticeUserClicks.length;
+    const isReverse = this.corsiMode === 'reverse';
+
+    // Retroalimentación visual en el cubo pulsado
+    const cubeEl = document.getElementById(`corsi-p-cube-${cubeIdx}`);
+    if (cubeEl) {
+      cubeEl.style.background = isReverse ? 'linear-gradient(145deg, #9333EA, #6B21A8)' : 'linear-gradient(145deg, #2563EB, #1D4ED8)';
+      cubeEl.style.borderColor = isReverse ? '#C084FC' : '#60A5FA';
+      cubeEl.style.boxShadow = isReverse ? '0 0 20px rgba(147, 51, 234, 0.5)' : '0 0 20px rgba(37, 99, 235, 0.5)';
+      cubeEl.style.transform = 'scale(1.05)';
+      const lbl = cubeEl.querySelector('span');
+      if (lbl) {
+        lbl.textContent = clickOrder;
+        lbl.style.color = '#FFFFFF';
+      }
+      if (window.CorsiRunner && window.CorsiRunner.playTone) {
+        window.CorsiRunner.playTone(600 + (clickOrder * 80), 200);
+      }
+    }
+
+    const feedback = document.getElementById('corsi-p-feedback');
+    if (feedback) feedback.textContent = `Registrado cubo ${clickOrder} de 3...`;
+
+    // Si completó los 3 clics, validar
+    if (clickOrder === 3) {
+      this._corsiPracticeCanClick = false;
+      const expectedSeq = isReverse ? [...this._corsiPracticeSequence].reverse() : [...this._corsiPracticeSequence];
+      const isSuccess = this._corsiPracticeUserClicks.every((val, i) => val === expectedSeq[i]);
+
+      const banner = document.getElementById('corsi-p-banner');
+      const startBtn = document.getElementById('btn-start-corsi-real');
+
+      if (isSuccess) {
+        if (banner) {
+          banner.textContent = '✅ ¡Excelente! Secuencia completada correctamente. Ya estás listo para la prueba real.';
+          banner.style.background = 'rgba(16, 185, 129, 0.2)';
+          banner.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+          banner.style.color = '#A7F3D0';
+        }
+        if (feedback) {
+          feedback.innerHTML = '<span style="color:#10B981;">✓ ¡Práctica superada con éxito!</span>';
+        }
+        if (startBtn) {
+          startBtn.disabled = false;
+        }
+        if (window.CorsiRunner && window.CorsiRunner.playTone) {
+          window.CorsiRunner.playTone(880, 400);
+        }
+      } else {
+        if (banner) {
+          banner.textContent = isReverse
+            ? '❌ Secuencia incorrecta. Recuerda que en Modo Inverso debes pulsar del ÚLTIMO al PRIMERO. Pulsa "Repetir práctica".'
+            : '❌ Secuencia incorrecta. Recuerda que debes pulsar en el MISMO orden. Pulsa "Repetir práctica".';
+          banner.style.background = 'rgba(239, 68, 68, 0.2)';
+          banner.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+          banner.style.color = '#FCA5A5';
+        }
+        if (feedback) {
+          feedback.innerHTML = '<span style="color:#EF4444;">✗ No coincide con la secuencia requerida.</span>';
+        }
+        if (startBtn) startBtn.disabled = true;
+        if (window.CorsiRunner && window.CorsiRunner.playTone) {
+          window.CorsiRunner.playTone(250, 400, 'sawtooth');
+        }
+      }
+    }
+  },
+
+  /* ══════════════════════════════════════════════════════════════════════
      PANTALLA 4: TEST (14 líneas × 47 estímulos)
   ══════════════════════════════════════════════════════════════════════ */
   async requestPermissionsAndGoToPractice() {
@@ -795,8 +1067,8 @@ const App = {
       try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         cameraStatus = 'ok';
-        // Pre-compilación en background de MediaPipe FaceMesh para eliminar el congelamiento de 3s
-        this.warmupFaceMesh();
+        // Pre-compilación en background diferida de MediaPipe FaceMesh para eliminar cualquier congelamiento
+        setTimeout(() => this.warmupFaceMesh(), 50);
       } catch (e) {
         console.warn("Cámara denegada o no disponible:", e);
         cameraStatus = 'error';
@@ -912,11 +1184,7 @@ const App = {
     }
 
     this.startRecording();
-    if (this.testType === 'CORSI') {
-      this.nav('test');
-    } else {
-      this.nav('practice');
-    }
+    this.nav('practice');
   },
 
   startTest() {
@@ -1340,77 +1608,33 @@ const App = {
     };
     window.addEventListener('mousemove', this._mouseMoveHandler, { passive: true });
 
-    const isReverse = this.corsiMode === 'reverse';
-
-    app.innerHTML = `
-      <div id="test-screen" style="background:#0A0E1A;min-height:100vh;display:flex;flex-direction:column;user-select:none;">
-        <!-- Header -->
-        <div class="test-header" style="background:#111625;border-bottom:1px solid rgba(255,255,255,0.1);padding:14px 24px;display:flex;justify-content:space-between;align-items:center;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span class="line-label" id="corsi-level-lbl" style="background:#3949AB;color:#FFF;padding:4px 12px;border-radius:12px;font-weight:700;font-size:0.9rem;">
-              NIVEL: 2 CUBOS
-            </span>
-            <span style="color:#90CAF9;font-weight:600;font-size:0.95rem;" id="corsi-mode-lbl">
-              ${isReverse ? 'Modo Inverso (Orden Inverso)' : 'Modo Directo (Mismo Orden)'}
-            </span>
-          </div>
-          <div id="corsi-status-msg" style="font-size:1.15rem;font-weight:700;color:#FFD54F;letter-spacing:0.5px;">
-            Iniciando prueba...
-          </div>
-          <div id="corsi-attempt-lbl" style="color:#B0BEC5;font-size:0.9rem;">
-            Intento 1 de 2
-          </div>
-        </div>
-
-        <!-- Board Container -->
-        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:20px;position:relative;">
-          <div id="corsi-board-container" style="position:relative;width:min(90vw, 880px);height:min(70vh, 580px);background:#131B2E;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);overflow:hidden;">
-            <!-- CorsiRunner renderizará aquí los 9 cubos -->
-          </div>
-        </div>
-
-        <!-- Footer / Hint -->
-        <div style="background:#111625;border-top:1px solid rgba(255,255,255,0.1);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;font-size:0.88rem;color:#78909C;">
-          <div>
-            Participante: <strong style="color:#ECEFF1;">${this.participant?.name || 'Evaluado'}</strong> (ID: ${this.participant?.id || 'P01'})
-          </div>
-          <div id="corsi-footer-hint" style="color:#90CAF9;">
-            ${isReverse ? '⚠️ Recuerda: Deberás reproducir la secuencia al revés (del último al primero).' : '💡 Recuerda: Deberás reproducir la secuencia en el mismo orden.'}
-          </div>
-        </div>
-      </div>
-    `;
-
-    const boardEl = document.getElementById('corsi-board-container');
-    const levelLbl = document.getElementById('corsi-level-lbl');
-    const statusMsg = document.getElementById('corsi-status-msg');
-    const attemptLbl = document.getElementById('corsi-attempt-lbl');
-
     if (!window.CorsiRunner) {
       console.error("CorsiRunner no está cargado.");
       return;
     }
 
-    window.CorsiRunner.start(boardEl, {
+    window.CorsiRunner.start(app, {
       mode: this.corsiMode || 'direct',
-      onProgress: (info) => {
-        if (levelLbl) levelLbl.innerText = `NIVEL: ${info.level} CUBOS`;
-        if (attemptLbl) attemptLbl.innerText = `Intento ${info.attempt} de 2`;
-        if (statusMsg) {
-          if (info.phase === 'presenting') {
-            statusMsg.innerText = '👀 Observa la secuencia...';
-            statusMsg.style.color = '#FFD54F';
-          } else if (info.phase === 'user_turn') {
-            statusMsg.innerText = this.corsiMode === 'reverse' ? '🎯 ¡Tu turno! (Orden INVERSO)' : '🎯 ¡Tu turno! (Mismo orden)';
-            statusMsg.style.color = '#4CAF50';
-          } else if (info.phase === 'success') {
-            statusMsg.innerText = '✅ ¡Secuencia correcta!';
-            statusMsg.style.color = '#4CAF50';
-          } else if (info.phase === 'error') {
-            statusMsg.innerText = '❌ Secuencia incorrecta';
-            statusMsg.style.color = '#EF5350';
-          }
+      participantName: this.participant?.name || 'Evaluado',
+      participantId: this.participant?.id || 'P01',
+      onAbort: async () => {
+        if (this._mouseMoveHandler) {
+          window.removeEventListener('mousemove', this._mouseMoveHandler);
+          this._mouseMoveHandler = null;
         }
+        try {
+          await this.stopRecording();
+        } catch(e) {}
+        this.faceMeshRunning = false;
+        if (this.cameraStream) {
+          try { this.cameraStream.getTracks().forEach(t => t.stop()); } catch(e) {}
+          this.cameraStream = null;
+        }
+        if (this.screenStream) {
+          try { this.screenStream.getTracks().forEach(t => t.stop()); } catch(e) {}
+          this.screenStream = null;
+        }
+        this.nav('menu');
       },
       onComplete: async (result) => {
         if (this._mouseMoveHandler) {
@@ -2856,7 +3080,7 @@ const App = {
       </div>
       <table class="history-table">
         <thead>
-          <tr><th>#</th><th>Fecha</th><th>ID</th><th>Nombre</th><th>Edad</th><th>CP %</th><th>TA</th><th>Acciones</th></tr>
+          <tr><th>#</th><th>Fecha</th><th>Batería / Modo</th><th>ID</th><th>Nombre</th><th>Edad</th><th>Rendimiento / Span</th><th>Acciones</th></tr>
         </thead>
         <tbody id="history-tbody">
           ${this.generateHistoryRowsHTML(rows)}
@@ -2901,20 +3125,50 @@ const App = {
         videoBadgeHtml = `<span style="font-size:0.7rem;color:#64748B;padding:3px 6px;background:#F1F5F9;border-radius:6px;border:1px solid #CBD5E1;font-weight:600;" title="El video cumplió el período reglamentario de 30 días y fue purgado de la nube.">🗑️ Expirado (+30d)</span>`;
       }
 
+      const isCorsi = (r.test_type === 'CORSI');
+      const isCorsiReverse = isCorsi && (String(r.corsi_mode).toLowerCase() === 'reverse' || String(r.corsi_mode).toLowerCase() === 'inverso');
+
+      let testBadgeHtml = '';
+      if (isCorsi) {
+        if (isCorsiReverse) {
+          testBadgeHtml = `<span class="badge" style="background:#F3E8FF;color:#7E22CE;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid #E9D5FF;font-size:0.75rem;white-space:nowrap;">🧊 Corsi Inverso</span>`;
+        } else {
+          testBadgeHtml = `<span class="badge" style="background:#E0F2FE;color:#0369A1;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid #BAE6FD;font-size:0.75rem;white-space:nowrap;">🧊 Corsi Directo</span>`;
+        }
+      } else {
+        testBadgeHtml = `<span class="badge" style="background:#EDE7F6;color:#4527A0;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid #D1C4E9;font-size:0.75rem;white-space:nowrap;">🎯 PLC (d2)</span>`;
+      }
+
+      let scoreHtml = '';
+      if (isCorsi) {
+        scoreHtml = `
+          <div style="display:flex;flex-direction:column;gap:1px;">
+            <div style="font-size:0.95rem;">Span: <strong style="color:#0284C7;">${(r.corsi_span !== undefined && r.corsi_span !== null) ? r.corsi_span : '-'}</strong></div>
+            <div style="font-size:0.72rem;color:#64748B;">Compuesto: <strong>${r.composite_score || 0}</strong> pts</div>
+          </div>
+        `;
+      } else {
+        scoreHtml = `
+          <div style="display:flex;flex-direction:column;gap:1px;">
+            <div style="font-size:0.95rem;">CP: <strong style="color:${r.CP >= 75 ? '#2E7D32' : r.CP >= 50 ? '#E65100' : '#B71C1C'}">${r.CP}%</strong></div>
+            <div style="font-size:0.72rem;color:#64748B;">TA: ${r.TA} aciertos</div>
+          </div>
+        `;
+      }
+
       return `
       <tr>
         <td>
           <div style="display:inline-flex;align-items:center;gap:5px;">
             <span style="font-weight:700;" title="${escapeHTML(r.session_tag || '')}">${r.id}</span>
-            <span class="badge" style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:4px;background:#EDE7F6;color:#4527A0;" title="Batería: ${escapeHTML(r.test_type || 'PLC')}">${escapeHTML(r.test_type || 'PLC')}</span>
           </div>
         </td>
-        <td>${new Date(r.created_at).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })}</td>
+        <td style="font-size:0.85rem;white-space:nowrap;">${new Date(r.created_at).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })}</td>
+        <td>${testBadgeHtml}</td>
         <td>${escapeHTML(r.participant_id)}</td>
         <td><strong>${escapeHTML(r.participant_name)}</strong></td>
         <td>${r.age}</td>
-        <td><span style="font-weight:700;color:${r.CP >= 75 ? '#2E7D32' : r.CP >= 50 ? '#E65100' : '#B71C1C'}">${r.CP}</span></td>
-        <td>${r.TA}</td>
+        <td>${scoreHtml}</td>
         <td class="flex gap-2" style="align-items:center;">
           <button class="btn btn-ghost btn-sm" style="background:#E8EAF6;color:#1A237E;" onclick="App.openWebReport(${r.id}, this)">👁️ Ver Web</button>
           ${videoBadgeHtml}
@@ -3010,9 +3264,25 @@ const App = {
         return;
       }
 
-      const metrics = data.metrics_json;
+      const metrics = data.metrics_json || {};
       const lines = data.lines_json;
       const ml = data.ml_json;
+
+      // Si es una evaluación del Test de Corsi, enrutar a su vista interactiva de resultados
+      if (metrics.test_type === 'CORSI' || data.test_type === 'CORSI') {
+        this.metrics = metrics;
+        this.participant = {
+          name: data.participant_name,
+          id: data.participant_id,
+          age: data.age
+        };
+        this.evalId = data.id;
+        this.linesData = lines;
+        this.sessionTag = data.session_tag || (metrics ? metrics.session_tag : null);
+        this.nav('results');
+        if (btn) { btn.textContent = "👁️ Ver Web"; btn.disabled = false; }
+        return;
+      }
 
       const lastAttemptedIndex = lines ? lines.map(l => l.evaluados || 0).reduce((maxIdx, val, idx) => val > 0 ? idx : maxIdx, -1) : -1;
       const isIncomplete = lastAttemptedIndex >= 0 && (lastAttemptedIndex + 1) < lines.length;

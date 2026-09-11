@@ -418,6 +418,10 @@ def history(auth_ctx: dict = Depends(get_supabase)):
 
             test_type = m.get('test_type', 'PLC')
             session_tag = m.get('session_tag') or compute_session_tag(r)
+            corsi_mode = m.get('corsi_mode') or m.get('mode') or m.get('testMode')
+            corsi_span = m.get('corsi_span')
+            composite_score = m.get('composite_score')
+            accuracy_rate = m.get('accuracy_rate') or m.get('accuracy_pct')
 
             result.append({
                 'id': r['id'],
@@ -428,6 +432,10 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'status': r.get('status', 'completed'),
                 'test_type': test_type,
                 'session_tag': session_tag,
+                'corsi_mode': corsi_mode,
+                'corsi_span': corsi_span,
+                'composite_score': composite_score,
+                'accuracy_rate': accuracy_rate,
                 'CP': round(m.get('CP', 0), 1) if 'CP' in m else 0,
                 'TA': m.get('TA', 0),
                 'video_path': vpath if (not is_expired and video_days_left > 0) else '',

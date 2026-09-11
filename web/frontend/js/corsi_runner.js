@@ -91,8 +91,10 @@ window.CorsiRunner = {
   start(containerEl, options = {}) {
     this.container = containerEl;
     this.testMode = options.mode || 'direct';
-    this.onFinish = options.onFinish || null;
+    this.onFinish = options.onFinish || options.onComplete || null;
     this.onAbort = options.onAbort || null;
+    this.participantName = options.participantName || '';
+    this.participantId = options.participantId || '';
 
     this.currentLevel = 2;
     this.attemptsLeft = 2;
@@ -113,10 +115,10 @@ window.CorsiRunner = {
   renderUI() {
     const isDirect = this.testMode === 'direct';
     this.container.innerHTML = `
-      <div style="background: radial-gradient(circle at center, #1E293B 0%, #0F172A 100%); min-height: calc(100vh - 120px); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; box-shadow: 0 12px 36px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); user-select: none;">
+      <div style="background: radial-gradient(circle at center, #1E293B 0%, #0F172A 100%); width: 100%; height: 100vh; max-height: 100vh; padding: 12px 20px; display: flex; flex-direction: column; box-sizing: border-box; user-select: none; overflow: hidden;">
         
         <!-- Barra Superior de Estado SaaS -->
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; background: rgba(255,255,255,0.04); padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: rgba(255,255,255,0.04); padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;">
           <div style="display: flex; align-items: center; gap: 10px;">
             <span style="font-size: 1.3rem;">🧊</span>
             <div>
@@ -127,7 +129,7 @@ window.CorsiRunner = {
             </div>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 20px;">
+          <div style="display: flex; align-items: center; gap: 18px;">
             <div style="text-align: center;">
               <div style="font-size: 0.68rem; color: #94A3B8; font-weight: 600; text-transform: uppercase;">Longitud (Nivel)</div>
               <div id="corsi-stat-level" style="font-size: 1.25rem; font-weight: 800; color: #38BDF8;">${this.currentLevel}</div>
@@ -140,36 +142,84 @@ window.CorsiRunner = {
               <div style="font-size: 0.68rem; color: #94A3B8; font-weight: 600; text-transform: uppercase;">Span Actual</div>
               <div id="corsi-stat-span" style="font-size: 1.25rem; font-weight: 800; color: #34D399;">${this.corsiSpan || '-'}</div>
             </div>
-            <button id="corsi-abort-btn" class="btn btn-danger btn-sm" style="margin-left: 8px; font-size: 0.78rem; padding: 6px 12px; border-radius: 8px;">
+            <button id="corsi-abort-btn" class="btn btn-danger btn-sm" style="margin-left: 6px; font-size: 0.8rem; padding: 7px 14px; border-radius: 8px; font-weight: 700;">
               ⏹️ Detener
             </button>
           </div>
         </div>
 
         <!-- Banner de Mensaje / Estado -->
-        <div id="corsi-banner" style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); color: #E0F2FE; padding: 10px 16px; border-radius: 10px; font-size: 0.92rem; font-weight: 600; text-align: center; margin-bottom: 16px; transition: all 0.3s ease;">
+        <div id="corsi-banner" style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); color: #E0F2FE; padding: 8px 14px; border-radius: 10px; font-size: 0.95rem; font-weight: 600; text-align: center; margin-top: 8px; margin-bottom: 8px; transition: all 0.3s ease; flex-shrink: 0;">
           Preparando secuencia...
         </div>
 
-        <!-- Tablero de los 9 Bloques de Corsi -->
-        <div id="corsi-board" style="position: relative; flex: 1; min-height: 520px; background: rgba(15, 23, 42, 0.6); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.06); box-shadow: inset 0 4px 24px rgba(0,0,0,0.6); overflow: hidden;">
+        <!-- Tablero de los 9 Bloques de Corsi (Ocupa todo el espacio vertical disponible) -->
+        <div id="corsi-board" style="position: relative; flex: 1; width: 100%; max-width: 1100px; margin: 0 auto; background: rgba(15, 23, 42, 0.6); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.06); box-shadow: inset 0 4px 24px rgba(0,0,0,0.6); overflow: hidden;">
         </div>
 
         <!-- Footer Informativo -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 0.75rem; color: #64748B;">
-          <span>Captura continua de telemetría ocular y cinemática activa</span>
-          <span>9 Bloques Estandarizados &bull; Memoria de Trabajo</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 6px; font-size: 0.75rem; color: #64748B; flex-shrink: 0;">
+          <span>Participante: <strong style="color:#ECEFF1;">${this.participantName || 'Evaluado'}</strong> (ID: ${this.participantId || 'P01'})</span>
+          <span style="color:${isDirect ? '#38BDF8' : '#C084FC'}; font-weight:600;">${isDirect ? '💡 Mismo orden (del 1º al último)' : '⚠️ Orden inverso (del último al 1º)'}</span>
+          <span>9 Bloques &bull; Telemetría 60 FPS Activa</span>
         </div>
       </div>
     `;
 
     document.getElementById('corsi-abort-btn').onclick = () => {
-      if (confirm('¿Deseas finalizar la prueba de Corsi anticipadamente? Se guardarán las métricas hasta este intento.')) {
-        this.finishTest();
-      }
+      this.showAbortModal();
     };
 
     this.initBoard();
+  },
+
+  showAbortModal() {
+    const existing = document.getElementById('corsi-abort-modal');
+    if (existing) existing.remove();
+
+    const wasClickable = this.canClick;
+    this.canClick = false;
+
+    const modal = document.createElement('div');
+    modal.id = 'corsi-abort-modal';
+    modal.className = 'modal-overlay active';
+    modal.style.zIndex = '999999';
+    modal.innerHTML = `
+      <div class="modal-clinical" style="max-width: 480px; text-align: center; padding: 28px; background: #1E293B; color: #F8FAFC; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 20px 50px rgba(0,0,0,0.8); border-radius: 16px;">
+        <div style="font-size: 2.5rem; margin-bottom: 8px;">⏹️</div>
+        <h3 style="margin: 0 0 10px; color: #F8FAFC; font-size: 1.25rem; font-weight: 700;">Detener Prueba de Corsi</h3>
+        <p style="color: #94A3B8; font-size: 0.92rem; line-height: 1.5; margin-bottom: 22px;">
+          ¿Deseas finalizar y registrar el desempeño hasta este momento, o salir al menú principal cancelando la evaluación?
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button id="corsi-modal-btn-finish" class="btn btn-primary" style="justify-content: center; padding: 12px; font-size: 0.92rem; background: linear-gradient(135deg, #10B981, #059669); font-weight: 700;">
+            💾 Finalizar y Guardar Resultados (Nivel actual: ${this.currentLevel})
+          </button>
+          <button id="corsi-modal-btn-abort" class="btn btn-danger" style="justify-content: center; padding: 12px; font-size: 0.92rem; background: #DC2626; font-weight: 700;">
+            🚪 Salir al Menú Principal (Descartar Prueba)
+          </button>
+          <button id="corsi-modal-btn-cancel" class="btn btn-ghost" style="justify-content: center; padding: 10px; font-size: 0.9rem; color: #94A3B8;">
+            Continuar la prueba
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('corsi-modal-btn-finish').onclick = () => {
+      modal.remove();
+      this.finishTest();
+    };
+
+    document.getElementById('corsi-modal-btn-abort').onclick = () => {
+      modal.remove();
+      this.abortTest();
+    };
+
+    document.getElementById('corsi-modal-btn-cancel').onclick = () => {
+      modal.remove();
+      this.canClick = wasClickable;
+    };
   },
 
   initBoard() {
@@ -184,10 +234,10 @@ window.CorsiRunner = {
       cube.dataset.id = idx;
       
       cube.style.position = 'absolute';
-      cube.style.left = `calc(${pos.x}% - 40px)`;
-      cube.style.top = `calc(${pos.y}% - 40px)`;
-      cube.style.width = '80px';
-      cube.style.height = '80px';
+      cube.style.left = `calc(${pos.x}% - 38px)`;
+      cube.style.top = `calc(${pos.y}% - 38px)`;
+      cube.style.width = '76px';
+      cube.style.height = '76px';
       cube.style.borderRadius = '14px';
       cube.style.background = 'linear-gradient(145deg, #334155 0%, #1E293B 100%)';
       cube.style.border = '2px solid rgba(148, 163, 184, 0.2)';
@@ -482,6 +532,9 @@ window.CorsiRunner = {
   finishTest() {
     this.canClick = false;
     this.clearTimers();
+    if (this.audioCtx && this.audioCtx.state !== 'closed') {
+      try { this.audioCtx.close(); } catch (e) {}
+    }
 
     const finalData = {
       testMode: this.testMode,
@@ -493,6 +546,17 @@ window.CorsiRunner = {
 
     if (typeof this.onFinish === 'function') {
       this.onFinish(finalData);
+    }
+  },
+
+  abortTest() {
+    this.canClick = false;
+    this.clearTimers();
+    if (this.audioCtx && this.audioCtx.state !== 'closed') {
+      try { this.audioCtx.close(); } catch (e) {}
+    }
+    if (typeof this.onAbort === 'function') {
+      this.onAbort();
     }
   }
 };
