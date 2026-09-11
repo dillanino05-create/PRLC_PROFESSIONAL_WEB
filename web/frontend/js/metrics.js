@@ -566,3 +566,75 @@ function generateSessionTag(testType = 'PLC', sessionId = '0', patientId = 'PACI
   return `${cleanTest}_${cleanSid}_${cleanId}_${cleanTs}`;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   MÉTRICAS PSICOMÉTRICAS Y NORMATIVAS DEL TEST DE CORSI
+   ──────────────────────────────────────────────────────────────────────────── */
+function computeCorsiMetrics(corsiResult) {
+  const summaries = (corsiResult && corsiResult.levelSummaries) ? corsiResult.levelSummaries : [];
+  const movements = (corsiResult && corsiResult.movementsData) ? corsiResult.movementsData : [];
+  const mode = (corsiResult && corsiResult.testMode) ? corsiResult.testMode : 'direct';
+
+  const totalTrials = summaries.length;
+  const correctTrials = summaries.filter(s => s.success).length;
+  const errorTrials = totalTrials - correctTrials;
+  const accuracyPct = totalTrials > 0 ? parseFloat(((correctTrials / totalTrials) * 100).toFixed(1)) : 0.0;
+
+  // Span de Corsi: máxima longitud de secuencia reproducida con éxito
+  const successfulLengths = summaries.filter(s => s.success).map(s => s.sequence_length || s.level);
+  const corsiSpan = successfulLengths.length > 0 ? Math.max(...successfulLengths) : 0;
+  const maxLevel = summaries.length > 0 ? Math.max(...summaries.map(s => s.level)) : 2;
+
+  // Latencias y tiempos de titubeo
+  const clicks = movements.filter(m => m.event_type === 'cube_click' && m.reaction_time_ms);
+  const rts = clicks.map(c => c.reaction_time_ms);
+  const meanRt = rts.length > 0 ? parseFloat((rts.reduce((a, b) => a + b, 0) / rts.length).toFixed(1)) : 0.0;
+
+  const hesitations = summaries.map(s => s.hesitation_time_ms).filter(h => h > 0);
+  const meanHesitation = hesitations.length > 0 ? parseFloat((hesitations.reduce((a, b) => a + b, 0) / hesitations.length).toFixed(1)) : 0.0;
+
+  const totalTimeMs = summaries.reduce((acc, s) => acc + (s.total_time_ms || 0), 0);
+  const totalTimeSec = parseFloat((totalTimeMs / 1000).toFixed(1));
+
+  // Puntuación Compuesta (Corsi Product Score: Span * Total Aciertos)
+  const compositeScore = corsiSpan * correctTrials;
+
+  // Calificación normativa clínica cualitativa
+  let clinicalCategory = "Promedio";
+  let clinicalDesc = "Capacidad de memoria de trabajo visoespacial dentro de parámetros fisiológicos estándar.";
+
+  if (corsiSpan >= 7) {
+    clinicalCategory = "Superior";
+    clinicalDesc = "Excelente capacidad de retención, mapeo y secuenciación visoespacial. Rendimiento por encima del promedio normativo.";
+  } else if (corsiSpan >= 5) {
+    clinicalCategory = "Promedio / Típico";
+    clinicalDesc = "Memoria de trabajo visoespacial adecuada. Capacidad de retención funcional para demandas ejecutivas cotidianas.";
+  } else if (corsiSpan === 4) {
+    clinicalCategory = "Límite / Bajo";
+    clinicalDesc = "Rendimiento en el límite inferior esperado. Se aprecian dificultades para retener secuencias complejas ante sobrecarga.";
+  } else if (corsiSpan <= 3 && corsiSpan > 0) {
+    clinicalCategory = "Déficit Visoespacial";
+    clinicalDesc = "Rendimiento significativamente descendido respecto al grupo de referencia. Sugestivo de dificultades atencionales o amnésicas visoespaciales.";
+  } else {
+    clinicalCategory = "No Determinable";
+    clinicalDesc = "La prueba finalizó sin alcanzar el umbral mínimo de aciertos.";
+  }
+
+  return {
+    corsi_span: corsiSpan,
+    corsi_mode: mode,
+    max_level: maxLevel,
+    total_trials: totalTrials,
+    correct_trials: correctTrials,
+    error_trials: errorTrials,
+    accuracy_pct: accuracyPct,
+    mean_reaction_time_ms: meanRt,
+    hesitation_time_avg_ms: meanHesitation,
+    total_time_sec: totalTimeSec,
+    composite_score: compositeScore,
+    clinical_category: clinicalCategory,
+    clinical_desc: clinicalDesc,
+    trials_data: summaries
+  };
+}
+
+

@@ -3,14 +3,14 @@ from typing import List, Optional, Dict, Any
 
 
 class LineData(BaseModel):
-    linea: int
-    targets_total: int
-    aciertos: int
-    omisiones: int
-    comisiones: int
+    linea: int = 1
+    targets_total: int = 0
+    aciertos: int = 0
+    omisiones: int = 0
+    comisiones: int = 0
     evaluados: int = 0          # Cuántos estímulos evaluó el paciente en esa línea
-    tiempo_s: float
-    tiempo_pct: float
+    tiempo_s: float = 0.0
+    tiempo_pct: float = 0.0
     saltos_erraticos: int = 0
     # ── Biomarcadores Digitales: Cinemática del Cursor ──────────────────────────
     tremor_score: float = 0.0   # Índice de variabilidad cinemática (Jitter)
@@ -25,16 +25,33 @@ class LineData(BaseModel):
     fer_expression: Optional[str] = None # Expresión/tensión facial observada en la línea
     # ── Pupilometría Cognitiva y Carga Mental (MediaPipe Iris) ────────────────
     pupil_dilation_avg: Optional[float] = None # Dilatación relativa normalizada vs reposo (ej. 1.15 = +15%)
+    # ── Módulo Corsi: Telemetría de Ensayo Visoespacial ───────────────────────
+    sequence_length: Optional[int] = None
+    attempt: Optional[int] = None
+    sequence_presented: Optional[List[int]] = None
+    sequence_user: Optional[List[int]] = None
+    success: Optional[bool] = None
+    hesitation_time_ms: Optional[float] = None
 
 
 
 class ClickLogItem(BaseModel):
-    line: int
-    stim_idx: int
-    is_target: bool
-    stim_key: str
-    action: str
-    elapsed_ms: int
+    line: Optional[int] = 1
+    stim_idx: Optional[int] = 0
+    is_target: Optional[bool] = False
+    stim_key: Optional[str] = ""
+    action: Optional[str] = "click"
+    elapsed_ms: Optional[int] = 0
+    # ── Módulo Corsi: Clics sobre Cubos 3D ─────────────────────────────────────
+    cube_id: Optional[int] = None
+    sequence_position: Optional[int] = None
+    expected_cube: Optional[int] = None
+    is_correct: Optional[bool] = None
+    reaction_time_ms: Optional[float] = None
+    distance_px: Optional[float] = None
+    x_coord: Optional[float] = None
+    y_coord: Optional[float] = None
+
 
 
 class ParticipantInfo(BaseModel):
@@ -47,19 +64,21 @@ class ParticipantInfo(BaseModel):
     occupation: str = ""
 
 
+
 class PredictRequest(BaseModel):
-    age: int
-    education: str
-    hand: str
-    TN: int
-    TA: int
-    O: int
-    C: int
-    total_time: float
-    cv_time: float
-    fatigue_hits: float
-    consistency: float
-    block_hits: List[int]
+    test_type: Optional[str] = "PLC"
+    age: int = 25
+    education: str = "Universitario"
+    hand: str = "Derecha"
+    TN: Optional[int] = 0
+    TA: Optional[int] = 0
+    O: Optional[int] = 0
+    C: Optional[int] = 0
+    total_time: Optional[float] = 0.0
+    cv_time: Optional[float] = 0.0
+    fatigue_hits: Optional[float] = 0.0
+    consistency: Optional[float] = 0.0
+    block_hits: Optional[List[int]] = None
     # ── Biomarcadores Oculomotores y Conductuales ──────────────────────────────
     camera_active: Optional[bool] = False
     ear_mean: Optional[float] = None
@@ -76,36 +95,41 @@ class PredictRequest(BaseModel):
     # ── Pupilometría Cognitiva y Carga Mental (MediaPipe Iris) ────────────────
     pupil_dilation_avg: Optional[float] = None
     cognitive_load_peaks: Optional[int] = None
+    # ── Módulo Corsi ──────────────────────────────────────────────────────────
+    corsi_span: Optional[int] = None
+    corsi_mode: Optional[str] = None
+
 
 
 class MetricsData(BaseModel):
-    TA: int
-    O: int
-    COM: int
-    TN: int
-    TOT: int
-    CON: int
-    CP: float
-    totalTime: float
-    meanTpl: float
-    stdTpl: float
-    cvTime: float
-    procSpeed: float
-    efficiency: float
-    FA: float
-    GQ: float
-    VAR: float
-    estabilidad: float
-    consistency: float
-    TRM: float
-    IVR: float
-    blockHits: List[int]
-    errorPat: int
-    adjScore: float
-    meanRt: float
-    medRt: float
-    attnStyle: str
-    attnDesc: str
+    # ── Métricas Específicas PLC (Test d2) con valores por defecto ─────────────
+    TA: Optional[int] = 0
+    O: Optional[int] = 0
+    COM: Optional[int] = 0
+    TN: Optional[int] = 0
+    TOT: Optional[int] = 0
+    CON: Optional[int] = 0
+    CP: Optional[float] = 0.0
+    totalTime: Optional[float] = 0.0
+    meanTpl: Optional[float] = 0.0
+    stdTpl: Optional[float] = 0.0
+    cvTime: Optional[float] = 0.0
+    procSpeed: Optional[float] = 0.0
+    efficiency: Optional[float] = 0.0
+    FA: Optional[float] = 0.0
+    GQ: Optional[float] = 0.0
+    VAR: Optional[float] = 0.0
+    estabilidad: Optional[float] = 0.0
+    consistency: Optional[float] = 0.0
+    TRM: Optional[float] = 0.0
+    IVR: Optional[float] = 0.0
+    blockHits: Optional[List[int]] = None
+    errorPat: Optional[int] = 0
+    adjScore: Optional[float] = 0.0
+    meanRt: Optional[float] = 0.0
+    medRt: Optional[float] = 0.0
+    attnStyle: Optional[str] = ""
+    attnDesc: Optional[str] = ""
     # ── Campos de estado que el frontend ya enviaba pero faltaban en el modelo ──
     focusType: str = ""
     isIncomplete: bool = False
@@ -130,6 +154,19 @@ class MetricsData(BaseModel):
     pupil_dilation_avg: Optional[float] = None # Dilatación pupilar relativa media (vs reposo)
     cognitive_load_peaks: Optional[int] = None # Conteo de sobreesfuerzos (>120% dilatación basal por >300ms)
     pupil_baseline: Optional[float] = None     # Línea base en reposo calibrada
+    # ── Módulo Corsi: Memoria de Trabajo Visoespacial ────────────────────────
+    corsi_span: Optional[int] = None
+    corsi_mode: Optional[str] = None
+    max_level: Optional[int] = None
+    total_trials: Optional[int] = None
+    correct_trials: Optional[int] = None
+    error_trials: Optional[int] = None
+    accuracy_pct: Optional[float] = None
+    hesitation_time_avg_ms: Optional[float] = None
+    composite_score: Optional[int] = None
+    clinical_category: Optional[str] = None
+    clinical_desc: Optional[str] = None
+    trials_data: Optional[List[Dict[str, Any]]] = None
     # ── Identidad Multi-Test y Cadena de Custodia Digital ─────────────────────
     test_type: Optional[str] = "PLC"
     session_tag: Optional[str] = None

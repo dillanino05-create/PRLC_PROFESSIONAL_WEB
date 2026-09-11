@@ -30,6 +30,8 @@ const App = {
   evalId: null,
   evalFilename: null,
   testType: 'PLC',
+  corsiMode: 'direct',
+  corsiResult: null,
   sessionTag: null,
   sessionUid: null,
   // Timer
@@ -211,22 +213,28 @@ const App = {
     this.nav('login');
   },
 
+  startTestSelection(testType, mode = 'direct') {
+    this.testType = testType;
+    this.corsiMode = mode;
+    this.nav('form');
+  },
+
   /* ══════════════════════════════════════════════════════════════════════
-     PANTALLA 1: MENÚ
+     PANTALLA 1: MENÚ — HUB SAAS MULTI-TEST
   ══════════════════════════════════════════════════════════════════════ */
   renderMenu(app) {
     app.innerHTML = `
       <div id="test-screen" style="background:linear-gradient(135deg,#1A237E 0%,#283593 100%);min-height:100vh;display:flex;flex-direction:column;">
         <!-- Hero Header -->
-        <div style="padding:40px 60px 30px;color:#fff;flex-shrink:0;">
+        <div style="padding:40px 60px 24px;color:#fff;flex-shrink:0;">
           <div style="font-family:'Playfair Display',serif;font-size:3rem;font-weight:700;letter-spacing:-1px;line-height:1.1;">
             PLC Professional
           </div>
           <div style="font-size:1.1rem;color:#C5CAE9;margin-top:8px;font-weight:300;">
-            Prueba de Líneas Cruzadas — Evaluación Cognitiva
+            Plataforma Multi-Test de Evaluación Neurocognitiva y Biomarcadores Digitales
           </div>
-          <div style="margin-top:20px;padding:10px 20px;background:rgba(255,255,255,0.1);border-radius:8px;display:inline-block;font-size:0.95rem;">
-            👋 Bienvenido/a, <strong style="color:#FFF;">${this.user ? this.user.email : 'Evaluador'}</strong>
+          <div style="margin-top:16px;padding:8px 18px;background:rgba(255,255,255,0.1);border-radius:8px;display:inline-block;font-size:0.95rem;">
+            👋 Evaluador activo: <strong style="color:#FFF;">${this.user ? this.user.email : 'Profesional'}</strong>
           </div>
         </div>
 
@@ -243,28 +251,70 @@ const App = {
           : '○ Modelo IA no disponible — solo métricas objetivas'}
           </div>
 
-          <!-- Info card -->
-          <div style="background:rgba(255,255,255,.09);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:32px 40px;max-width:860px;">
-            <div style="font-family:'Playfair Display',serif;font-size:1.3rem;color:#fff;margin-bottom:14px;font-weight:600;">
-              Acerca de la prueba
+          <!-- Bento Grid de Baterías de Evaluación -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(380px, 1fr));gap:24px;max-width:1100px;">
+            
+            <!-- Card 1: PLC (Test d2) -->
+            <div style="background:rgba(255,255,255,0.09);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.18);border-radius:18px;padding:30px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <span style="background:rgba(33,150,243,0.25);color:#90CAF9;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;border:1px solid rgba(144,202,249,0.3);">
+                    Atención & Concentración
+                  </span>
+                  <span style="color:#C5CAE9;font-size:0.85rem;font-weight:500;">14 Líneas · 20s/pág</span>
+                </div>
+                <h3 style="font-family:'Playfair Display',serif;color:#FFF;font-size:1.6rem;margin-bottom:8px;font-weight:700;">
+                  PLC — Test d2
+                </h3>
+                <p style="color:#C5CAE9;font-size:0.92rem;line-height:1.6;margin-bottom:20px;">
+                  Prueba de cancelación psicométrica de alta precisión. Evalúa atención selectiva, velocidad de procesamiento, control inhibitorio y fluctuación por fatiga ante distractores visuales.
+                </p>
+                <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:12px 16px;margin-bottom:24px;display:flex;gap:16px;font-size:0.82rem;color:#E8EAF6;">
+                  <div>⚡ <strong>Métricas:</strong> TA, O, COM, CP, IVR</div>
+                  <div>🎯 <strong>Telemetría:</strong> Oculometría + Temblor</div>
+                </div>
+              </div>
+              <button class="btn btn-primary btn-lg" onclick="App.startTestSelection('PLC')" style="width:100%;justify-content:center;font-size:1.05rem;padding:14px;box-shadow:0 4px 16px rgba(40,53,147,0.4);">
+                ▶ &nbsp; Iniciar Test d2 (PLC)
+              </button>
             </div>
-            <p style="color:#C5CAE9;font-size:.95rem;line-height:1.7;">
-              Prueba de atención selectiva basada en identificación de estímulos objetivo
-              en un campo de distractores similares.<br>
-              <strong style="color:#fff;">14 líneas &nbsp;·&nbsp; 20 s por línea &nbsp;·&nbsp; 47 estímulos/línea</strong><br><br>
-              Incluye fase de pre-prueba para verificar comprensión de instrucciones.
-              Los resultados incluyen métricas cuantitativas, perfil cognitivo IA,
-              gráficas de rendimiento y exportación a Excel profesional con informe completo.
-            </p>
+
+            <!-- Card 2: Test de Bloques de Corsi -->
+            <div style="background:rgba(255,255,255,0.09);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.18);border-radius:18px;padding:30px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <span style="background:rgba(156,39,176,0.25);color:#CE93D8;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;border:1px solid rgba(206,147,216,0.3);">
+                    Memoria de Trabajo Visoespacial
+                  </span>
+                  <span style="color:#C5CAE9;font-size:0.85rem;font-weight:500;">9 Bloques · Secuencias 2 a 9</span>
+                </div>
+                <h3 style="font-family:'Playfair Display',serif;color:#FFF;font-size:1.6rem;margin-bottom:8px;font-weight:700;">
+                  Test de Bloques de Corsi
+                </h3>
+                <p style="color:#C5CAE9;font-size:0.92rem;line-height:1.6;margin-bottom:20px;">
+                  Paradigma neuropsicológico estándar de memoria visomotora secuencial. Determina el Span visoespacial, tiempo de duda táctica y carga cognitiva pupilar en modalidad directa e inversa.
+                </p>
+                <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:12px 16px;margin-bottom:24px;display:flex;gap:16px;font-size:0.82rem;color:#E8EAF6;">
+                  <div>🧠 <strong>Span:</strong> Directo / Inverso</div>
+                  <div>👁️ <strong>Pupilometría:</strong> Carga Mental</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <button class="btn btn-primary" onclick="App.startTestSelection('CORSI', 'direct')" style="justify-content:center;font-size:0.95rem;padding:12px;background:linear-gradient(135deg,#5C6BC0,#3949AB);">
+                  ▶ Modo Directo
+                </button>
+                <button class="btn btn-ghost" onclick="App.startTestSelection('CORSI', 'reverse')" style="justify-content:center;font-size:0.95rem;padding:12px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#FFF;">
+                  🔄 Modo Inverso
+                </button>
+              </div>
+            </div>
+
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-4 items-center" style="flex-wrap:wrap;">
-            <button class="btn btn-primary btn-lg" onclick="App.nav('form')" style="font-size:1.1rem;padding:16px 48px;">
-              ▶ &nbsp; Nueva Evaluación
-            </button>
+          <div class="flex gap-4 items-center" style="flex-wrap:wrap;margin-top:8px;">
             <button class="btn btn-ghost btn-lg" onclick="App.nav('history')">
-              📋 &nbsp; Historial
+              📋 &nbsp; Historial de Evaluaciones
             </button>
             ${this.user?.user_metadata?.role === 'superadmin' ? `
             <button class="btn btn-ghost btn-lg" style="background:rgba(255,215,0,.18);color:#FFD700;border:1.5px solid rgba(255,215,0,.5);" onclick="App.nav('superadmin')">
@@ -277,7 +327,7 @@ const App = {
 
           <!-- Footer -->
           <div style="font-size:0.8rem; color:var(--text-light); text-align:center; padding:10px;">
-            PLC Professional v3.3 &nbsp;&middot;&nbsp; Uso exclusivo para profesionales
+            PLC Professional v3.3.4 &nbsp;&middot;&nbsp; Plataforma Multi-Test MecaPsi &nbsp;&middot;&nbsp; Uso exclusivo para profesionales
           </div>
         </div>
       </div>`;
@@ -289,11 +339,18 @@ const App = {
   renderForm(app) {
     app.innerHTML = `
       <div class="plc-header">
-        <div><h1>Datos del Evaluado</h1><div class="sub">Complete la información antes de iniciar</div></div>
+        <div><h1>Datos del Evaluado</h1><div class="sub">Complete la información antes de iniciar · ${this.testType === 'CORSI' ? `Test de Bloques de Corsi (${this.corsiMode === 'reverse' ? 'Inverso' : 'Directo'})` : 'Test d2 (PLC)'}</div></div>
         <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')">← Menú</button>
       </div>
       <div class="page fade-in" style="max-width:860px;">
         <div class="card">
+          <div style="background:rgba(26,35,126,0.06);border:1px solid rgba(26,35,126,0.15);border-radius:10px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <span style="font-weight:700;color:#1A237E;">Prueba seleccionada:</span>
+              <strong style="color:#0D47A1;margin-left:6px;">${this.testType === 'CORSI' ? `Test de Bloques de Corsi (Modalidad ${this.corsiMode === 'reverse' ? 'Inversa' : 'Directa'})` : 'Test d2 — PLC Professional'}</strong>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')" style="font-size:0.85rem;">Cambiar Batería</button>
+          </div>
           <h2 style="margin-bottom:24px;">Información del Participante</h2>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
@@ -368,10 +425,110 @@ const App = {
     this.nav('pretest');
   },
 
+  renderCorsiPreTest(app) {
+    const isReverse = this.corsiMode === 'reverse';
+    app.innerHTML = `
+      <div class="plc-header">
+        <div><h1>Test de Bloques de Corsi — Instrucciones</h1>
+          <div class="sub">Modalidad: <strong>${isReverse ? 'Inversa (Memoria de Trabajo Ejecutiva)' : 'Directa (Span Anterógrado)'}</strong></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="App.nav('form')">← Volver al Formulario</button>
+      </div>
+
+      <div class="page fade-in" style="max-width: 1040px;">
+        <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 32px; align-items: start;">
+          
+          <!-- Panel Izquierdo: Vista previa interactiva de los 9 cubos -->
+          <div class="card" style="border: 2px solid #3949AB; background: #0A0E1A; padding: 20px; border-radius: 16px; color: #FFF; text-align: center;">
+            <div style="font-weight: 700; color: #90CAF9; font-size: 1.15rem; margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center;">
+              <span>Disposición Espacial de los 9 Bloques</span>
+              <span style="font-size:0.75rem;background:rgba(255,255,255,0.1);padding:3px 8px;border-radius:12px;">Kessels et al. (2000)</span>
+            </div>
+            
+            <div id="corsi-preview-board" style="position:relative; width:100%; height:320px; background:#111625; border-radius:12px; border:1px solid rgba(255,255,255,0.1); overflow:hidden; margin-bottom:16px;">
+              ${[
+                { id: 0, x: 14, y: 16 }, { id: 1, x: 76, y: 14 },
+                { id: 2, x: 46, y: 28 }, { id: 3, x: 24, y: 48 },
+                { id: 4, x: 68, y: 46 }, { id: 5, x: 86, y: 66 },
+                { id: 6, x: 10, y: 74 }, { id: 7, x: 44, y: 80 },
+                { id: 8, x: 74, y: 82 }
+              ].map(b => `
+                <div style="position:absolute; left:${b.x}%; top:${b.y}%; width:54px; height:54px; transform:translate(-50%,-50%); background:linear-gradient(145deg, #1E88E5, #1565C0); border:2px solid #90CAF9; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; color:#FFF; box-shadow:0 4px 12px rgba(0,0,0,0.4);">
+                  ${b.id + 1}
+                </div>
+              `).join('')}
+            </div>
+
+            <p style="font-size: 0.88rem; color: #B0BEC5; line-height: 1.5; margin: 0;">
+              Durante la prueba los números no estarán visibles. Los bloques se iluminarán en color <strong>amarillo</strong> emitiendo una señal auditiva específica.
+            </p>
+          </div>
+
+          <!-- Panel Derecho: Instrucciones -->
+          <div class="card" style="display: flex; flex-direction: column; gap: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+            <div style="font-weight: 700; color: #283593; font-size: 1.25rem; border-bottom: 2px solid #E8EAF6; padding-bottom: 10px;">
+              Reglas de la Evaluación
+            </div>
+            
+            <div class="instruction-point">
+              <strong style="color: #1A237E; display: flex; align-items: center; gap: 8px; font-size: 1rem; margin-bottom: 4px;">
+                <span style="background: #3949AB; color: white; width: 22px; height: 22px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 0.8rem;">1</span> 
+                Fase de Presentación
+              </strong>
+              <p style="color: #546E7A; line-height: 1.5; margin: 0; padding-left: 30px; font-size: 0.92rem;">
+                Observa la pantalla con atención. El sistema iluminará una secuencia de bloques, uno a la vez. No intentes hacer clic durante esta fase.
+              </p>
+            </div>
+
+            <div class="instruction-point">
+              <strong style="color: #1A237E; display: flex; align-items: center; gap: 8px; font-size: 1rem; margin-bottom: 4px;">
+                <span style="background: #3949AB; color: white; width: 22px; height: 22px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 0.8rem;">2</span> 
+                Fase de Reproducción (${isReverse ? 'INVERSA' : 'DIRECTA'})
+              </strong>
+              <p style="color: #546E7A; line-height: 1.5; margin: 0; padding-left: 30px; font-size: 0.92rem;">
+                ${isReverse
+                  ? 'Al ver la señal verde <strong>"¡Tu turno!"</strong>, haz clic sobre los bloques en <strong>ORDEN INVERSO</strong>: debes empezar por el <u>ÚLTIMO</u> bloque iluminado y terminar en el <u>PRIMERO</u>.'
+                  : 'Al ver la señal verde <strong>"¡Tu turno!"</strong>, haz clic sobre los bloques en el <strong>MISMO ORDEN EXACTO</strong> en que fueron iluminados.'}
+              </p>
+            </div>
+
+            <div class="instruction-point">
+              <strong style="color: #1A237E; display: flex; align-items: center; gap: 8px; font-size: 1rem; margin-bottom: 4px;">
+                <span style="background: #3949AB; color: white; width: 22px; height: 22px; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; font-size: 0.8rem;">3</span> 
+                Progresión y Criterio de Término
+              </strong>
+              <p style="color: #546E7A; line-height: 1.5; margin: 0; padding-left: 30px; font-size: 0.92rem;">
+                La dificultad aumenta sumando bloques a la secuencia (desde 2 hasta 9). Tienes <strong>2 intentos por nivel</strong>. La prueba concluye cuando se cometen dos errores en el mismo nivel.
+              </p>
+            </div>
+
+            <hr class="form-divider" style="margin: 4px 0;" />
+
+            <div style="background: rgba(46, 125, 50, 0.08); border-left: 4px solid #2E7D32; padding: 14px 18px; border-radius: 0 8px 8px 0;">
+              <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; margin: 0; user-select: none;">
+                <input type="checkbox" id="chk-entendido" style="width: 20px; height: 20px; accent-color: #2E7D32; cursor: pointer;" onchange="document.getElementById('btn-practica').disabled = !this.checked">
+                <span style="font-weight: 600; color: #1B5E20; font-size: 0.98rem;">He comprendido las reglas del Test de Corsi</span>
+              </label>
+            </div>
+
+            <button disabled id="btn-practica" class="btn btn-primary btn-lg" style="width: 100%; justify-content: center; padding: 15px; font-size: 1.05rem; box-shadow: 0 4px 12px rgba(40, 53, 147, 0.2);" onclick="App.requestPermissionsAndGoToPractice()">
+              Entendido, autorizar e iniciar &nbsp;→
+            </button>
+          </div>
+
+        </div>
+      </div>
+    `;
+  },
+
   /* ══════════════════════════════════════════════════════════════════════
      PANTALLA 3: PRE-PRUEBA (Instrucciones)
   ══════════════════════════════════════════════════════════════════════ */
   renderPreTest(app) {
+    if (this.testType === 'CORSI') {
+      this.renderCorsiPreTest(app);
+      return;
+    }
     app.innerHTML = `
       <div class="plc-header">
         <div><h1>Instrucciones de la Prueba</h1>
@@ -755,7 +912,11 @@ const App = {
     }
 
     this.startRecording();
-    this.nav('practice');
+    if (this.testType === 'CORSI') {
+      this.nav('test');
+    } else {
+      this.nav('practice');
+    }
   },
 
   startTest() {
@@ -1163,7 +1324,296 @@ const App = {
     }
   },
 
+  renderCorsiTest(app) {
+    this.mouseTrackPerLine = [[]];
+    this._mouseMoveThrottleTs = 0;
+    if (this._mouseMoveHandler) {
+      window.removeEventListener('mousemove', this._mouseMoveHandler);
+      this._mouseMoveHandler = null;
+    }
+    this._mouseMoveHandler = (e) => {
+      const _now = performance.now();
+      if (_now - this._mouseMoveThrottleTs < 16) return;
+      this._mouseMoveThrottleTs = _now;
+      if (!this.mouseTrackPerLine[0]) this.mouseTrackPerLine[0] = [];
+      this.mouseTrackPerLine[0].push({ x: e.clientX, y: e.clientY, t: _now });
+    };
+    window.addEventListener('mousemove', this._mouseMoveHandler, { passive: true });
+
+    const isReverse = this.corsiMode === 'reverse';
+
+    app.innerHTML = `
+      <div id="test-screen" style="background:#0A0E1A;min-height:100vh;display:flex;flex-direction:column;user-select:none;">
+        <!-- Header -->
+        <div class="test-header" style="background:#111625;border-bottom:1px solid rgba(255,255,255,0.1);padding:14px 24px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span class="line-label" id="corsi-level-lbl" style="background:#3949AB;color:#FFF;padding:4px 12px;border-radius:12px;font-weight:700;font-size:0.9rem;">
+              NIVEL: 2 CUBOS
+            </span>
+            <span style="color:#90CAF9;font-weight:600;font-size:0.95rem;" id="corsi-mode-lbl">
+              ${isReverse ? 'Modo Inverso (Orden Inverso)' : 'Modo Directo (Mismo Orden)'}
+            </span>
+          </div>
+          <div id="corsi-status-msg" style="font-size:1.15rem;font-weight:700;color:#FFD54F;letter-spacing:0.5px;">
+            Iniciando prueba...
+          </div>
+          <div id="corsi-attempt-lbl" style="color:#B0BEC5;font-size:0.9rem;">
+            Intento 1 de 2
+          </div>
+        </div>
+
+        <!-- Board Container -->
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:20px;position:relative;">
+          <div id="corsi-board-container" style="position:relative;width:min(90vw, 880px);height:min(70vh, 580px);background:#131B2E;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.1);overflow:hidden;">
+            <!-- CorsiRunner renderizará aquí los 9 cubos -->
+          </div>
+        </div>
+
+        <!-- Footer / Hint -->
+        <div style="background:#111625;border-top:1px solid rgba(255,255,255,0.1);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;font-size:0.88rem;color:#78909C;">
+          <div>
+            Participante: <strong style="color:#ECEFF1;">${this.participant?.name || 'Evaluado'}</strong> (ID: ${this.participant?.id || 'P01'})
+          </div>
+          <div id="corsi-footer-hint" style="color:#90CAF9;">
+            ${isReverse ? '⚠️ Recuerda: Deberás reproducir la secuencia al revés (del último al primero).' : '💡 Recuerda: Deberás reproducir la secuencia en el mismo orden.'}
+          </div>
+        </div>
+      </div>
+    `;
+
+    const boardEl = document.getElementById('corsi-board-container');
+    const levelLbl = document.getElementById('corsi-level-lbl');
+    const statusMsg = document.getElementById('corsi-status-msg');
+    const attemptLbl = document.getElementById('corsi-attempt-lbl');
+
+    if (!window.CorsiRunner) {
+      console.error("CorsiRunner no está cargado.");
+      return;
+    }
+
+    window.CorsiRunner.start(boardEl, {
+      mode: this.corsiMode || 'direct',
+      onProgress: (info) => {
+        if (levelLbl) levelLbl.innerText = `NIVEL: ${info.level} CUBOS`;
+        if (attemptLbl) attemptLbl.innerText = `Intento ${info.attempt} de 2`;
+        if (statusMsg) {
+          if (info.phase === 'presenting') {
+            statusMsg.innerText = '👀 Observa la secuencia...';
+            statusMsg.style.color = '#FFD54F';
+          } else if (info.phase === 'user_turn') {
+            statusMsg.innerText = this.corsiMode === 'reverse' ? '🎯 ¡Tu turno! (Orden INVERSO)' : '🎯 ¡Tu turno! (Mismo orden)';
+            statusMsg.style.color = '#4CAF50';
+          } else if (info.phase === 'success') {
+            statusMsg.innerText = '✅ ¡Secuencia correcta!';
+            statusMsg.style.color = '#4CAF50';
+          } else if (info.phase === 'error') {
+            statusMsg.innerText = '❌ Secuencia incorrecta';
+            statusMsg.style.color = '#EF5350';
+          }
+        }
+      },
+      onComplete: async (result) => {
+        if (this._mouseMoveHandler) {
+          window.removeEventListener('mousemove', this._mouseMoveHandler);
+          this._mouseMoveHandler = null;
+        }
+        await this.finishCorsiTest(result);
+      }
+    });
+  },
+
+  async finishCorsiTest(result) {
+    if (this.isSaving) return;
+    this.isSaving = true;
+    this.nav('completion');
+
+    // 1. Detener grabación de video
+    const videoBlob = await this.stopRecording();
+
+    // 2. Detener tracking MediaPipe Face Mesh
+    this.faceMeshRunning = false;
+    if (this._gazeDivertedStartTime) {
+      const dur = performance.now() - this._gazeDivertedStartTime;
+      if (dur >= 350) {
+        this.gazeEvents.push({ start_t: this._gazeDivertedStartTime, duration_ms: dur, line: 1 });
+      }
+      this._gazeDivertedStartTime = null;
+    }
+
+    const hasCameraStream = Boolean(
+      this.cameraStream && 
+      (this.cameraStream.active !== false) &&
+      (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0)
+    );
+    const totalTimeSec = (result.totalTimeMs || 1000) / 1000;
+    const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, totalTimeSec, hasCameraStream);
+    const ferMetrics = computeFERMetrics(this.ferSamples, hasCameraStream);
+    const pupiloMetrics = analyzePupillometry(this.pupilSamples, hasCameraStream, 8.0);
+
+    // Análisis de temblor motor / cinemática sobre los puntos del mouse en Corsi
+    const mousePoints = (this.mouseTrackPerLine && this.mouseTrackPerLine[0]) ? this.mouseTrackPerLine[0] : [];
+    const motorKinematics = analyzeCursorKinematics(mousePoints);
+
+    // Calcular métricas neuropsicológicas del Test de Corsi
+    this.metrics = computeCorsiMetrics(result);
+    this.metrics._age = this.participant.age;
+    this.metrics.test_type = 'CORSI';
+    const timestampStr = getSessionTimestamp();
+    this.metrics.session_uid = timestampStr;
+
+    // Adjuntar biomarcadores paraclínicos IA
+    this.metrics.camera_active = Boolean(oculoMetrics.camera_active);
+    this.metrics.ear_mean = oculoMetrics.ear_mean;
+    this.metrics.blink_count = oculoMetrics.blink_count;
+    this.metrics.blink_rate_min = oculoMetrics.blink_rate_min;
+    this.metrics.gaze_diverted_count = oculoMetrics.gaze_diverted_count;
+    this.metrics.gaze_diverted_ms = oculoMetrics.gaze_diverted_ms;
+    this.metrics.microtremor_avg = motorKinematics.microtremor_score || 0.0;
+    this.metrics.sweep_regularity_avg = motorKinematics.sweep_regularity || 100.0;
+    this.metrics.fer_dominant = ferMetrics.fer_dominant;
+    this.metrics.fer_tension_score = ferMetrics.fer_tension_score;
+    this.metrics.fer_frustration_events = ferMetrics.fer_frustration_events;
+    this.metrics.pupil_dilation_avg = pupiloMetrics.pupil_dilation_avg;
+    this.metrics.cognitive_load_peaks = pupiloMetrics.cognitive_load_peaks;
+    this.metrics.pupil_baseline = pupiloMetrics.pupil_baseline;
+
+    // Mapear trialsData a linesData para persistencia relacional homogénea
+    this.linesData = (result.trialsData || []).map((t, idx) => ({
+      linea: idx + 1,
+      sequence_length: t.level,
+      attempt: t.attempt,
+      sequence_presented: t.sequence,
+      sequence_user: t.userSequence,
+      success: t.isCorrect,
+      hesitation_time_ms: t.hesitationTimeMs,
+      mean_reaction_time_ms: t.meanReactionTimeMs,
+      aciertos: t.isCorrect ? 1 : 0,
+      omisiones: t.isCorrect ? 0 : 1,
+      comisiones: 0,
+      evaluados: t.level,
+      targets_total: t.level,
+      tiempo_s: Math.round(((t.reactionTimes || []).reduce((a, b) => a + b, 0) + (t.hesitationTimeMs || 0)) / 1000),
+      tremor_score: motorKinematics.microtremor_score || 0.0,
+      sweep_regularity: motorKinematics.sweep_regularity || 100.0,
+      pupil_dilation_avg: pupiloMetrics.pupil_dilation_avg
+    }));
+    this.metrics._linesDataRef = this.linesData;
+
+    // Mapear clics individuales de cubos a clickLog
+    this.clickLog = [];
+    (result.trialsData || []).forEach((trial, tIdx) => {
+      (trial.clicks || []).forEach((clk, cIdx) => {
+        this.clickLog.push({
+          line: tIdx + 1,
+          stim_idx: cIdx,
+          cube_id: clk.cubeId,
+          sequence_position: clk.position,
+          expected_cube: clk.expectedCube,
+          is_correct: clk.isCorrect,
+          action: clk.isCorrect ? 'mark_target' : 'mark_distractor',
+          elapsed_ms: clk.reactionTimeMs,
+          reaction_time_ms: clk.reactionTimeMs,
+          distance_px: clk.distancePx,
+          x_coord: clk.x,
+          y_coord: clk.y
+        });
+      });
+    });
+
+    // Inferencia de perfil normativo vía /api/predict
+    try {
+      const resp = await fetch(API_BASE + '/api/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test_type: 'CORSI',
+          corsi_span: this.metrics.corsi_span,
+          corsi_mode: this.metrics.corsi_mode,
+          age: this.participant.age,
+          education: this.participant.education,
+          hand: this.participant.hand,
+          accuracy_pct: this.metrics.accuracy_pct,
+          mean_reaction_time_ms: this.metrics.mean_reaction_time_ms,
+          hesitation_time_avg_ms: this.metrics.hesitation_time_avg_ms,
+          composite_score: this.metrics.composite_score,
+          camera_active: this.metrics.camera_active,
+          microtremor_avg: this.metrics.microtremor_avg,
+          pupil_dilation_avg: this.metrics.pupil_dilation_avg
+        })
+      });
+      this.mlPred = await resp.json();
+    } catch (e) {
+      this.mlPred = { model_used: false, profile: 'Normativo Corsi', desc: this.metrics.clinical_desc };
+    }
+
+    const narrative = `Evaluación neuropsicológica del Test de Bloques de Corsi (${this.metrics.corsi_mode === 'reverse' ? 'Modalidad Inversa' : 'Modalidad Directa'}).\n` +
+      `Span Visoespacial: ${this.metrics.corsi_span} bloques (${this.metrics.clinical_category}).\n` +
+      `Puntaje compuesto: ${this.metrics.composite_score} puntos con una precisión del ${this.metrics.accuracy_pct}%.\n` +
+      `Latencia media de reacción: ${Math.round(this.metrics.mean_reaction_time_ms)} ms, vacilación promedio: ${Math.round(this.metrics.hesitation_time_avg_ms)} ms.\n` +
+      `Biomarcadores: Dilatación pupilar ${this.metrics.pupil_dilation_avg?.toFixed(2) || '1.00'}x, Temblor motor: ${this.metrics.microtremor_avg?.toFixed(2) || '0.00'} px/s².`;
+
+    // Persistencia en Supabase y generación de Excel forense
+    try {
+      const sess = await this.supabase.auth.getSession();
+      const token = sess.data.session ? sess.data.session.access_token : '';
+
+      const saveResp = await fetch(API_BASE + '/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          test_type: 'CORSI',
+          session_uid: timestampStr,
+          participant: this.participant,
+          lines_data: this.linesData,
+          click_log: this.clickLog,
+          metrics: this.metrics,
+          ml_prediction: this.mlPred,
+          narrative
+        })
+      });
+
+      const sd = await saveResp.json();
+      this.evalId = sd.id;
+      this.evalStatus = sd.status;
+      this.sessionTag = sd.session_tag || generateSessionTag('CORSI', this.evalId, this.participant?.id, timestampStr);
+      const videoFilename = sd.video_filename || `${this.sessionTag}.webm`;
+      const excelFilename = sd.excel_filename || `${this.sessionTag}.xlsx`;
+      this.evalFilename = excelFilename;
+
+      if (videoBlob && this.evalId) {
+        const { error } = await this.supabase.storage
+          .from('exports')
+          .upload(videoFilename, videoBlob, {
+            contentType: 'video/webm',
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (!error) {
+          this.metrics.video_path = videoFilename;
+          this.metrics.session_tag = this.sessionTag;
+          await this.supabase
+            .from('evaluations')
+            .update({
+              excel_path: excelFilename,
+              metrics_json: this.metrics
+            })
+            .eq('id', this.evalId);
+        }
+      }
+    } catch (e) {
+      console.warn("Error guardando sesión Corsi:", e);
+    }
+
+    this.isSaving = false;
+    this.nav('completion');
+  },
+
   renderTest(app) {
+    if (this.testType === 'CORSI') {
+      this.renderCorsiTest(app);
+      return;
+    }
     if (this.currentLine >= this.TOTAL_LINES) { this.finishTest(); return; }
 
     const ld = this.testLines[this.currentLine];
@@ -1721,10 +2171,226 @@ const App = {
     }
   },
 
+  renderCorsiResults(app) {
+    const m = this.metrics;
+    if (!m) {
+      app.innerHTML = `<div class="plc-header"><h1>Procesando...</h1></div>
+        <div class="page"><div class="card" style="text-align:center;padding:60px;">
+          <div style="font-size:2rem;margin-bottom:16px;">⏳</div>
+          <p style="color:#546E7A;">Calculando métricas neuropsicológicas...</p>
+        </div></div>`;
+      return;
+    }
+
+    const now = new Date().toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
+    const isReverse = m.corsi_mode === 'reverse';
+
+    app.innerHTML = `
+      <div class="plc-header">
+        <div>
+          <h1 style="display:flex;align-items:center;gap:10px;">
+            Test de Bloques de Corsi — Resultados
+            <span class="badge" style="background:#5C6BC0;color:#fff;font-size:0.8rem;padding:4px 10px;border-radius:12px;vertical-align:middle;">
+              ${isReverse ? 'Modalidad Inversa' : 'Modalidad Directa'}
+            </span>
+          </h1>
+          <div class="sub">
+            ${this.participant?.name || 'Evaluado'} &nbsp;·&nbsp; ID: ${this.participant?.id || 'P01'} &nbsp;·&nbsp; ${now}
+            ${this.sessionTag ? ` &nbsp;·&nbsp; <span style="color:#3949AB;font-weight:600;">Tag: ${this.sessionTag}</span>` : ''}
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')">🏠 Menú</button>
+          <button class="btn btn-ghost btn-sm" onclick="App.nav('form')">🔄 Nueva eval.</button>
+          ${this.evalId ? `<button class="btn btn-success btn-sm" onclick="App.downloadExcel()">📊 Descargar Excel</button>` : ''}
+        </div>
+      </div>
+
+      <div class="page fade-in" style="max-width:1160px;">
+        
+        <!-- 4 Bento KPI Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:20px;margin-bottom:28px;">
+          
+          <div class="card" style="padding:22px;border-left:5px solid #1E88E5;">
+            <div style="font-size:0.85rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:6px;">Span Visoespacial</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span style="font-size:2.4rem;font-weight:800;color:#1565C0;">${m.corsi_span || 0}</span>
+              <span style="font-size:1rem;color:#546E7A;font-weight:600;">bloques</span>
+            </div>
+            <div style="margin-top:8px;">
+              <span class="badge" style="background:rgba(30,136,229,0.15);color:#1565C0;font-weight:700;padding:4px 8px;border-radius:6px;font-size:0.82rem;">
+                ${m.clinical_category || 'Promedio'}
+              </span>
+            </div>
+          </div>
+
+          <div class="card" style="padding:22px;border-left:5px solid #43A047;">
+            <div style="font-size:0.85rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:6px;">Puntaje Compuesto</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span style="font-size:2.4rem;font-weight:800;color:#2E7D32;">${m.composite_score || 0}</span>
+              <span style="font-size:1rem;color:#546E7A;font-weight:600;">pts</span>
+            </div>
+            <div style="margin-top:8px;font-size:0.82rem;color:#78909C;">
+              Span × ${m.correct_trials || 0} Ensayos Correctos
+            </div>
+          </div>
+
+          <div class="card" style="padding:22px;border-left:5px solid #8E24AA;">
+            <div style="font-size:0.85rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:6px;">Tasa de Precisión</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span style="font-size:2.4rem;font-weight:800;color:#6A1B9A;">${m.accuracy_pct?.toFixed(1) || 0}%</span>
+            </div>
+            <div style="margin-top:8px;font-size:0.82rem;color:#78909C;">
+              ${m.correct_trials || 0} correctos de ${m.total_trials || 0} ensayos
+            </div>
+          </div>
+
+          <div class="card" style="padding:22px;border-left:5px solid #FB8C00;">
+            <div style="font-size:0.85rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:6px;">Tiempo de Duda Previa</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <span style="font-size:2.4rem;font-weight:800;color:#EF6C00;">${Math.round(m.hesitation_time_avg_ms || 0)}</span>
+              <span style="font-size:1rem;color:#546E7A;font-weight:600;">ms</span>
+            </div>
+            <div style="margin-top:8px;font-size:0.82rem;color:#78909C;">
+              TR Medio: ${Math.round(m.mean_reaction_time_ms || 0)} ms / bloque
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 2 Column Split: Diagnóstico Clínico + Biomarcadores IA -->
+        <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:24px;margin-bottom:28px;">
+          
+          <!-- Panel Izquierdo: Interpretación Clínica y Perfil -->
+          <div class="card" style="padding:26px;">
+            <h3 style="font-family:'Playfair Display',serif;color:#1A237E;margin-bottom:14px;font-size:1.3rem;">
+              Interpretación Neuropsicológica
+            </h3>
+            <div style="background:#F4F6F9;border-radius:10px;padding:16px;margin-bottom:16px;border-left:4px solid #3949AB;">
+              <div style="font-weight:700;color:#1A237E;margin-bottom:4px;">
+                Clasificación Normativa: ${m.clinical_category || 'Promedio'}
+              </div>
+              <p style="color:#37474F;font-size:0.92rem;line-height:1.6;margin:0;">
+                ${m.clinical_desc || 'Rendimiento adecuado para el grupo normativo de edad.'}
+              </p>
+            </div>
+            <div style="font-size:0.88rem;color:#546E7A;line-height:1.6;">
+              <p style="margin-bottom:8px;">
+                <strong>Mecanismo Evaluado:</strong> ${isReverse
+                  ? 'Memoria de Trabajo Visoespacial Activa (Bucle fonológico/visoespacial y ejecutivo central según Baddeley). Requiere retención temporal y manipulación invertida en orden espacial.'
+                  : 'Capacidad de Retención y Recuerdo Inmediato del Bucle Visoespacial Pasivo (Milner, 1971).'}
+              </p>
+              <p style="margin:0;">
+                <strong>Estrategia de Ejecución:</strong> Se observa una latencia media de duda táctica de ${Math.round(m.hesitation_time_avg_ms || 0)} ms previa a la emisión del primer estímulo, lo cual refleja el tiempo de acceso mnémico y planificación motora.
+              </p>
+            </div>
+          </div>
+
+          <!-- Panel Derecho: Biomarcadores Paraclínicos IA -->
+          <div class="card" style="padding:26px;">
+            <h3 style="font-family:'Playfair Display',serif;color:#1A237E;margin-bottom:14px;font-size:1.3rem;">
+              Biomarcadores Paraclínicos IA
+            </h3>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#FAFAFA;border-radius:8px;border:1px solid #ECEFF1;">
+                <span style="font-size:0.9rem;color:#455A64;">👁️ Carga Mental Pupilar</span>
+                <strong style="color:#1565C0;">${m.pupil_dilation_avg?.toFixed(2) || '1.00'}x <span style="font-size:0.75rem;font-weight:normal;color:#78909C;">(vs reposo)</span></strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#FAFAFA;border-radius:8px;border:1px solid #ECEFF1;">
+                <span style="font-size:0.9rem;color:#455A64;">📈 Picos de Sobreesfuerzo</span>
+                <strong style="color:#2E7D32;">${m.cognitive_load_peaks || 0} eventos</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#FAFAFA;border-radius:8px;border:1px solid #ECEFF1;">
+                <span style="font-size:0.9rem;color:#455A64;">🖱️ Temblor Motor (Jitter)</span>
+                <strong style="color:#E65100;">${m.microtremor_avg?.toFixed(2) || '0.00'} px/s²</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#FAFAFA;border-radius:8px;border:1px solid #ECEFF1;">
+                <span style="font-size:0.9rem;color:#455A64;">👀 Parpadeos / Frecuencia</span>
+                <strong style="color:#37474F;">${m.blink_count || 0} (${m.blink_rate_min?.toFixed(1) || '0.0'}/min)</strong>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#FAFAFA;border-radius:8px;border:1px solid #ECEFF1;">
+                <span style="font-size:0.9rem;color:#455A64;">🎭 Tensión Facial (FER)</span>
+                <strong style="color:#5E35B1;">${m.fer_dominant || 'Concentrado'} (${m.fer_tension_score || 0}%)</strong>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Tabla Detallada: Secuencia Ensayo a Ensayo -->
+        <div class="card" style="padding:26px;margin-bottom:28px;">
+          <h3 style="font-family:'Playfair Display',serif;color:#1A237E;margin-bottom:16px;font-size:1.3rem;">
+            Desglose Ensayo por Ensayo (Progresión Visoespacial)
+          </h3>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.9rem;text-align:center;">
+              <thead>
+                <tr style="background:#E8EAF6;color:#1A237E;border-bottom:2px solid #C5CAE9;">
+                  <th style="padding:10px;">Ensayo</th>
+                  <th style="padding:10px;">Longitud (Nivel)</th>
+                  <th style="padding:10px;">Intento</th>
+                  <th style="padding:10px;">Secuencia Presentada</th>
+                  <th style="padding:10px;">Secuencia Usuario</th>
+                  <th style="padding:10px;">Resultado</th>
+                  <th style="padding:10px;">Duda Inicial (ms)</th>
+                  <th style="padding:10px;">TR Medio (ms)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(m.trials_data || this.linesData || []).map((t, idx) => {
+                  const seqPres = (t.sequence_presented || t.sequence || []).map(x => x + 1).join(' - ');
+                  const seqUsr = (t.sequence_user || t.userSequence || []).map(x => x + 1).join(' - ');
+                  const isOk = t.success !== undefined ? t.success : t.isCorrect;
+                  const lvl = t.sequence_length || t.level;
+                  const att = t.attempt;
+                  const hes = Math.round(t.hesitation_time_ms || t.hesitationTimeMs || 0);
+                  const rt = Math.round(t.mean_reaction_time_ms || t.meanReactionTimeMs || 0);
+                  return `
+                    <tr style="border-bottom:1px solid #ECEFF1;background:${idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB'};">
+                      <td style="padding:10px;font-weight:600;">${idx + 1}</td>
+                      <td style="padding:10px;font-weight:700;color:#1565C0;">${lvl} bloques</td>
+                      <td style="padding:10px;">Intento ${att}</td>
+                      <td style="padding:10px;font-family:monospace;font-size:0.95rem;color:#283593;">${seqPres}</td>
+                      <td style="padding:10px;font-family:monospace;font-size:0.95rem;color:${isOk ? '#2E7D32' : '#C62828'};">${seqUsr || '(vacío)'}</td>
+                      <td style="padding:10px;">
+                        <span class="badge" style="background:${isOk ? 'rgba(46,125,50,0.15)' : 'rgba(198,40,40,0.15)'};color:${isOk ? '#2E7D32' : '#C62828'};font-weight:700;padding:4px 8px;border-radius:6px;">
+                          ${isOk ? '✓ Correcto' : '✗ Error'}
+                        </span>
+                      </td>
+                      <td style="padding:10px;color:#546E7A;">${hes} ms</td>
+                      <td style="padding:10px;color:#546E7A;">${rt} ms</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Acciones Inferiores -->
+        <div style="display:flex;justify-content:center;gap:16px;margin-bottom:40px;">
+          ${this.evalId ? `
+            <button class="btn btn-success btn-lg" onclick="App.downloadExcel()" style="padding:14px 36px;font-size:1.05rem;">
+              📊 Descargar Informe Forense Excel
+            </button>
+          ` : ''}
+          <button class="btn btn-primary btn-lg" onclick="App.nav('menu')" style="padding:14px 36px;font-size:1.05rem;">
+            🏠 Regresar al Menú Principal
+          </button>
+        </div>
+
+      </div>
+    `;
+  },
+
   /* ══════════════════════════════════════════════════════════════════════
      PANTALLA 5: RESULTADOS
   ══════════════════════════════════════════════════════════════════════ */
   renderResults(app) {
+    if (this.testType === 'CORSI') {
+      this.renderCorsiResults(app);
+      return;
+    }
     const m = this.metrics;
     const ml = this.mlPred;
 

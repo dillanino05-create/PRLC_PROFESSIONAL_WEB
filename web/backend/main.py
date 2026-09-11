@@ -179,7 +179,39 @@ def status():
 
 @app.post('/api/predict')
 def predict(req: PredictRequest):
-    return predictor.predict(req.model_dump())
+    req_dict = req.model_dump()
+    if req_dict.get("test_type") == "CORSI":
+        span = req_dict.get("corsi_span") or 0
+        mode = req_dict.get("corsi_mode") or "direct"
+        if span >= 7:
+            risk = "Bajo"
+            prob = 10.0
+            profile = "Rendimiento Superior — Memoria visoespacial altamente eficiente."
+        elif span >= 5:
+            risk = "Bajo"
+            prob = 20.0
+            profile = "Rendimiento Promedio / Típico — Capacidad funcional adecuada."
+        elif span == 4:
+            risk = "Moderado"
+            prob = 48.0
+            profile = "Rendimiento Límite — Dificultades para sostener secuencias complejas."
+        else:
+            risk = "Alto"
+            prob = 85.0
+            profile = "Rendimiento Deficitario — Sospecha de compromiso en memoria visoespacial."
+
+        return {
+            'model_used': False,
+            'status': 'MLP en desarrollo para Corsi',
+            'test_type': 'CORSI',
+            'corsi_span': span,
+            'corsi_mode': mode,
+            'clinical_profile': profile,
+            'risk': risk,
+            'prob_pct': prob,
+            'recom': 'Evaluación psicométrica cuantitativa completada. Módulo MLP específico para Corsi en desarrollo.'
+        }
+    return predictor.predict(req_dict)
 
 def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, metrics, ml_pred, narrative,
                      test_type: str = "PLC", session_tag: Optional[str] = None, timestamp_str: Optional[str] = None):

@@ -183,6 +183,280 @@ def generate_session_tag(test_type: str = "PLC", session_id: Any = "0", patient_
     clean_sid = str(session_id) if session_id is not None and str(session_id) != "" else "0"
     return f"{clean_test}_{clean_sid}_{clean_id}_{clean_ts}"
 
+
+def _charts_corsi_png(lines_data: List[Dict], metrics: Dict, age_v: int) -> io.BytesIO:
+    """Genera panel de gráficos 2x2 para el reporte visual del Test de Corsi."""
+    ensayos = [l.get('linea', idx + 1) for idx, l in enumerate(lines_data)]
+    niveles = [l.get('sequence_length', l.get('evaluados', 2)) for l in lines_data]
+    exitos = [1 if (l.get('success') is True or l.get('aciertos', 0) > 0) else 0 for l in lines_data]
+    dudas = [float(l.get('hesitation_time_ms') or 0.0) for l in lines_data]
+    rts = [float(l.get('mean_reaction_time_ms') or 0.0) for l in lines_data]
+
+    fig = Figure(figsize=(14, 11), facecolor='white', dpi=110)
+    fig.subplots_adjust(hspace=0.45, wspace=0.32)
+
+    # 1. Curva de Progresión de Span por Ensayo
+    ax1 = fig.add_subplot(2, 2, 1)
+    if ensayos:
+        ax1.plot(ensayos, niveles, color='#1565C0', lw=2.0, marker='o', ms=4, label='Nivel (Bloques)')
+        for e, n, ok in zip(ensayos, niveles, exitos):
+            m_col = '#2E7D32' if ok else '#C62828'
+            m_mark = 'o' if ok else 'x'
+            ax1.plot(e, n, marker=m_mark, color=m_col, ms=8, mew=2)
+        ax1.set_title('Progresión de Longitud de Secuencia (Span)', fontweight='bold', fontsize=11)
+        ax1.set_xlabel('Nº de Ensayo'); ax1.set_ylabel('Bloques en Secuencia')
+        max_lvl = max(niveles + [9])
+        ax1.set_yticks(range(2, max_lvl + 1))
+        ax1.grid(alpha=0.3)
+
+    # 2. Latencias: Duda Previa vs Reacción Media
+    ax2 = fig.add_subplot(2, 2, 2)
+    if ensayos:
+        w = 0.35
+        x = np.array(ensayos)
+        ax2.bar(x - w/2, dudas, width=w, label='Tiempo Duda (ms)', color='#EF6C00', alpha=0.85)
+        ax2.bar(x + w/2, rts, width=w, label='TR Medio (ms)', color='#1E88E5', alpha=0.85)
+        ax2.set_title('Latencias de Ejecución (Duda vs Reacción)', fontweight='bold', fontsize=11)
+        ax2.set_xlabel('Nº de Ensayo'); ax2.set_ylabel('Milisegundos (ms)')
+        ax2.legend(fontsize=8); ax2.grid(axis='y', alpha=0.3)
+
+    # 3. Resumen de Rendimiento Global
+    ax3 = fig.add_subplot(2, 2, 3)
+    span_val = metrics.get('corsi_span', 0) or 0
+    corr_val = metrics.get('correct_trials', 0) or 0
+    err_val = metrics.get('error_trials', 0) or 0
+    labels3 = ['Span\nObtenido', 'Ensayos\nCorrectos', 'Ensayos\ncon Error']
+    vals3 = [span_val, corr_val, err_val]
+    cols3 = ['#1565C0', '#2E7D32', '#C62828']
+    bars3 = ax3.bar(labels3, vals3, color=cols3, width=0.5, edgecolor='white', lw=1.2)
+    for b, v in zip(bars3, vals3):
+        ax3.text(b.get_x() + b.get_width()/2, b.get_height() + 0.15, str(v), ha='center', va='bottom', fontsize=9, fontweight='bold')
+    ax3.set_title('Rendimiento Global Visoespacial', fontweight='bold', fontsize=11)
+    ax3.set_ylabel('Cantidad'); ax3.grid(axis='y', alpha=0.3)
+
+    # 4. Dinámica de Carga Mental Pupilar
+    ax4 = fig.add_subplot(2, 2, 4)
+    if ensayos:
+        pupils = [float(l.get('pupil_dilation_avg') or 1.0) for l in lines_data]
+        ax4.plot(ensayos, pupils, color='#8E24AA', lw=2.0, marker='s', ms=4, label='Dilatación Pupilar (x)')
+        ax4.axhline(1.2, color='#C62828', linestyle='--', alpha=0.6, label='Umbral Sobreesfuerzo (>1.2x)')
+        ax4.set_title('Dinámica de Carga Mental Pupilar', fontweight='bold', fontsize=11)
+        ax4.set_xlabel('Nº de Ensayo'); ax4.set_ylabel('Carga Mental (vs Reposo)')
+        ax4.grid(alpha=0.3); ax4.legend(fontsize=8)
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight')
+    buf.seek(0)
+    return buf
+
+
+def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
+                     metrics: Dict, ml_pred: Optional[Dict], narrative: str,
+                     test_type: str, session_id: Optional[Any],
+                     timestamp_str: Optional[str], session_tag: str, fp: str) -> str:
+    """Genera reporte forense específico para el Test de Bloques de Corsi."""
+    with pd.ExcelWriter(fp, engine='openpyxl') as writer:
+        is_reverse = (metrics.get('corsi_mode') == 'reverse')
+        mode_str = "Inversa (Memoria de Trabajo Ejecutiva)" if is_reverse else "Directa (Span Anterógrado)"
+
+        # ── Hoja 1: Resumen Clínico ───────────────────────────────────────────
+        df_demog = pd.DataFrame([
+            {"Parámetro": "Batería / Prueba", "Dato": "Test de Bloques de Corsi"},
+            {"Parámetro": "Modalidad de Evaluación", "Dato": mode_str},
+            {"Parámetro": "Cadena Custodia / Tag", "Dato": session_tag},
+            {"Parámetro": "ID Paciente", "Dato": participant.get('id', 'P01')},
+            {"Parámetro": "Nombre", "Dato": participant.get('name', 'N/A')},
+            {"Parámetro": "Edad Cronométrica", "Dato": participant.get('age', 25)},
+            {"Parámetro": "Género Registrado", "Dato": participant.get('gender', '')},
+            {"Parámetro": "Educación Aprobada", "Dato": participant.get('education', '')},
+            {"Parámetro": "Ocupación Cruda", "Dato": participant.get('occupation', '')},
+            {"Parámetro": "Estado de Aplicación", "Dato": "Completada"},
+            {"Parámetro": "Longitud Máxima (Span)", "Dato": f"{metrics.get('corsi_span', 0)} bloques"}
+        ])
+
+        def _safe_f(val, decimals=1):
+            try: return round(float(val), decimals) if val is not None else 0.0
+            except: return 0.0
+
+        df_metricas = pd.DataFrame([
+            {"Indicador Cuantitativo": "Span de Memoria Visoespacial", "Valor Calculado": f"{metrics.get('corsi_span', 0)} bloques"},
+            {"Indicador Cuantitativo": "Puntaje Compuesto (Span × Aciertos)", "Valor Calculado": f"{metrics.get('composite_score', 0)} pts"},
+            {"Indicador Cuantitativo": "Total de Ensayos Realizados", "Valor Calculado": metrics.get('total_trials', 0)},
+            {"Indicador Cuantitativo": "Ensayos Correctos Acumulados", "Valor Calculado": metrics.get('correct_trials', 0)},
+            {"Indicador Cuantitativo": "Ensayos con Error", "Valor Calculado": metrics.get('error_trials', 0)},
+            {"Indicador Cuantitativo": "Tasa Global de Exactitud (%)", "Valor Calculado": f"{_safe_f(metrics.get('accuracy_pct'), 1):.1f} %"},
+            {"Indicador Cuantitativo": "Tiempo Medio de Duda Previa (ms)", "Valor Calculado": f"{_safe_f(metrics.get('hesitation_time_avg_ms'), 0):.0f} ms"},
+            {"Indicador Cuantitativo": "Tiempo Medio de Reacción / Bloque (ms)", "Valor Calculado": f"{_safe_f(metrics.get('mean_reaction_time_ms'), 0):.0f} ms"}
+        ])
+
+        df_patrones = pd.DataFrame([
+            {"Dominio Observacional Algorítmico": "Clasificación Neuropsicológica: " + str(metrics.get('clinical_category', 'Promedio'))},
+            {"Dominio Observacional Algorítmico": "Perfil Clínico: " + str(metrics.get('clinical_desc', 'Rendimiento adecuado para el grupo de edad.'))},
+            {"Dominio Observacional Algorítmico": "Mecanismo Cognitivo: " + ("Retención y manipulación invertida (bucle visoespacial + ejecutivo)" if is_reverse else "Retención anterógrada inmediata pasiva")},
+            {"Dominio Observacional Algorítmico": "Estrategia Motora: " + f"Duda táctica de {_safe_f(metrics.get('hesitation_time_avg_ms'), 0):.0f} ms antes del primer contacto"}
+        ])
+
+        cam_active = bool(metrics.get('camera_active', False))
+        pupil_avg = _safe_f(metrics.get('pupil_dilation_avg'), 2)
+        load_peaks = int(metrics.get('cognitive_load_peaks') or 0)
+        microtremor_avg = _safe_f(metrics.get('microtremor_avg'), 2)
+        fer_dom = str(metrics.get('fer_dominant') or 'Concentración Neutra')
+        fer_tens = _safe_f(metrics.get('fer_tension_score'), 1)
+        ear_m = _safe_f(metrics.get('ear_mean'), 3)
+        blinks_tot = int(metrics.get('blink_count') or 0)
+        blinks_rate = _safe_f(metrics.get('blink_rate_min'), 1)
+        gaze_div = int(metrics.get('gaze_diverted_count') or 0)
+
+        df_biomarkers_ia = pd.DataFrame([
+            {"Biomarcador IA": "Estado Cámara Web", "Registro": "ACTIVA (Captura de mirada/emociones/iris)" if cam_active else "DESACTIVADA POR EL USUARIO"},
+            {"Biomarcador IA": "Dilatación Pupilar Media (Carga Mental)", "Registro": f"{pupil_avg:.2f}x (Normalizada vs Reposo)" if cam_active else "N/A"},
+            {"Biomarcador IA": "Picos de Sobreesfuerzo Cognitivo", "Registro": f"{load_peaks} eventos (>120% dilatación basal)" if cam_active else "N/A"},
+            {"Biomarcador IA": "Microtemblor Promedio (Jitter Cursor)", "Registro": f"{microtremor_avg:.2f} px/s²"},
+            {"Biomarcador IA": "Expresión Facial Dominante (FER)", "Registro": fer_dom if cam_active else "N/A"},
+            {"Biomarcador IA": "Nivel de Tensión Facial Estimado", "Registro": f"{fer_tens:.1f}%" if cam_active else "N/A"},
+            {"Biomarcador IA": "EAR Promedio (Apertura Ocular)", "Registro": f"{ear_m:.3f}" if ear_m > 0 else "N/A"},
+            {"Biomarcador IA": "Parpadeos Totales / Frecuencia", "Registro": f"{blinks_tot} ({blinks_rate:.1f}/min)" if cam_active else "N/A"},
+            {"Biomarcador IA": "Desvíos de Mirada del Canvas", "Registro": f"{gaze_div} eventos" if cam_active else "N/A"}
+        ])
+
+        df_demog.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=4, startcol=0)
+        df_metricas.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=4, startcol=3)
+        df_patrones.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=17, startcol=0)
+        df_biomarkers_ia.to_excel(writer, sheet_name='01_Resumen_Clinico', index=False, startrow=17, startcol=3)
+
+        ws1 = writer.sheets['01_Resumen_Clinico']
+        _add_educational_header(ws1, "Test de Corsi — Resumen Clínico del Desempeño",
+                                "Reporte de memoria de trabajo visoespacial (Bloques de Corsi). Integra Span, puntaje compuesto y biomarcadores paraclínicos.",
+                                disclaimer=True)
+        _style_hdr(ws1, row=5); _style_hdr(ws1, row=18)
+        _set_widths(ws1, [25, 30, 2, 40, 30])
+        for row in ws1.iter_rows(min_row=5, max_col=5):
+            for cell in row: cell.alignment = W_ALIGN
+
+        # ── Hoja 2: Análisis por Ensayo/Secuencia ─────────────────────────────
+        d_seq = []
+        for idx, l in enumerate(lines_data):
+            seq_p = l.get('sequence_presented') or l.get('sequence') or []
+            seq_u = l.get('sequence_user') or l.get('userSequence') or []
+            str_p = " - ".join(str(x + 1) for x in seq_p) if seq_p else "N/A"
+            str_u = " - ".join(str(x + 1) for x in seq_u) if seq_u else "(vacío)"
+            is_ok = (l.get('success') is True or l.get('aciertos', 0) > 0)
+
+            d_seq.append({
+                "Nº Ensayo": l.get('linea', idx + 1),
+                "Longitud (Nivel)": l.get('sequence_length', l.get('evaluados', len(seq_p))),
+                "Intento": f"Intento {l.get('attempt', 1)}",
+                "Secuencia Presentada": str_p,
+                "Secuencia Reproducida": str_u,
+                "Resultado": "CORRECTO" if is_ok else "ERROR",
+                "Tiempo Duda Previa (ms)": _safe_f(l.get('hesitation_time_ms'), 0),
+                "TR Medio / Bloque (ms)": _safe_f(l.get('mean_reaction_time_ms'), 0),
+                "Carga Mental (Pupila x)": f"{_safe_f(l.get('pupil_dilation_avg'), 2):.2f}x",
+                "Temblor Motor (px/s²)": _safe_f(l.get('tremor_score'), 2)
+            })
+
+        df_seq = pd.DataFrame(d_seq)
+        df_seq.to_excel(writer, sheet_name='02_Analisis_Secuencias', index=False, startrow=4)
+        ws2 = writer.sheets['02_Analisis_Secuencias']
+        _add_educational_header(ws2, "Desglose Longitudinal Ensayo por Ensayo",
+                                "Registro secuencial de cada ensayo presentado y la respuesta emitida por el participante. Detalla latencias y biomarcadores por nivel.")
+        _style_hdr(ws2, row=5)
+        _set_widths(ws2, [12, 16, 14, 25, 25, 14, 22, 22, 22, 22])
+
+        # ── Hoja 3: Glosario de Métricas Corsi ────────────────────────────────
+        glosario_corsi = [
+            {"Acrónimo": "Span Visoespacial", "Terminología Clínica": "Amplitud de Memoria Visoespacial", "Definición Teórica Obj.": "Longitud máxima de la secuencia de bloques reproducida correctamente sin cometer dos fallos consecutivos."},
+            {"Acrónimo": "Modalidad Directa", "Terminología Clínica": "Recuerdo Anterógrado Inmediato", "Definición Teórica Obj.": "Reproducción en el mismo orden de presentación. Evalúa la capacidad de almacenamiento temporal del bucle visoespacial."},
+            {"Acrónimo": "Modalidad Inversa", "Terminología Clínica": "Memoria de Trabajo Ejecutiva", "Definición Teórica Obj.": "Reproducción en orden inverso al presentado. Requiere procesamiento activo, reordenamiento mental y control ejecutivo."},
+            {"Acrónimo": "Puntaje Compuesto", "Terminología Clínica": "Índice de Producto Kessels", "Definición Teórica Obj.": "Producto del Span obtenido multiplicado por el total de ensayos correctos (Kessels et al., 2000). Medida robusta de estabilidad."},
+            {"Acrónimo": "Tiempo de Duda", "Terminología Clínica": "Latencia de Planificación Inicial", "Definición Teórica Obj.": "Tiempo transcurrido desde el final de la presentación hasta el primer clic del evaluado. Refleja acceso a memoria y preparación motriz."},
+            {"Acrónimo": "Carga Mental Pupilar", "Terminología Clínica": "Reflejo Pupilar Cognitivo", "Definición Teórica Obj.": "Dilatación relativa del iris inducida por el esfuerzo de retención secuencial y manipulación de memoria de trabajo."}
+        ]
+        pd.DataFrame(glosario_corsi).to_excel(writer, sheet_name='03_Glosario_Metricas', index=False, startrow=4)
+        ws3 = writer.sheets['03_Glosario_Metricas']
+        _add_educational_header(ws3, "Glosario Neuropsicológico — Test de Corsi",
+                                "Diccionario de referencia para la interpretación clínica de los parámetros cuantificados en el Test de Corsi.")
+        _style_hdr(ws3, row=5)
+        _set_widths(ws3, [22, 30, 90])
+        for row in ws3.iter_rows(min_row=6, max_col=3):
+            row[2].alignment = W_ALIGN
+
+        # ── Hoja 4: Registro de Eventos CRUDOS ────────────────────────────────
+        df_c = pd.DataFrame(click_log) if click_log else pd.DataFrame()
+        if not df_c.empty:
+            df_c = df_c.rename(columns={
+                'line': 'Ensayo',
+                'sequence_position': 'Posición en Secuencia',
+                'cube_id': 'Cubo Tocado',
+                'expected_cube': 'Cubo Esperado',
+                'is_correct': '¿Acierto?',
+                'elapsed_ms': 'Latencia de Clic (ms)',
+                'distance_px': 'Distancia Movimiento (px)',
+                'x_coord': 'Coordenada X (%)',
+                'y_coord': 'Coordenada Y (%)'
+            })
+        df_c.to_excel(writer, sheet_name='04_Registro_Eventos_CRUDOS', index=False, startrow=4)
+        ws4 = writer.sheets['04_Registro_Eventos_CRUDOS']
+        _add_educational_header(ws4, "Auditoría Forense de Clics sobre Cubos",
+                                "Registro cronológico milisegundo a milisegundo de cada toque registrado sobre los bloques interactivos.")
+        _style_hdr(ws4, row=5)
+        _set_widths(ws4, [14, 20, 16, 16, 14, 20, 24, 18, 18])
+
+        # ── Hoja 5: Arrays para Gráficas Nativas ──────────────────────────────
+        if lines_data:
+            gd = {
+                'Ensayo': [l.get('linea', idx + 1) for idx, l in enumerate(lines_data)],
+                'Nivel_Bloques': [l.get('sequence_length', l.get('evaluados', 2)) for l in lines_data],
+                'Resultado_Binario': [1 if (l.get('success') is True or l.get('aciertos', 0) > 0) else 0 for l in lines_data],
+                'Tiempo_Duda_ms': [_safe_f(l.get('hesitation_time_ms'), 0) for l in lines_data],
+                'TR_Medio_ms': [_safe_f(l.get('mean_reaction_time_ms'), 0) for l in lines_data]
+            }
+            pd.DataFrame(gd).to_excel(writer, sheet_name='05_Arrays_Para_Graficas', index=False, startrow=4)
+            ws5 = writer.sheets['05_Arrays_Para_Graficas']
+            _add_educational_header(ws5, "Vectores Numéricos de Ejecución Corsi",
+                                    "Datos numéricos utilizados para el trazado de curvas interactivas de progresión visoespacial y tiempos de respuesta.")
+            _style_hdr(ws5, row=5); _set_widths(ws5, [10, 15, 18, 18, 16])
+
+            try:
+                n_rows = len(lines_data) + 4
+                lc = LineChart(); lc.title = 'Curva de Progresión de Span por Ensayo'; lc.style = 10; lc.height = 12; lc.width = 22
+                dr = Reference(ws5, min_col=2, min_row=4, max_row=n_rows)
+                lc.add_data(dr, titles_from_data=True)
+                lc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows))
+                ws5.add_chart(lc, 'G5')
+
+                bc = BarChart(); bc.type = 'col'; bc.title = 'Latencias de Ejecución (Duda vs Reacción ms)'
+                bc.style = 10; bc.height = 12; bc.width = 22
+                er = Reference(ws5, min_col=4, min_row=4, max_col=5, max_row=n_rows)
+                bc.add_data(er, titles_from_data=True)
+                bc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows))
+                ws5.add_chart(bc, 'G25')
+            except Exception:
+                pass
+
+    # ── Hoja 6: Imágenes Embebidas ─────────────────────────────────────────
+    try:
+        wb = openpyxl.load_workbook(fp)
+        ws6 = wb.create_sheet('06_Analisis_Visual')
+        ws6.sheet_view.showGridLines = False
+
+        _add_educational_header(ws6, "Panel Gráfico Neuropsicológico del Test de Corsi",
+                                "Representaciones gráficas 2D de la curva de memoria visoespacial, análisis de latencias y pupilometría.", disclaimer=True)
+        ws6.row_dimensions[2].height = 60
+
+        age_v = participant.get('age', 25)
+        chart_buf = _charts_corsi_png(lines_data, metrics, age_v)
+        img = XLImage(chart_buf)
+        img.anchor = 'A5'
+        ws6.add_image(img)
+
+        wb.save(fp)
+    except Exception as e:
+        print(f'⚠️ Error exportando XL_Visuales Corsi: {e}')
+
+    return fp
+
+
 # ── Exportación Directa a DataFrames ──────────────────────────────────────────
 def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
                metrics: Dict, ml_pred: Optional[Dict], narrative: str,
@@ -192,6 +466,11 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         session_tag = generate_session_tag(test_type, session_id, participant.get('id', 'P01'), timestamp_str)
     fn  = f"{session_tag}.xlsx"
     fp  = os.path.join(EXPORTS_DIR, fn)
+
+    if (test_type or "").upper() == "CORSI":
+        return save_excel_corsi(participant, lines_data, click_log, metrics, ml_pred, narrative,
+                                test_type=test_type, session_id=session_id, timestamp_str=timestamp_str,
+                                session_tag=session_tag, fp=fp)
 
     with pd.ExcelWriter(fp, engine='openpyxl') as writer:
         
