@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MecaPsi · PLC Professional v3.3 — Evaluación Cognitiva</title>
+  <meta name="description" content="MecaPsi / Prueba de Líneas Cruzadas v3.3 — Evaluación de atención selectiva y memoria con perfil cognitivo y biomarcadores IA"/>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet"/>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- MediaPipe Face Mesh (Edge-AI Biomarcadores Oculomotores y Emocionales) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css?v=3.3.4"/>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- Clinical Modules (order matters) -->
+  <script src="js/stimuli.js?v=3.3.4"></script>
+  <script src="js/corsi_runner.js?v=3.3.4"></script>
+  <script src="js/metrics.js?v=3.3.4"></script>
+  <script src="js/charts.js?v=3.3.4"></script>
+  <script src="js/app.js?v=3.3.4"></script>
+</body>
+</html>

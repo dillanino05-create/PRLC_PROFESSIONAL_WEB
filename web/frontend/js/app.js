@@ -170,6 +170,12 @@ const App = {
           <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;" onclick="App.doLogin(this)">
             Iniciar Sesión
           </button>
+
+          <div style="text-align:center;margin-top:18px;">
+            <a href="index.html" style="color:#546E7A;text-decoration:none;font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;transition:color 0.2s;" onmouseover="this.style.color='#1A237E'" onmouseout="this.style.color='#546E7A'">
+              ← Volver a la Página Principal (Landing MecaPsi)
+            </a>
+          </div>
         </div>
       </div>
     `;
