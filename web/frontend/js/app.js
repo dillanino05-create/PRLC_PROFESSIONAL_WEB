@@ -1122,25 +1122,24 @@ const App = {
     // ── Biomarcadores Motor: inicializar tracking del cursor para esta línea ───────
     this.mouseTrackPerLine[this.currentLine] = [];
     this._mouseMoveThrottleTs = 0;
-    const _stimAreaEl = document.getElementById('stim-area');
-    if (_stimAreaEl) {
-      // Remover handler anterior si existe (defensa ante llamadas rápidas)
-      if (this._mouseMoveHandler) {
-        _stimAreaEl.removeEventListener('mousemove', this._mouseMoveHandler);
-      }
-      this._mouseMoveHandler = (e) => {
-        const _now = performance.now();
-        if (_now - this._mouseMoveThrottleTs < 16) return; // Throttle a ~60fps
-        this._mouseMoveThrottleTs = _now;
-        const _rect = _stimAreaEl.getBoundingClientRect();
-        this.mouseTrackPerLine[this.currentLine].push({
-          x: e.clientX - _rect.left,
-          y: e.clientY - _rect.top,
-          t: _now
-        });
-      };
-      _stimAreaEl.addEventListener('mousemove', this._mouseMoveHandler, { passive: true });
+    if (this._mouseMoveHandler) {
+      window.removeEventListener('mousemove', this._mouseMoveHandler);
+      this._mouseMoveHandler = null;
     }
+    this._mouseMoveHandler = (e) => {
+      const _now = performance.now();
+      if (_now - this._mouseMoveThrottleTs < 16) return; // Throttle a ~60fps
+      this._mouseMoveThrottleTs = _now;
+      if (!this.mouseTrackPerLine[this.currentLine]) {
+        this.mouseTrackPerLine[this.currentLine] = [];
+      }
+      this.mouseTrackPerLine[this.currentLine].push({
+        x: e.clientX,
+        y: e.clientY,
+        t: _now
+      });
+    };
+    window.addEventListener('mousemove', this._mouseMoveHandler, { passive: true });
 
     // Start timer
     this.lineStartTime = performance.now();
@@ -1241,9 +1240,8 @@ const App = {
     }
 
     // 4. Biomarcadores Motor: limpiar listener y calcular tremor y barrido del cursor
-    const _saEl = document.getElementById('stim-area');
-    if (_saEl && this._mouseMoveHandler) {
-      _saEl.removeEventListener('mousemove', this._mouseMoveHandler);
+    if (this._mouseMoveHandler) {
+      window.removeEventListener('mousemove', this._mouseMoveHandler);
       this._mouseMoveHandler = null;
     }
     const currentSamples = this.mouseTrackPerLine[this.currentLine] || [];
@@ -1251,17 +1249,17 @@ const App = {
     const sweepResult = computeSweepMetrics(currentSamples);
 
     // Oculometría de la línea actual
-    const lineEarSamples = this.earSamples.filter(s => s.line === this.currentLine + 1);
+    const lineEarSamples = (this.earSamples || []).filter(s => s.line === this.currentLine + 1);
     const lineEarAvg = lineEarSamples.length > 0
-      ? parseFloat((lineEarSamples.reduce((a, b) => a + b.ear, 0) / lineEarSamples.length).toFixed(3))
+      ? parseFloat((lineEarSamples.reduce((a, b) => a + (b.ear || 0), 0) / lineEarSamples.length).toFixed(3))
       : null;
     let lineBlinks = 0;
     let inBlink = false;
     for (let s of lineEarSamples) {
-      if (s.ear < 0.20 && !inBlink) { lineBlinks++; inBlink = true; }
-      else if (s.ear >= 0.20) { inBlink = false; }
+      if ((s.ear || 0) < 0.20 && !inBlink) { lineBlinks++; inBlink = true; }
+      else if ((s.ear || 0) >= 0.20) { inBlink = false; }
     }
-    const lineGazeDiverted = this.gazeEvents.some(ev => ev.line === this.currentLine + 1);
+    const lineGazeDiverted = (this.gazeEvents || []).some(ev => ev.line === this.currentLine + 1);
 
     this.linesData.push({
       linea: this.currentLine + 1,
@@ -1271,11 +1269,11 @@ const App = {
       comisiones: coms,
       evaluados: evaluados,
       saltos_erraticos: jumps,
-      tremor_score: tremorResult.score,
-      tremor_flag: tremorResult.flag,
-      microtremor_score: tremorResult.microtremor || tremorResult.score,
-      sweep_regularity: sweepResult.sweep_regularity,
-      retrocesos_mouse: sweepResult.retrocesos,
+      tremor_score: Number(tremorResult.score || 0.0),
+      tremor_flag: Boolean(tremorResult.flag),
+      microtremor_score: (tremorResult.microtremor !== undefined && tremorResult.microtremor !== null) ? Number(tremorResult.microtremor) : Number(tremorResult.score || 0.0),
+      sweep_regularity: (sweepResult.sweep_regularity !== undefined && sweepResult.sweep_regularity !== null) ? Number(sweepResult.sweep_regularity) : 100.0,
+      retrocesos_mouse: Number(sweepResult.retrocesos || 0),
       ear_avg: lineEarAvg,
       blinks_count: lineEarSamples.length > 0 ? lineBlinks : null,
       gaze_diverted: lineGazeDiverted,
@@ -1315,22 +1313,22 @@ const App = {
     const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, this.metrics.totalTime);
 
     // Promedios motores globales
-    const validTremors = this.linesData.map(l => l.microtremor_score || 0);
+    const validTremors = this.linesData.map(l => (l.microtremor_score !== undefined && l.microtremor_score !== null) ? Number(l.microtremor_score) : 0);
     const microtremor_avg = validTremors.length > 0
       ? parseFloat((validTremors.reduce((a, b) => a + b, 0) / validTremors.length).toFixed(2))
       : 0.0;
-    const validSweeps = this.linesData.map(l => l.sweep_regularity !== undefined ? l.sweep_regularity : 100.0);
+    const validSweeps = this.linesData.map(l => (l.sweep_regularity !== undefined && l.sweep_regularity !== null) ? Number(l.sweep_regularity) : 100.0);
     const sweep_regularity_avg = validSweeps.length > 0
       ? parseFloat((validSweeps.reduce((a, b) => a + b, 0) / validSweeps.length).toFixed(1))
       : 100.0;
 
     // Consolidar en this.metrics
-    this.metrics.camera_active = oculoMetrics.camera_active;
-    this.metrics.ear_mean = oculoMetrics.ear_mean;
-    this.metrics.blink_count = oculoMetrics.blink_count;
-    this.metrics.blink_rate_min = oculoMetrics.blink_rate_min;
-    this.metrics.gaze_diverted_count = oculoMetrics.gaze_diverted_count;
-    this.metrics.gaze_diverted_ms = oculoMetrics.gaze_diverted_ms;
+    this.metrics.camera_active = Boolean(oculoMetrics.camera_active);
+    this.metrics.ear_mean = (oculoMetrics.ear_mean !== null && oculoMetrics.ear_mean !== undefined) ? Number(oculoMetrics.ear_mean) : null;
+    this.metrics.blink_count = Number(oculoMetrics.blink_count || 0);
+    this.metrics.blink_rate_min = Number(oculoMetrics.blink_rate_min || 0);
+    this.metrics.gaze_diverted_count = Number(oculoMetrics.gaze_diverted_count || 0);
+    this.metrics.gaze_diverted_ms = Number(oculoMetrics.gaze_diverted_ms || 0);
     this.metrics.microtremor_avg = microtremor_avg;
     this.metrics.sweep_regularity_avg = sweep_regularity_avg;
 
@@ -1773,7 +1771,7 @@ const App = {
 
               <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;text-align:center;margin-bottom:14px;">
                 <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
-                  <div style="font-size:1.15rem;font-weight:700;color:${(m.microtremor_avg || 0) > 85 ? '#D84315' : '#1565C0'};">${m.microtremor_avg !== undefined ? m.microtremor_avg : 0}</div>
+                  <div style="font-size:1.15rem;font-weight:700;color:${(m.microtremor_avg || 0) > 85 ? '#D84315' : '#1565C0'};">${m.microtremor_avg !== undefined && m.microtremor_avg !== null ? Number(m.microtremor_avg).toFixed(2) : '0.00'}</div>
                   <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Jitter Promedio</div>
                 </div>
                 <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
@@ -1853,6 +1851,9 @@ const App = {
             <!-- Renderizado dinámico -->
           </div>
 
+          <!-- Bloque de Telemetría Oculomotora y Cinemática (Biomarcadores IA) -->
+          <div id="modal-biomarkers-extra" style="margin-bottom: 20px;"></div>
+
           <div class="charts-grid">
             <div class="chart-box"><canvas id="chart-behavior"></canvas></div>
             <div class="chart-box"><canvas id="chart-metrics"></canvas></div>
@@ -1931,15 +1932,42 @@ const App = {
         <td>${r.age}</td>
         <td><span style="font-weight:700;color:${r.CP >= 75 ? '#2E7D32' : r.CP >= 50 ? '#E65100' : '#B71C1C'}">${r.CP}</span></td>
         <td>${r.TA}</td>
-        <td class="flex gap-2">
+        <td class="flex gap-2" style="align-items:center;">
           <button class="btn btn-ghost btn-sm" style="background:#E8EAF6;color:#1A237E;" onclick="App.openWebReport(${r.id}, this)">👁️ Ver Web</button>
-          ${r.video_path ? `<button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;" onclick="App.playVideo(${r.id}, this)">🎥 Video</button>` : ''}
+          ${(function(){
+            const createdDate = new Date(r.created_at);
+            const now = new Date();
+            const diffDays = (now - createdDate) / (1000 * 60 * 60 * 24);
+            const daysLeft = r.video_days_left !== undefined && r.video_days_left !== null
+              ? r.video_days_left
+              : Math.max(0, Math.ceil(30 - diffDays));
+
+            if (r.video_path) {
+              if (daysLeft <= 0) {
+                return `<span style="font-size:0.7rem;color:#64748B;padding:3px 6px;background:#F1F5F9;border-radius:6px;border:1px solid #CBD5E1;font-weight:600;" title="El video fue purgado tras superar los 30 días reglamentarios para proteger el almacenamiento.">🗑️ Expirado (+30d)</span>`;
+              }
+              const badgeStyle = daysLeft <= 3 
+                ? 'background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;' 
+                : daysLeft <= 10 
+                  ? 'background:#FFF3E0;color:#E65100;border:1px solid #FFE0B2;' 
+                  : 'background:#E3F2FD;color:#1565C0;border:1px solid #BBDEFB;';
+              return `
+                <div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;">
+                  <button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;padding:2px 8px;" onclick="App.playVideo(${r.id}, this)">🎥 Video</button>
+                  <span style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:4px;${badgeStyle}">⏳ Quedan ${daysLeft}d</span>
+                </div>
+              `;
+            } else if (daysLeft <= 0 && r.video_days_left === 0) {
+              return `<span style="font-size:0.7rem;color:#94A3B8;padding:3px 6px;background:#F8FAFC;border-radius:6px;border:1px solid #E2E8F0;font-weight:600;" title="El video fue purgado tras superar los 30 días reglamentarios.">🗑️ Expirado (+30d)</span>`;
+            }
+            return '';
+          })()}
           ${r.status === 'processing' || r.status === 'pending' ?
-        `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
-        r.status === 'error' ?
-          `<button class="btn btn-danger btn-sm" disabled>❌ Error</button>` :
-          `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id}, this)">📥 Excel</button>`
-      }
+            `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
+            r.status === 'error' ?
+              `<button class="btn btn-danger btn-sm" disabled title="Error al compilar el Excel de este paciente">❌ Error</button>` :
+              `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id}, this)">📥 Excel</button>`
+          }
           <button class="btn btn-danger btn-sm" onclick="App.deleteEval(${r.id}, this)">🗑</button>
         </td>
       </tr>`).join('');
@@ -2049,10 +2077,99 @@ const App = {
           <div class="semaforo-indicator" style="background:var(--accent);"></div>
           <div class="semaforo-text">
             <div class="st-title">Confiabilidad Bayesiana</div>
-            <div class="st-desc" style="font-size:0.8rem;">${(ml.confidence_percent || "0%")} (Calidad del ML)</div>
+            <div class="st-desc" style="font-size:0.8rem;">${(ml && ml.confidence_percent ? ml.confidence_percent : "0%")} (Calidad del ML)</div>
           </div>
         </div>
       `;
+
+      // 2.2. Bloque de Telemetría Oculomotora y Cinemática (Biomarcadores IA) en el modal
+      const extraEl = document.getElementById('modal-biomarkers-extra');
+      if (extraEl) {
+        const camActive = Boolean(metrics.camera_active);
+        const earMean = metrics.ear_mean !== undefined && metrics.ear_mean !== null ? Number(metrics.ear_mean) : null;
+        const blinksCount = Number(metrics.blink_count || 0);
+        const blinkRate = Number(metrics.blink_rate_min || 0);
+        const gazeCount = Number(metrics.gaze_diverted_count || 0);
+
+        let microAvg = metrics.microtremor_avg;
+        if (microAvg === undefined || microAvg === null) {
+          const lTremors = lines ? lines.map(l => (l.microtremor_score !== undefined && l.microtremor_score !== null) ? l.microtremor_score : (l.tremor_score || 0)) : [];
+          microAvg = lTremors.length > 0 ? (lTremors.reduce((a, b) => a + b, 0) / lTremors.length) : 0;
+        }
+        microAvg = parseFloat(Number(microAvg || 0).toFixed(2));
+
+        let sweepAvg = metrics.sweep_regularity_avg;
+        if (sweepAvg === undefined || sweepAvg === null) {
+          const lSweeps = lines ? lines.map(l => (l.sweep_regularity !== undefined && l.sweep_regularity !== null) ? l.sweep_regularity : 100) : [];
+          sweepAvg = lSweeps.length > 0 ? (lSweeps.reduce((a, b) => a + b, 0) / lSweeps.length) : 100;
+        }
+        sweepAvg = parseFloat(Number(sweepAvg !== undefined ? sweepAvg : 100).toFixed(1));
+
+        const tremorLines = metrics.tremor_lines || (lines ? lines.filter(l => l.tremor_flag).map(l => l.linea) : []);
+
+        extraEl.innerHTML = `
+          <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-left:4px solid #00BCD4;border-radius:10px;padding:16px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+              <span style="font-weight:700;font-size:0.95rem;color:#00838F;">⚡ Datos Extras de IA — Telemetría Oculomotora y Cinemática</span>
+              <span class="badge" style="background:#E0F7FA;color:#006064;font-size:0.75rem;padding:3px 8px;border-radius:6px;font-weight:700;">PARACLÍNICO DE APOYO</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:14px;">
+              <!-- Panel Oculomotor -->
+              <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                  <span style="font-weight:700;font-size:0.88rem;color:#1E293B;">👁️ Foco Visual & Parpadeo</span>
+                  <span style="font-size:0.7rem;font-weight:600;padding:2px 6px;border-radius:8px;${camActive ? 'background:#E8F5E9;color:#2E7D32;' : 'background:#ECEFF1;color:#607D8B;'}">
+                    ${camActive ? 'CÁMARA ACTIVA' : 'SIN CÁMARA'}
+                  </span>
+                </div>
+                ${camActive ? `
+                  <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;text-align:center;">
+                    <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                      <div style="font-size:1.05rem;font-weight:700;color:#00838F;">${earMean !== null ? earMean.toFixed(2) : 'N/A'}</div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">EAR Prom.</div>
+                    </div>
+                    <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                      <div style="font-size:1.05rem;font-weight:700;color:#1565C0;">${blinksCount}</div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Parp. (${blinkRate}/m)</div>
+                    </div>
+                    <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                      <div style="font-size:1.05rem;font-weight:700;color:${gazeCount > 2 ? '#C62828' : '#2E7D32'};">${gazeCount}</div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Desvíos</div>
+                    </div>
+                  </div>
+                ` : `
+                  <div style="font-size:0.8rem;color:#64748B;text-align:center;padding:12px;background:#FFF;border-radius:6px;">
+                    Cámara desactivada por el paciente en esta prueba.
+                  </div>
+                `}
+              </div>
+
+              <!-- Panel Cinemática & Microtemblor -->
+              <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                  <span style="font-weight:700;font-size:0.88rem;color:#1E293B;">🖱️ Cinemática & Microtemblor</span>
+                  <span style="font-size:0.7rem;font-weight:600;padding:2px 6px;border-radius:8px;background:#EDE7F6;color:#512DA8;">60 FPS</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;text-align:center;">
+                  <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.05rem;font-weight:700;color:${microAvg > 85 ? '#D84315' : '#1565C0'};">${microAvg}</div>
+                    <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Jitter Prom.</div>
+                  </div>
+                  <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.05rem;font-weight:700;color:${sweepAvg < 80 ? '#C62828' : '#2E7D32'};">${sweepAvg}%</div>
+                    <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Barrido</div>
+                  </div>
+                  <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
+                    <div style="font-size:1.05rem;font-weight:700;color:${tremorLines.length > 0 ? '#C62828' : '#2E7D32'};">${tremorLines.length}</div>
+                    <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Págs Tremor</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
 
       // 2.5. Notas de Saltos Erráticos en el modal
       const modalNotesEl = document.getElementById('modal-jumps-notes');

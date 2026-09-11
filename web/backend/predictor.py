@@ -117,14 +117,43 @@ class PLCMLPredictor:
             info = self.PROFILES.get(pc, self.PROFILES[0])
 
             # ── Procesamiento de Biomarcadores Oculomotores y Conductuales ─────
-            camera_active = data.get('camera_active', False)
+            camera_active = bool(data.get('camera_active', False))
             ear_mean = data.get('ear_mean')
-            blink_count = data.get('blink_count', 0)
-            blink_rate_min = data.get('blink_rate_min', 0.0)
-            gaze_diverted_count = data.get('gaze_diverted_count', 0)
-            gaze_diverted_ms = data.get('gaze_diverted_ms', 0.0)
-            microtremor_avg = data.get('microtremor_avg', 0.0)
-            sweep_regularity_avg = data.get('sweep_regularity_avg', 100.0)
+            try:
+                ear_mean = float(ear_mean) if ear_mean is not None else None
+            except (ValueError, TypeError):
+                ear_mean = None
+
+            try:
+                blink_count = int(data.get('blink_count') or 0)
+            except (ValueError, TypeError):
+                blink_count = 0
+
+            try:
+                blink_rate_min = float(data.get('blink_rate_min') or 0.0)
+            except (ValueError, TypeError):
+                blink_rate_min = 0.0
+
+            try:
+                gaze_diverted_count = int(data.get('gaze_diverted_count') or 0)
+            except (ValueError, TypeError):
+                gaze_diverted_count = 0
+
+            try:
+                gaze_diverted_ms = float(data.get('gaze_diverted_ms') or 0.0)
+            except (ValueError, TypeError):
+                gaze_diverted_ms = 0.0
+
+            try:
+                microtremor_avg = float(data.get('microtremor_avg') or 0.0)
+            except (ValueError, TypeError):
+                microtremor_avg = 0.0
+
+            try:
+                sweep_raw = data.get('sweep_regularity_avg')
+                sweep_regularity_avg = float(sweep_raw) if sweep_raw is not None else 100.0
+            except (ValueError, TypeError):
+                sweep_regularity_avg = 100.0
 
             biomarkers_summary = {
                 'camera_active': camera_active,
@@ -139,7 +168,7 @@ class PLCMLPredictor:
                 'motor_kinematics': {
                     'microtremor_avg': microtremor_avg,
                     'sweep_regularity_avg': sweep_regularity_avg,
-                    'status': 'Estabilidad Normal' if (microtremor_avg <= 85 and sweep_regularity_avg >= 80) else 'Tensión / Barrido Irregular'
+                    'status': 'Estabilidad Normal' if (microtremor_avg <= 85.0 and sweep_regularity_avg >= 80.0) else 'Tensión / Barrido Irregular'
                 }
             }
 

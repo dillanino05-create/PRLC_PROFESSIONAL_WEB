@@ -180,7 +180,7 @@ const TREMOR_THRESHOLD = 85.0;
 
 function computeTremorScore(samples) {
   // samples: [{x, y, t}, …] donde t es performance.now() en ms
-  if (!samples || samples.length < 5) return { score: 0, flag: false };
+  if (!samples || samples.length < 5) return { score: 0.0, flag: false, microtremor: 0.0 };
 
   const accels     = [];
   const dirChanges = [];
@@ -207,7 +207,7 @@ function computeTremorScore(samples) {
     if (dTheta > Math.PI / 4) dirChanges.push(1);
   }
 
-  if (accels.length === 0) return { score: 0, flag: false };
+  if (accels.length === 0) return { score: 0.0, flag: false, microtremor: 0.0 };
 
   // Jitter = σ de las aceleraciones instantáneas
   const mean     = accels.reduce((a, b) => a + b, 0) / accels.length;

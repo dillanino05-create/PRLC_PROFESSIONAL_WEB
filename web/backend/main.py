@@ -242,8 +242,30 @@ def history(auth_ctx: dict = Depends(get_supabase)):
         ).order("id", desc=True).execute()
         
         result = []
+        now_dt = datetime.now()
         for r in res.data:
             m = r.get("metrics_json", {})
+            vpath = m.get("video_path", "")
+            video_days_left = None
+            if vpath and not m.get("video_expired", False):
+                created_at_str = r.get('created_at')
+                if created_at_str:
+                    try:
+                        # Parsing robusto con o sin zona horaria
+                        c_clean = created_at_str.replace('Z', '+00:00')
+                        cat = datetime.fromisoformat(c_clean)
+                        # Normalizar a offset-naive si now_dt es naive
+                        if cat.tzinfo is not None:
+                            diff_sec = (datetime.now(cat.tzinfo) - cat).total_seconds()
+                        else:
+                            diff_sec = (now_dt - cat).total_seconds()
+                        days_diff = diff_sec / 86400.0
+                        video_days_left = max(0, int(30 - days_diff))
+                    except Exception as e:
+                        video_days_left = 30
+                else:
+                    video_days_left = 30
+
             result.append({
                 'id': r['id'],
                 'created_at': r['created_at'],
@@ -253,7 +275,8 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'status': r.get('status', 'completed'),
                 'CP': round(m.get('CP', 0), 1) if 'CP' in m else 0,
                 'TA': m.get('TA', 0),
-                'video_path': m.get('video_path', '')
+                'video_path': vpath if (video_days_left is None or video_days_left > 0) else '',
+                'video_days_left': video_days_left
             })
         return result
     except Exception as e:
@@ -264,14 +287,51 @@ async def get_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
     # Defensa IDOR: Verificamos propiedad del registro antes de firmar la URL del video
-    res = sb.table("evaluations").select("metrics_json").eq("id", eval_id).eq("user_id", uid).execute()
+    res = sb.table("evaluations").select("metrics_json, created_at").eq("id", eval_id).eq("user_id", uid).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Evaluación no encontrada")
     
-    metrics = res.data[0].get("metrics_json") or {}
+    row = res.data[0]
+    metrics = row.get("metrics_json") or {}
     video_path = metrics.get("video_path")
-    if not video_path:
-        raise HTTPException(status_code=404, detail="Esta evaluación no cuenta con una grabación de video asociada.")
+    if not video_path or metrics.get("video_expired", False):
+        raise HTTPException(status_code=404, detail="Esta evaluación no cuenta con una grabación de video activa o ya ha expirado.")
+
+    # ── Política de Retención: Verificar si han pasado más de 30 días ────────
+    created_at_str = row.get("created_at")
+    if created_at_str:
+        try:
+            c_clean = created_at_str.replace('Z', '+00:00')
+            cat = datetime.fromisoformat(c_clean)
+            if cat.tzinfo is not None:
+                diff_sec = (datetime.now(cat.tzinfo) - cat).total_seconds()
+            else:
+                diff_sec = (datetime.now() - cat).total_seconds()
+            
+            if diff_sec >= (30 * 86400):
+                # Purgar archivo en Supabase Storage para liberar cuota de espacio
+                try:
+                    sb.storage.from_("exports").remove([video_path])
+                    print(f"[AUTO-PURGE] Video {video_path} eliminado de Storage (>30 días)")
+                except Exception as pe:
+                    print(f"[AUTO-PURGE] Error al remover video: {pe}")
+                
+                # Marcar como expirado en la base de datos
+                metrics["video_expired"] = True
+                metrics["video_path"] = ""
+                try:
+                    sb.table("evaluations").update({"metrics_json": metrics}).eq("id", eval_id).execute()
+                except:
+                    pass
+                
+                raise HTTPException(
+                    status_code=410, 
+                    detail="La grabación ha superado los 30 días de retención reglamentaria y fue eliminada para optimizar el almacenamiento."
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"Error verificando retención de video: {e}")
         
     try:
         # Enlace firmado válido por 5 minutos (300s) para reproducir la sesión

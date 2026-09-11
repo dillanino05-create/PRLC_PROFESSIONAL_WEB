@@ -87,7 +87,7 @@ def _charts_png(lines_data: List[Dict], metrics: Dict, age_v: int,
     # 2. Métricas de atención
     ax2 = fig.add_subplot(3, 2, 2)
     labels2 = ['Aciertos\n(TA)', 'Omisiones\n(O)', 'Comisiones\n(C)', 'A. Neto\n(CON)']
-    values2 = [metrics['TA'], metrics['O'], metrics['COM'], metrics['CON']]
+    values2 = [metrics.get('TA', 0) or 0, metrics.get('O', 0) or 0, metrics.get('COM', 0) or 0, metrics.get('CON', 0) or 0]
     colors2 = ['#1565C0', '#E65100', '#B71C1C', '#2E7D32']
     bars = ax2.bar(labels2, values2, color=colors2, width=0.55, edgecolor='white', lw=1.2)
     for bar, val in zip(bars, values2):
@@ -184,18 +184,24 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         ])
         
         # Mapeo descriptivo algoritmico
-        ml_nombre = ml_pred['profile_info']['nombre'] if (ml_pred and ml_pred.get('model_used')) else 'N/A'
-        ml_desc   = ml_pred['profile_info']['desc'] if (ml_pred and ml_pred.get('model_used')) else 'N/A'
-        
+        ml_info = ml_pred.get('profile_info', {}) if (ml_pred and isinstance(ml_pred, dict)) else {}
+        ml_nombre = ml_info.get('nombre', 'N/A')
+        ml_desc   = ml_info.get('desc', 'N/A')
+
+        def _safe_round(val, decimals=1):
+            try: return round(float(val), decimals) if val is not None else 0.0
+            except: return 0.0
+
+        cp_val = _safe_round(metrics.get('CP'), 2)
         df_metricas = pd.DataFrame([
-            {"Indicador Cuantitativo": "Acumulado de Aciertos (TA)", "Valor Calculado": round(metrics['TA'], 1)},
-            {"Indicador Cuantitativo": "Acumulado de Omisiones (O)", "Valor Calculado": round(metrics['O'], 1)},
-            {"Indicador Cuantitativo": "Acumulado de Comisiones (COM)", "Valor Calculado": round(metrics['COM'], 1)},
-            {"Indicador Cuantitativo": "Volumen Neto Estimado (CON)", "Valor Calculado": round(metrics['CON'], 1)},
-            {"Indicador Cuantitativo": "Tasa Proporcional de Concentración (CP %)", "Valor Calculado": f"{round(metrics['CP'], 2)} %"},
-            {"Indicador Cuantitativo": "Velocidad Latente Promedio (Estímulos/min)", "Valor Calculado": round(metrics['procSpeed'], 1)},
-            {"Indicador Cuantitativo": "Discrepancia Temporal entre Bloques (TRM %)", "Valor Calculado": round(metrics['TRM'], 2)},
-            {"Indicador Cuantitativo": "Tiempos Medios de Clic (Reacción ms)", "Valor Calculado": round(metrics['meanRt'], 1)}
+            {"Indicador Cuantitativo": "Acumulado de Aciertos (TA)", "Valor Calculado": _safe_round(metrics.get('TA'), 1)},
+            {"Indicador Cuantitativo": "Acumulado de Omisiones (O)", "Valor Calculado": _safe_round(metrics.get('O'), 1)},
+            {"Indicador Cuantitativo": "Acumulado de Comisiones (COM)", "Valor Calculado": _safe_round(metrics.get('COM'), 1)},
+            {"Indicador Cuantitativo": "Volumen Neto Estimado (CON)", "Valor Calculado": _safe_round(metrics.get('CON'), 1)},
+            {"Indicador Cuantitativo": "Tasa Proporcional de Concentración (CP %)", "Valor Calculado": f"{cp_val:.2f} %"},
+            {"Indicador Cuantitativo": "Velocidad Latente Promedio (Estímulos/min)", "Valor Calculado": _safe_round(metrics.get('procSpeed'), 1)},
+            {"Indicador Cuantitativo": "Discrepancia Temporal entre Bloques (TRM %)", "Valor Calculado": _safe_round(metrics.get('TRM'), 2)},
+            {"Indicador Cuantitativo": "Tiempos Medios de Clic (Reacción ms)", "Valor Calculado": _safe_round(metrics.get('meanRt'), 1)}
         ])
 
         df_patrones = pd.DataFrame([
@@ -236,19 +242,48 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         ])
 
         # ── Biomarcadores Extras de IA (Oculometría + Cinemática) ───────────
-        cam_active = metrics.get('camera_active', False)
+        cam_active = bool(metrics.get('camera_active', False))
         ear_m = metrics.get('ear_mean')
-        blinks_tot = metrics.get('blink_count', 0)
-        blinks_rate = metrics.get('blink_rate_min', 0.0)
-        gaze_div = metrics.get('gaze_diverted_count', 0)
-        gaze_div_s = round(metrics.get('gaze_diverted_ms', 0.0) / 1000.0, 1)
-        microtremor_avg = metrics.get('microtremor_avg', 0.0)
-        sweep_reg = metrics.get('sweep_regularity_avg', 100.0)
+        try:
+            ear_m = float(ear_m) if ear_m is not None else None
+        except (ValueError, TypeError):
+            ear_m = None
+
+        try:
+            blinks_tot = int(metrics.get('blink_count') or 0)
+        except (ValueError, TypeError):
+            blinks_tot = 0
+
+        try:
+            blinks_rate = float(metrics.get('blink_rate_min') or 0.0)
+        except (ValueError, TypeError):
+            blinks_rate = 0.0
+
+        try:
+            gaze_div = int(metrics.get('gaze_diverted_count') or 0)
+        except (ValueError, TypeError):
+            gaze_div = 0
+
+        try:
+            gaze_div_s = round(float(metrics.get('gaze_diverted_ms') or 0.0) / 1000.0, 1)
+        except (ValueError, TypeError):
+            gaze_div_s = 0.0
+
+        try:
+            microtremor_avg = float(metrics.get('microtremor_avg') or 0.0)
+        except (ValueError, TypeError):
+            microtremor_avg = 0.0
+
+        try:
+            sweep_raw = metrics.get('sweep_regularity_avg')
+            sweep_reg = float(sweep_raw) if sweep_raw is not None else 100.0
+        except (ValueError, TypeError):
+            sweep_reg = 100.0
 
         biomarkers_ia_rows = [
             {"Biomarcador IA": "Estado Cámara Web", "Registro": "ACTIVA (Captura de mirada/parpadeo)" if cam_active else "DESACTIVADA POR EL USUARIO"},
             {"Biomarcador IA": "EAR Promedio (Apertura Ocular)", "Registro": f"{ear_m:.3f}" if ear_m is not None else "N/A"},
-            {"Biomarcador IA": "Parpadeos Totales / Frecuencia", "Registro": f"{blinks_tot} ({blinks_rate}/min)" if cam_active else "N/A"},
+            {"Biomarcador IA": "Parpadeos Totales / Frecuencia", "Registro": f"{blinks_tot} ({blinks_rate:.1f}/min)" if cam_active else "N/A"},
             {"Biomarcador IA": "Desvíos de Mirada del Canvas", "Registro": f"{gaze_div} eventos ({gaze_div_s}s acumulados)" if cam_active else "N/A"},
             {"Biomarcador IA": "Microtemblor Promedio (Jitter)", "Registro": f"{microtremor_avg:.2f} px/s²"},
             {"Biomarcador IA": "Regularidad de Barrido (Izq → Der)", "Registro": f"{sweep_reg:.1f}%"}
@@ -274,21 +309,44 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         # ── Hoja 2: Análisis por Línea ─────────────────────────────────────
         d2 = []
         for l in lines_data:
+            try: ts = round(float(l.get('tremor_score') or 0.0), 2)
+            except: ts = 0.0
+
+            try:
+                sr_raw = l.get('sweep_regularity')
+                sr = round(float(sr_raw), 1) if sr_raw is not None else 100.0
+            except:
+                sr = 100.0
+
+            try: ti = round(float(l.get('tiempo_s') or 0.0), 2)
+            except: ti = 0.0
+
+            ac = l.get('aciertos') or 0
+            tt = max(l.get('targets_total') or 1, 1)
+            prop = round((ac / tt) * 100, 1)
+
+            blinks = l.get('blinks_count')
+            if blinks is not None:
+                try: blinks_str = str(int(blinks))
+                except: blinks_str = "N/A"
+            else:
+                blinks_str = "N/A"
+
             d2.append({
-                "Nº Línea": l['linea'],
-                "Estímulos Blancos": l['targets_total'],
-                "Evaluados hasta donde llegó": l.get('evaluados', l['targets_total']),
-                "Exactitud (Marcar Blanco)": l['aciertos'],
-                "Fallo por Exclusión (Omisión)": l['omisiones'],
-                "Fallo por Inclusión (Comisión)": l['comisiones'],
+                "Nº Línea": l.get('linea', 1),
+                "Estímulos Blancos": l.get('targets_total', 0),
+                "Evaluados hasta donde llegó": l.get('evaluados', l.get('targets_total', 0)),
+                "Exactitud (Marcar Blanco)": ac,
+                "Fallo por Exclusión (Omisión)": l.get('omisiones', 0),
+                "Fallo por Inclusión (Comisión)": l.get('comisiones', 0),
                 "Distracciones (Saltos Eráticos)": l.get('saltos_erraticos', 0),
-                "Latencia Invertida (Segundos)": round(l['tiempo_s'], 2),
-                "Proporción Exactitud (%)": round((l['aciertos']/max(l['targets_total'],1))*100, 1),
+                "Latencia Invertida (Segundos)": ti,
+                "Proporción Exactitud (%)": prop,
                 # ── Biomarcadores Digitales (Cinématica del Cursor) ────────────────
-                "Tremor Score (Jitter Motor)": round(l.get('tremor_score', 0.0), 2),
+                "Tremor Score (Jitter Motor)": ts,
                 "⚠️ Indicador Temblor Motor": "SÍ — Variabilidad cinématica elevada" if l.get('tremor_flag', False) else "Normal",
-                "Regularidad Barrido (%)": round(l.get('sweep_regularity', 100.0), 1),
-                "Parpadeos (Línea)": l.get('blinks_count') if l.get('blinks_count') is not None else "N/A",
+                "Regularidad Barrido (%)": sr,
+                "Parpadeos (Línea)": blinks_str,
                 "Desvío de Mirada": "SÍ" if l.get('gaze_diverted') else "NO"
             })
         df_l = pd.DataFrame(d2)
