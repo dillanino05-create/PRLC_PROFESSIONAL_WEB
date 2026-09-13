@@ -86,6 +86,7 @@
       display: flex; align-items: center;
       padding: 0 40px;
       background: rgba(6,12,26,.92);
+      -webkit-backdrop-filter: blur(20px);
       backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
       z-index: 100;
@@ -370,6 +371,7 @@
       cursor: pointer;
       position: relative;
       transition: all .15s;
+      -webkit-user-select: none;
       user-select: none;
     }
     .d2-item:hover { background: rgba(37,99,235,.15); border-color: var(--brand-light); }
@@ -741,6 +743,7 @@
     .modal-overlay {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,.7);
+      -webkit-backdrop-filter: blur(8px);
       backdrop-filter: blur(8px);
       z-index: 999;
       align-items: center; justify-content: center;

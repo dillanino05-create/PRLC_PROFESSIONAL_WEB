@@ -78,8 +78,8 @@
     /* Glassmorphism panel */
     .glass-panel {
       background: rgba(11, 17, 36, 0.78);
-      backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .glass-panel:hover {
@@ -1334,7 +1334,7 @@
             Crear Cuenta (14 Días)
           </button>
         </div>
-        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">
+        <button onclick="closeAuthModal()" title="Cerrar modal" aria-label="Cerrar modal" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
