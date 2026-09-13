@@ -20,6 +20,7 @@ graph TD
     A --> J["[[09 - Protocolo de Ahorro de Tokens para LLMs]]"]
     A --> K["[[10 - Investigacion Vision Computacional y Eye Tracking]]"]
     A --> L["[[11 - Test de Corsi y Memoria Visoespacial]]"]
+    A --> M["[[12 - Arquitectura Formal de SaaS y Modelo de Negocio]]"]
 
     B --> C
     B --> D
@@ -33,6 +34,9 @@ graph TD
     F --> L
     L --> G
     L --> I
+    M --> B
+    M --> E
+    M --> C
 ```
 
 ---
@@ -71,6 +75,9 @@ graph TD
 
 11. 🧊 **[[11 - Test de Corsi y Memoria Visoespacial]]**:
     Batería neuropsicológica de bloques de Corsi (Directo e Inverso), Span visoespacial, duda previa (ms), telemetría neuromuscular compartida y reporte forense Excel.
+
+12. ☁️ **[[12 - Arquitectura Formal de SaaS y Modelo de Negocio]]**:
+    Fundamentos formales del SaaS: Aislamiento multi-tenant con PostgreSQL RLS, pasarelas de pago (Stripe, PSE, MercadoPago), cómputo distribuido en el cliente a $0 de costo de servidor, cumplimiento HIPAA/GDPR y métricas unit economics.
 
 ---
 *Versión de la plataforma: **v3.3 (Corsi + PLC Multi-Battery)** · Actualizado: **Septiembre 2026** · Diseñado para Obsidian Graph View*

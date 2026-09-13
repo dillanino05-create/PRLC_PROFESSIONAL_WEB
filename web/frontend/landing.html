@@ -78,8 +78,8 @@
     /* Glassmorphism panel */
     .glass-panel {
       background: rgba(11, 17, 36, 0.78);
-      backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .glass-panel:hover {
@@ -135,10 +135,11 @@
         <a href="#baterias" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Baterías Clínicas</a>
         <a href="#prueba-plc" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Prueba PLC (d2)</a>
         <a href="#telemetria" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Biomarcadores</a>
-        <a href="#etica-clinica" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Rol del Psicólogo</a>
+        <a href="#seguridad-saas" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Seguridad SaaS</a>
         <a href="#simulador" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Simulador</a>
         <a href="#reporte-excel" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Excel Forense</a>
         <a href="#pricing" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">Planes</a>
+        <a href="#faq" class="px-3 py-1.5 rounded-full hover:text-white hover:bg-white/5 transition-colors">FAQ</a>
       </nav>
 
       <!-- Botones de Acción: Iniciar Sesión + Crear Cuenta Gratis -->
@@ -1161,22 +1162,156 @@
   </section>
 
   <!-- ══════════════════════════════════════════════════════════════════════
-       9. PRICING HOLOGRÁFICO
+       8.5. SEGURIDAD Y PRIVACIDAD SAAS (HIPAA / GDPR / RLS MULTI-TENANT)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="seguridad-saas" class="py-24 relative bg-slate-950/60 border-t border-white/10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+      
+      <div class="text-center max-w-3xl mx-auto space-y-4" data-aos="fade-up">
+        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+          <span>Seguridad & Privacidad SaaS · Grado Clínico</span>
+        </div>
+        <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+          Arquitectura Multi-Tenant con Blindaje Criptográfico
+        </h2>
+        <p class="text-slate-400 text-base leading-relaxed">
+          Diseñado para el cumplimiento irrestricto del secreto profesional en psicología, psiquiatría y peritaje forense bajo estándares internacionales HIPAA y GDPR.
+        </p>
+      </div>
+
+      <!-- Bento Grid de Seguridad SaaS -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <!-- Card 1: RLS Multi-Tenant -->
+        <div class="rounded-3xl glass-panel p-6 space-y-4 border border-white/10 hover:border-emerald-500/40 transition-all duration-300 group" data-aos="fade-up">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+            <i data-lucide="database" class="w-6 h-6"></i>
+          </div>
+          <div class="space-y-2">
+            <h3 class="text-lg font-bold text-white">Aislamiento RLS en PostgreSQL</h3>
+            <p class="text-slate-400 text-xs leading-relaxed">
+              Políticas herméticas de <em>Row-Level Security</em> (<code class="text-emerald-400 text-[10px]">auth.uid() = user_id</code>). Ningún profesional o clínica puede ver ni filtrar las evaluaciones de otra cuenta.
+            </p>
+          </div>
+          <div class="pt-2 border-t border-white/5 flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Multi-Tenant Hermético</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Cifrado E2EE -->
+        <div class="rounded-3xl glass-panel p-6 space-y-4 border border-white/10 hover:border-cyan-500/40 transition-all duration-300 group" data-aos="fade-up" data-aos-delay="100">
+          <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform">
+            <i data-lucide="lock" class="w-6 h-6"></i>
+          </div>
+          <div class="space-y-2">
+            <h3 class="text-lg font-bold text-white">Cifrado de Extremo a Extremo</h3>
+            <p class="text-slate-400 text-xs leading-relaxed">
+              Cifrado en reposo con <strong>AES-256</strong> en bases de datos gestionadas y almacenamiento en la nube. Conexiones blindadas con <strong>TLS 1.3</strong> forzado y cabeceras HSTS de grado financiero.
+            </p>
+          </div>
+          <div class="pt-2 border-t border-white/5 flex items-center gap-1.5 text-[11px] font-mono text-cyan-400">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>AES-256 & TLS 1.3</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Auto-Purga y Soberanía -->
+        <div class="rounded-3xl glass-panel p-6 space-y-4 border border-white/10 hover:border-purple-500/40 transition-all duration-300 group" data-aos="fade-up" data-aos-delay="200">
+          <div class="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
+            <i data-lucide="history" class="w-6 h-6"></i>
+          </div>
+          <div class="space-y-2">
+            <h3 class="text-lg font-bold text-white">Políticas de Auto-Purga</h3>
+            <p class="text-slate-400 text-xs leading-relaxed">
+              Retención configurable a 30 o 90 días para archivos de video pesados y telemetría densa. Garantiza soberanía total de datos y reduce la huella digital del paciente.
+            </p>
+          </div>
+          <div class="pt-2 border-t border-white/5 flex items-center gap-1.5 text-[11px] font-mono text-purple-400">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Purga Programada de Blobs</span>
+          </div>
+        </div>
+
+        <!-- Card 4: Firma Forense SHA-256 -->
+        <div class="rounded-3xl glass-panel p-6 space-y-4 border border-white/10 hover:border-amber-500/40 transition-all duration-300 group" data-aos="fade-up" data-aos-delay="300">
+          <div class="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+            <i data-lucide="file-check" class="w-6 h-6"></i>
+          </div>
+          <div class="space-y-2">
+            <h3 class="text-lg font-bold text-white">Integridad Forense SHA-256</h3>
+            <p class="text-slate-400 text-xs leading-relaxed">
+              Cada evaluación, cálculo psicométrico y libro Excel de 5 hojas incluye marcas de tiempo UTC y hash criptográfico que acredita su inalterabilidad ante tribunales.
+            </p>
+          </div>
+          <div class="pt-2 border-t border-white/5 flex items-center gap-1.5 text-[11px] font-mono text-amber-400">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Hash Criptográfico Pericial</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Barra de Sellos y Acreditación de Seguridad SaaS -->
+      <div class="p-6 rounded-2xl bg-black/40 border border-white/10 flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs font-mono text-slate-400">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>POSTGRESQL RLS CERTIFIED</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          <span>HIPAA & GDPR ALIGNED</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+          <span>E2EE 256-BIT AT REST</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+          <span>ZERO THIRD-PARTY TRACKING</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       9. PRICING HOLOGRÁFICO CON FACTURACIÓN MENSUAL/ANUAL Y PASARELAS
   ══════════════════════════════════════════════════════════════════════ -->
   <section id="pricing" class="py-24 relative bg-slate-950/40 border-t border-white/10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
       
       <div class="text-center max-w-3xl mx-auto space-y-4" data-aos="fade-up">
         <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono uppercase tracking-widest">
           <i data-lucide="tag" class="w-3.5 h-3.5"></i>
-          <span>Planes Clínicos Estandarizados</span>
+          <span>Modelo de Suscripción SaaS</span>
         </div>
         <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-          Suscripción SaaS para Profesionales
+          Planes Flexibles para Profesionales y Clínicas
         </h2>
         <p class="text-slate-400 text-base">
-          Elige el plan ideal para tu práctica privada, clínica o centro de investigación.
+          Elige el plan ideal para tu práctica privada, centro de evaluación o clínica universitaria. Cancela cuando quieras en 1 clic.
         </p>
+
+        <!-- Toggle Interactivo Facturación Mensual vs Anual -->
+        <div class="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div class="inline-flex items-center p-1.5 rounded-2xl bg-black/60 border border-white/15 shadow-inner">
+            <button id="billing-btn-monthly" onclick="setBillingCycle('monthly')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all duration-300 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm cursor-pointer">
+              Facturación Mensual
+            </button>
+            <button id="billing-btn-annual" onclick="setBillingCycle('annual')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-white border border-transparent cursor-pointer flex items-center gap-1.5">
+              <span>Facturación Anual</span>
+              <span class="px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-[10px] font-black uppercase tracking-wider animate-pulse">
+                -20% OFF
+              </span>
+            </button>
+          </div>
+          <span class="text-xs text-emerald-400 font-mono flex items-center gap-1">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+            <span>2 meses gratis pagando al año</span>
+          </span>
+        </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center max-w-6xl mx-auto">
@@ -1185,12 +1320,14 @@
         <div class="rounded-3xl glass-panel p-8 space-y-6 border border-white/10 hover:border-white/20 transition-all" data-aos="fade-up">
           <div>
             <h3 class="text-xl font-bold text-white">Plan Básico</h3>
-            <p class="text-xs text-slate-400 mt-1">Práctica privada y consultorios independientes.</p>
+            <p class="text-xs text-slate-400 mt-1">Para práctica privada y consultorios independientes.</p>
           </div>
           <div class="flex items-baseline gap-1 font-mono">
-            <span class="text-4xl font-black text-white">$39</span>
-            <span class="text-slate-400 text-xs">/ mes</span>
+            <span id="price-basico" class="text-4xl font-black text-white">$39</span>
+            <span id="period-basico" class="text-slate-400 text-xs">/ mes</span>
           </div>
+          <p id="subnote-basico" class="text-[11px] text-slate-500 font-mono">Facturación mensual sin compromiso anual</p>
+
           <ul class="space-y-3 text-xs text-slate-300 pt-4 border-t border-white/10">
             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Hasta 35 evaluaciones por mes</li>
             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> <strong>Baterías PLC (d2) y Cubos de Corsi</strong></li>
@@ -1215,9 +1352,10 @@
           </div>
 
           <div class="flex items-baseline gap-1 font-mono">
-            <span class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400">$79</span>
-            <span class="text-slate-400 text-xs">/ mes</span>
+            <span id="price-pro" class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400">$79</span>
+            <span id="period-pro" class="text-slate-400 text-xs">/ mes</span>
           </div>
+          <p id="subnote-pro" class="text-[11px] text-cyan-400/80 font-mono font-bold">14 días de prueba sin cargo previo</p>
 
           <ul class="space-y-3 text-xs text-slate-200 pt-4 border-t border-white/10">
             <li class="flex items-center gap-2 font-bold text-cyan-300"><i data-lucide="check" class="w-4 h-4 text-cyan-400"></i> Evaluaciones ILIMITADAS de pacientes</li>
@@ -1241,19 +1379,156 @@
             <p class="text-xs text-slate-400 mt-1">Hospitales, universidades y centros multi-sede.</p>
           </div>
           <div class="flex items-baseline gap-1 font-mono">
-            <span class="text-4xl font-black text-white">$199</span>
-            <span class="text-slate-400 text-xs">/ mes</span>
+            <span id="price-institucional" class="text-4xl font-black text-white">$199</span>
+            <span id="period-institucional" class="text-slate-400 text-xs">/ mes</span>
           </div>
+          <p id="subnote-institucional" class="text-[11px] text-slate-500 font-mono">Facturación multi-usuario consolidada</p>
+
           <ul class="space-y-3 text-xs text-slate-300 pt-4 border-t border-white/10">
             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Todo lo incluido en el Plan Pro</li>
             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Multi-usuario para equipos y docentes</li>
             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Acceso prioritario al roadmap de nuevas baterías</li>
             <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> Exportación masiva para investigación clínica</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-purple-400"></i> SLA de disponibilidad 99.9% contractual</li>
           </ul>
           <button onclick="openAuthModal('register', 'institucional')" class="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs border border-white/10 transition cursor-pointer">
             Seleccionar Plan Institucional
           </button>
         </div>
+
+      </div>
+
+      <!-- Pasarelas de Pago Integradas y Garantías SaaS -->
+      <div class="max-w-4xl mx-auto rounded-2xl glass-panel p-6 border border-white/10 space-y-6">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div class="flex items-center gap-2 text-xs text-slate-300 font-semibold">
+            <i data-lucide="credit-card" class="w-4 h-4 text-cyan-400"></i>
+            <span>Pasarelas de Pago Seguras & Suscripciones Automatizadas:</span>
+          </div>
+          <!-- Badges de Pasarelas -->
+          <div class="flex flex-wrap items-center gap-2 font-mono text-[11px]">
+            <span class="px-2.5 py-1 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 font-bold">Stripe</span>
+            <span class="px-2.5 py-1 rounded-lg bg-white/10 text-slate-200 border border-white/20 font-bold">VISA</span>
+            <span class="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">Mastercard</span>
+            <span class="px-2.5 py-1 rounded-lg bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 font-bold">PSE (Colombia)</span>
+            <span class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold">MercadoPago</span>
+            <span class="px-2.5 py-1 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-bold">PayPal</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center text-xs text-slate-300">
+          <div class="p-2 rounded-xl bg-white/5 border border-white/5">
+            <div class="text-cyan-400 font-bold font-mono">99.9% Uptime</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">SLA Garantizado</div>
+          </div>
+          <div class="p-2 rounded-xl bg-white/5 border border-white/5">
+            <div class="text-emerald-400 font-bold font-mono">14 Días Gratis</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Sin tarjeta requerida</div>
+          </div>
+          <div class="p-2 rounded-xl bg-white/5 border border-white/5">
+            <div class="text-purple-400 font-bold font-mono">1-Click Cancel</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">Cero cláusula de amarre</div>
+          </div>
+          <div class="p-2 rounded-xl bg-white/5 border border-white/5">
+            <div class="text-amber-400 font-bold font-mono">Facturación Legal</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">DIAN / Fiscal Electrónica</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       9.5. PREGUNTAS FRECUENTES (FAQ SAAS CLÍNICO)
+  ══════════════════════════════════════════════════════════════════════ -->
+  <section id="faq" class="py-20 relative bg-slate-900/30 border-t border-white/10">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      
+      <div class="text-center space-y-4" data-aos="fade-up">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-xs font-mono uppercase tracking-widest">
+          <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+          <span>Resolución de Dudas Frecuentes</span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Preguntas Frecuentes sobre el SaaS MecaPsi
+        </h2>
+        <p class="text-slate-400 text-sm">
+          Todo lo que necesitas saber sobre infraestructura, suscripciones, seguridad y respaldo clínico.
+        </p>
+      </div>
+
+      <div class="space-y-4" data-aos="fade-up">
+        
+        <!-- FAQ 1 -->
+        <details class="group rounded-2xl glass-panel border border-white/10 p-6 transition-all duration-300 open:border-cyan-500/50 open:bg-slate-900/80">
+          <summary class="flex items-center justify-between font-bold text-sm sm:text-base text-white cursor-pointer select-none">
+            <span class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-mono">01</span>
+              ¿Cómo garantiza MecaPsi el secreto profesional y el aislamiento de los datos del paciente?
+            </span>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200"></i>
+          </summary>
+          <p class="mt-4 text-xs sm:text-sm text-slate-300 leading-relaxed pl-9 border-t border-white/5 pt-3">
+            MecaPsi implementa <strong>Row Level Security (RLS) en PostgreSQL</strong> de Supabase. Cada registro de evaluación queda vinculado de manera criptográfica al <code class="text-cyan-400">user_id</code> del profesional evaluador. Ni siquiera otras clínicas en el mismo servidor pueden consultar, inferir o descargar tus expedientes. Adicionalmente, toda la telemetría se almacena cifrada con AES-256.
+          </p>
+        </details>
+
+        <!-- FAQ 2 -->
+        <details class="group rounded-2xl glass-panel border border-white/10 p-6 transition-all duration-300 open:border-cyan-500/50 open:bg-slate-900/80">
+          <summary class="flex items-center justify-between font-bold text-sm sm:text-base text-white cursor-pointer select-none">
+            <span class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-mono">02</span>
+              ¿Qué pasarelas de pago y métodos de cobro aceptan en Colombia y a nivel global?
+            </span>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200"></i>
+          </summary>
+          <p class="mt-4 text-xs sm:text-sm text-slate-300 leading-relaxed pl-9 border-t border-white/5 pt-3">
+            Integramos <strong>Stripe Billing</strong> para tarjetas de crédito/débito internacionales (Visa, Mastercard, Amex), y pasarelas locales como <strong>PSE y MercadoPago</strong> para transferencias bancarias en Colombia y América Latina. Las suscripciones emiten facturas electrónicas automáticas deducibles de impuestos para servicios profesionales y de salud.
+          </p>
+        </details>
+
+        <!-- FAQ 3 -->
+        <details class="group rounded-2xl glass-panel border border-white/10 p-6 transition-all duration-300 open:border-cyan-500/50 open:bg-slate-900/80">
+          <summary class="flex items-center justify-between font-bold text-sm sm:text-base text-white cursor-pointer select-none">
+            <span class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-mono">03</span>
+              ¿Por qué la plataforma funciona con costo cero de servidor durante la aplicación del test?
+            </span>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200"></i>
+          </summary>
+          <p class="mt-4 text-xs sm:text-sm text-slate-300 leading-relaxed pl-9 border-t border-white/5 pt-3">
+            Nuestra arquitectura utiliza <strong>Edge Computing en el navegador</strong>. Todo el muestreo cinemático a 60 FPS (velocidad, aceleración y temblor) y la visión computacional de MediaPipe corren en la CPU/GPU del paciente vía WebGL y WebWorkers. El servidor backend de FastAPI y la red neuronal Keras solo se activan al finalizar la prueba para recibir la carga vectorial y generar la inferencia en ~150 milisegundos.
+          </p>
+        </details>
+
+        <!-- FAQ 4 -->
+        <details class="group rounded-2xl glass-panel border border-white/10 p-6 transition-all duration-300 open:border-cyan-500/50 open:bg-slate-900/80">
+          <summary class="flex items-center justify-between font-bold text-sm sm:text-base text-white cursor-pointer select-none">
+            <span class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-mono">04</span>
+              ¿Los reportes en Excel de 5 hojas tienen validez pericial ante juzgados y juntas médicas?
+            </span>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200"></i>
+          </summary>
+          <p class="mt-4 text-xs sm:text-sm text-slate-300 leading-relaxed pl-9 border-t border-white/5 pt-3">
+            Sí. A diferencia de las evaluaciones en papel susceptibles a errores de conteo manual o sesgo del evaluador, MecaPsi genera un libro pericial con 5 hojas estructuradas (Resumen Ejecutivo, Dinámica Temporal por Fila, Análisis de Errores, Biomarcadores de Temblor y Registro Forense Raw estímulo por estímulo con marcas de tiempo en milisegundos y hash de verificación).
+          </p>
+        </details>
+
+        <!-- FAQ 5 -->
+        <details class="group rounded-2xl glass-panel border border-white/10 p-6 transition-all duration-300 open:border-cyan-500/50 open:bg-slate-900/80">
+          <summary class="flex items-center justify-between font-bold text-sm sm:text-base text-white cursor-pointer select-none">
+            <span class="flex items-center gap-3">
+              <span class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs font-mono">05</span>
+              ¿Puedo cambiar de plan, añadir psicólogos o cancelar la cuenta cuando lo desee?
+            </span>
+            <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform duration-200"></i>
+          </summary>
+          <p class="mt-4 text-xs sm:text-sm text-slate-300 leading-relaxed pl-9 border-t border-white/5 pt-3">
+            Completamente. Puedes hacer upgrade de Básico a Pro o Institucional con prorrateo automático en tu factura. La cancelación se realiza en un solo clic desde tu panel de configuración y mantienes acceso a tus datos históricos exportados en Excel y PDF.
+          </p>
+        </details>
 
       </div>
 
@@ -1276,13 +1551,14 @@
           <span>Plataforma SaaS de Neuroevaluación</span>
         </div>
 
-        <div class="flex items-center gap-6">
+        <div class="flex flex-wrap items-center gap-6">
           <a href="#prueba-plc" class="hover:text-cyan-400 transition-colors">La Prueba PLC</a>
           <a href="#telemetria" class="hover:text-cyan-400 transition-colors">Telemetría</a>
-          <a href="#estimulos-catalogo" class="hover:text-cyan-400 transition-colors">Estímulos</a>
+          <a href="#seguridad-saas" class="hover:text-cyan-400 transition-colors">Seguridad SaaS</a>
           <a href="#simulador" class="hover:text-cyan-400 transition-colors">Simulador</a>
           <a href="#reporte-excel" class="hover:text-cyan-400 transition-colors">Excel (5 Hojas)</a>
           <a href="#pricing" class="hover:text-cyan-400 transition-colors">Planes</a>
+          <a href="#faq" class="hover:text-cyan-400 transition-colors">FAQ</a>
           <a href="#" onclick="openAuthModal('login'); return false;" class="text-cyan-400 hover:underline">Acceso Clínico</a>
         </div>
       </div>
@@ -1334,7 +1610,7 @@
             Crear Cuenta (14 Días)
           </button>
         </div>
-        <button onclick="closeAuthModal()" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">
+        <button onclick="closeAuthModal()" title="Cerrar modal" aria-label="Cerrar modal" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
@@ -2117,6 +2393,69 @@
       window.location.href = getAppRedirectUrl();
     }
 
+    // ── 5.5. CONTROL DE FACTURACIÓN SAAS (MENSUAL / ANUAL) ──
+    let currentBillingCycle = 'monthly';
+
+    function setBillingCycle(cycle) {
+      currentBillingCycle = cycle;
+      const btnMonthly = document.getElementById('billing-btn-monthly');
+      const btnAnnual  = document.getElementById('billing-btn-annual');
+
+      const priceBasico = document.getElementById('price-basico');
+      const periodBasico = document.getElementById('period-basico');
+      const subnoteBasico = document.getElementById('subnote-basico');
+
+      const pricePro = document.getElementById('price-pro');
+      const periodPro = document.getElementById('period-pro');
+      const subnotePro = document.getElementById('subnote-pro');
+
+      const priceInst = document.getElementById('price-institucional');
+      const periodInst = document.getElementById('period-institucional');
+      const subnoteInst = document.getElementById('subnote-institucional');
+
+      if (cycle === 'annual') {
+        if (btnAnnual) {
+          btnAnnual.className = 'px-5 py-2 rounded-xl text-xs font-bold transition-all duration-300 bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30 cursor-pointer flex items-center gap-1.5';
+        }
+        if (btnMonthly) {
+          btnMonthly.className = 'px-5 py-2 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-white border border-transparent cursor-pointer';
+        }
+
+        // Precios anuales (-20% de descuento)
+        if (priceBasico) priceBasico.textContent = '$31';
+        if (periodBasico) periodBasico.textContent = '/ mes';
+        if (subnoteBasico) subnoteBasico.innerHTML = 'Facturado $372/año · <span class="text-emerald-400 font-bold">Ahorras $96 USD</span>';
+
+        if (pricePro) pricePro.textContent = '$63';
+        if (periodPro) periodPro.textContent = '/ mes';
+        if (subnotePro) subnotePro.innerHTML = 'Facturado $756/año · <span class="text-emerald-400 font-bold">Ahorras $192 USD</span>';
+
+        if (priceInst) priceInst.textContent = '$159';
+        if (periodInst) periodInst.textContent = '/ mes';
+        if (subnoteInst) subnoteInst.innerHTML = 'Facturado $1,908/año · <span class="text-emerald-400 font-bold">Ahorras $480 USD</span>';
+      } else {
+        if (btnMonthly) {
+          btnMonthly.className = 'px-5 py-2 rounded-xl text-xs font-bold transition-all duration-300 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm cursor-pointer';
+        }
+        if (btnAnnual) {
+          btnAnnual.className = 'px-5 py-2 rounded-xl text-xs font-bold transition-all duration-300 text-slate-400 hover:text-white border border-transparent cursor-pointer flex items-center gap-1.5';
+        }
+
+        // Precios mensuales regulares
+        if (priceBasico) priceBasico.textContent = '$39';
+        if (periodBasico) periodBasico.textContent = '/ mes';
+        if (subnoteBasico) subnoteBasico.textContent = 'Facturación mensual sin compromiso anual';
+
+        if (pricePro) pricePro.textContent = '$79';
+        if (periodPro) periodPro.textContent = '/ mes';
+        if (subnotePro) subnotePro.textContent = '14 días de prueba sin cargo previo';
+
+        if (priceInst) priceInst.textContent = '$199';
+        if (periodInst) periodInst.textContent = '/ mes';
+        if (subnoteInst) subnoteInst.textContent = 'Facturación multi-usuario consolidada';
+      }
+    }
+
     function openAuthModal(tab = 'login', plan = null) {
       const m = document.getElementById('auth-modal');
       m.classList.remove('hidden');
@@ -2223,6 +2562,7 @@
     window.switchExcelSheet = switchExcelSheet;
     window.goToLiveApp = goToLiveApp;
     window.getAppRedirectUrl = getAppRedirectUrl;
+    window.setBillingCycle = setBillingCycle;
 
     // Ejecución inicial segura
     function initAll() {
