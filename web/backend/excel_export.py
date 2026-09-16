@@ -307,8 +307,20 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
         blinks_rate = _safe_f(metrics.get('blink_rate_min'), 1)
         gaze_div = int(metrics.get('gaze_diverted_count') or 0)
 
+        integrity = metrics.get('integrity_audit') or {}
+        focus_count = integrity.get('focus_lost_count', 0)
+        unfocused_s = round((integrity.get('total_unfocused_ms', 0) or 0) / 1000.0, 1)
+        is_integrity_flag = integrity.get('is_flagged', False)
+        if is_integrity_flag:
+            integrity_status = f"⚠️ ALERTA: Pérdida de foco recurrente ({focus_count} salidas, {unfocused_s}s)"
+        elif focus_count > 0:
+            integrity_status = f"Aceptable ({focus_count} salidas breves, {unfocused_s}s)"
+        else:
+            integrity_status = "Óptima (100% foco sostenido en canvas)"
+
         df_biomarkers_ia = pd.DataFrame([
             {"Biomarcador IA": "Estado Cámara Web", "Registro": "ACTIVA (Captura de mirada/emociones/iris)" if cam_active else "DESACTIVADA POR EL USUARIO"},
+            {"Biomarcador IA": "Integridad Paraclínica (Foco de Pantalla)", "Registro": integrity_status},
             {"Biomarcador IA": "Dilatación Pupilar Media (Carga Mental)", "Registro": f"{pupil_avg:.2f}x (Normalizada vs Reposo)" if cam_active else "N/A"},
             {"Biomarcador IA": "Picos de Sobreesfuerzo Cognitivo", "Registro": f"{load_peaks} eventos (>120% dilatación basal)" if cam_active else "N/A"},
             {"Biomarcador IA": "Microtemblor Promedio (Jitter Cursor)", "Registro": f"{microtremor_avg:.2f} px/s²"},
@@ -613,8 +625,20 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         except (ValueError, TypeError):
             load_peaks = 0
 
+        integrity = metrics.get('integrity_audit') or {}
+        focus_count = integrity.get('focus_lost_count', 0)
+        unfocused_s = round((integrity.get('total_unfocused_ms', 0) or 0) / 1000.0, 1)
+        is_integrity_flag = integrity.get('is_flagged', False)
+        if is_integrity_flag:
+            integrity_status = f"⚠️ ALERTA: Pérdida de foco recurrente ({focus_count} salidas, {unfocused_s}s)"
+        elif focus_count > 0:
+            integrity_status = f"Aceptable ({focus_count} salidas breves, {unfocused_s}s)"
+        else:
+            integrity_status = "Óptima (100% foco sostenido en canvas)"
+
         biomarkers_ia_rows = [
             {"Biomarcador IA": "Estado Cámara Web", "Registro": "ACTIVA (Captura de mirada/emociones/iris)" if cam_active else "DESACTIVADA POR EL USUARIO"},
+            {"Biomarcador IA": "Integridad Paraclínica (Foco de Pantalla)", "Registro": integrity_status},
             {"Biomarcador IA": "Expresión Facial Dominante (FER)", "Registro": fer_dom if cam_active else "N/A"},
             {"Biomarcador IA": "Nivel de Tensión Facial Estimado", "Registro": f"{fer_tens:.1f}% ({'Sobreesfuerzo/Tensión' if fer_tens > 60 else 'Foco Atento Sereno'})" if cam_active else "N/A"},
             {"Biomarcador IA": "Episodios de Frustración Facial", "Registro": f"{fer_frust} eventos" if cam_active else "N/A"},

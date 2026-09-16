@@ -16,6 +16,10 @@ web/data/*.sqlite3
 web/data/*.sqlite
 web/exports/*.xlsx
 web/exports/*.png
+*.dump
+*.bak
+*.sql.gz
+diagrama_arquitectura_*.png
 
 # Modelos excesivamente grandes
 *.ckpt

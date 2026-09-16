@@ -63,6 +63,18 @@ const App = {
   _faceMeshBusy: false,
   _faceMeshTimer: null,
 
+  // ── Módulo de Seguridad, Concurrencia y Anti-Cheat ──────────────────────────
+  tabId: 'tab_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now(),
+  examChannel: null,
+  isExamBlockedByOtherTab: false,
+  blockingTabInfo: null,
+  clientSessionId: null,
+  sessionHeartbeatTimer: null,
+  integrityLog: [],           // [{ event, line, duration_ms, timestamp }]
+  focusLostCount: 0,
+  totalUnfocusedMs: 0,
+  _lastBlurTime: null,
+
   TOTAL_LINES: 14,
   TIME_PER_LINE: 20,
   CHARS_PER_LINE: 47,
@@ -73,6 +85,17 @@ const App = {
     const SUPABASE_URL = 'https://lfyaiwbtfgoiczyyzlwh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjc1MTEsImV4cCI6MjA5MDY0MzUxMX0.ZfVceXuYWQKEZimgRLt9kGkSGpq8FO7kRgKbL-Ta-3M';
     this.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Cargar o generar ID de sesión del cliente (Single Active Session)
+    let savedSess = sessionStorage.getItem('mecapsi_session_id');
+    if (!savedSess) {
+      savedSess = 'sess_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+      sessionStorage.setItem('mecapsi_session_id', savedSess);
+    }
+    this.clientSessionId = savedSess;
+
+    // Configurar listeners de seguridad, concurrencia y anti-cheat
+    this.setupSecurityModule();
 
     try {
       const { data: { session } } = await this.supabase.auth.getSession();
@@ -92,13 +115,247 @@ const App = {
       setTimeout(() => ripple.remove(), 500);
     });
 
-    // Si hay usuario logueado -> menú, si no -> login
+    // Si hay usuario logueado -> menú + heartbeat, si no -> login
     if (this.user) {
+      this.startSessionHeartbeat();
       this.warmUpModel();
       this.nav('menu');
     } else {
       this.nav('login');
     }
+  },
+
+  setupSecurityModule() {
+    // 1. Canal entre pestañas (BroadcastChannel)
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        this.examChannel = new BroadcastChannel('mecapsi_exam_channel');
+        this.examChannel.onmessage = (e) => this.handleExamChannelMessage(e.data);
+        // Preguntar si otra pestaña ya tiene una prueba en curso
+        this.examChannel.postMessage({ type: 'PING_ACTIVE_EXAM', tabId: this.tabId });
+      } catch (e) {
+        console.warn("BroadcastChannel no disponible en este navegador:", e);
+      }
+    }
+
+    // 2. Monitoreo de visibilidad y pérdida de foco (Anti-Cheat)
+    document.addEventListener('visibilitychange', () => {
+      this.handleVisibilityChange();
+    });
+    window.addEventListener('blur', () => {
+      this.handleFocusBlur();
+    });
+    window.addEventListener('focus', () => {
+      this.handleFocusGain();
+    });
+
+    // Liberar bloqueos al cerrar la pestaña
+    window.addEventListener('beforeunload', () => {
+      if ((this.screen === 'test' || this.screen === 'practice') && this.examChannel) {
+        this.examChannel.postMessage({ type: 'EXAM_ENDED', tabId: this.tabId });
+      }
+    });
+  },
+
+  handleExamChannelMessage(msg) {
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.tabId === this.tabId) return; // Ignorar mensajes propios
+
+    if (msg.type === 'EXAM_STARTED') {
+      this.isExamBlockedByOtherTab = true;
+      this.blockingTabInfo = msg;
+      if (this.screen === 'test' || this.screen === 'practice' || this.screen === 'pretest') {
+        this.renderExamBlockedScreen();
+      }
+    } else if (msg.type === 'EXAM_ENDED') {
+      this.isExamBlockedByOtherTab = false;
+      this.blockingTabInfo = null;
+      if (this.screen === 'blocked_tab') {
+        this.nav('menu');
+      }
+    } else if (msg.type === 'PING_ACTIVE_EXAM') {
+      if (this.screen === 'test' || this.screen === 'practice') {
+        this.examChannel.postMessage({
+          type: 'EXAM_STARTED',
+          tabId: this.tabId,
+          screen: this.screen,
+          timestamp: Date.now()
+        });
+      }
+    }
+  },
+
+  handleVisibilityChange() {
+    if (this.screen !== 'test' && this.screen !== 'practice') return;
+    const now = Date.now();
+    if (document.hidden) {
+      this.focusLostCount++;
+      this._lastBlurTime = now;
+      console.warn(`[ANTI-CHEAT] Pérdida de visibilidad #${this.focusLostCount} en pantalla ${this.screen}`);
+    } else if (this._lastBlurTime) {
+      const dur = now - this._lastBlurTime;
+      this.totalUnfocusedMs += dur;
+      this.integrityLog.push({
+        event: 'TAB_HIDDEN',
+        line: this.currentLine + 1,
+        duration_ms: Math.round(dur),
+        timestamp: new Date().toISOString()
+      });
+      this._lastBlurTime = null;
+      this.checkIntegrityAlertThreshold();
+    }
+  },
+
+  handleFocusBlur() {
+    if (this.screen !== 'test' && this.screen !== 'practice') return;
+    if (!this._lastBlurTime) {
+      this.focusLostCount++;
+      this._lastBlurTime = Date.now();
+      console.warn(`[ANTI-CHEAT] Pérdida de foco de ventana #${this.focusLostCount}`);
+    }
+  },
+
+  handleFocusGain() {
+    if (this.screen !== 'test' && this.screen !== 'practice') return;
+    if (this._lastBlurTime) {
+      const dur = Date.now() - this._lastBlurTime;
+      this.totalUnfocusedMs += dur;
+      this.integrityLog.push({
+        event: 'WINDOW_BLUR',
+        line: this.currentLine + 1,
+        duration_ms: Math.round(dur),
+        timestamp: new Date().toISOString()
+      });
+      this._lastBlurTime = null;
+      this.checkIntegrityAlertThreshold();
+    }
+  },
+
+  checkIntegrityAlertThreshold() {
+    if (this.focusLostCount > 3 || this.totalUnfocusedMs > 5000) {
+      this.logAudit('FOCUS_LOST_ALERT', {
+        count: this.focusLostCount,
+        unfocused_ms: this.totalUnfocusedMs,
+        line: this.currentLine + 1
+      });
+    }
+  },
+
+  renderExamBlockedScreen() {
+    const app = document.getElementById('app');
+    app.innerHTML = `
+      <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+        <div class="card fade-in" style="max-width: 520px; text-align: center; padding: 40px 30px; border: 1px solid rgba(239, 68, 68, 0.3); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+          <div style="font-size: 3.5rem; margin-bottom: 16px;">⚠️</div>
+          <h2 style="color: #ef4444; margin-bottom: 12px; font-weight: 700;">Evaluación en Curso en Otra Pestaña</h2>
+          <p style="color: #cbd5e1; font-size: 0.95rem; line-height: 1.6; margin-bottom: 24px;">
+            Por estrictos criterios de control psicométrico de tiempo, latencia y concentración, 
+            <strong>no está permitido ejecutar pruebas simultáneas</strong> en múltiples pestañas o ventanas.
+          </p>
+          <div style="background: rgba(239,68,68,0.1); border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 6px; text-align: left; margin-bottom: 24px; font-size: 0.85rem; color: #fca5a5;">
+            Por favor, regrese a la pestaña activa para completar o cancelar la evaluación en curso. Esta pestaña se desbloqueará automáticamente al finalizar.
+          </div>
+          <button class="btn btn-secondary" style="width: 100%; justify-content: center;" onclick="App.nav('menu')">
+            🏠 Volver al Menú Principal
+          </button>
+        </div>
+      </div>
+    `;
+    this.screen = 'blocked_tab';
+  },
+
+  async registerActiveSession() {
+    if (!this.user || !this.supabase) return;
+    const isSuperAdmin = (this.user.user_metadata && this.user.user_metadata.role === 'superadmin');
+    if (isSuperAdmin) return;
+    try {
+      await this.supabase.from('active_sessions').upsert({
+        user_id: this.user.id,
+        current_session_id: this.clientSessionId,
+        last_heartbeat: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn("[SECURITY] Advertencia en active_sessions:", e);
+    }
+  },
+
+  startSessionHeartbeat() {
+    this.stopSessionHeartbeat();
+    if (!this.user) return;
+    const isSuperAdmin = (this.user.user_metadata && this.user.user_metadata.role === 'superadmin');
+    if (isSuperAdmin) return;
+
+    this.sessionHeartbeatTimer = setInterval(() => {
+      this.checkActiveSession();
+    }, 25000);
+  },
+
+  stopSessionHeartbeat() {
+    if (this.sessionHeartbeatTimer) {
+      clearInterval(this.sessionHeartbeatTimer);
+      this.sessionHeartbeatTimer = null;
+    }
+  },
+
+  async checkActiveSession() {
+    if (!this.user || !this.supabase || this.screen === 'login') return;
+    const isSuperAdmin = (this.user.user_metadata && this.user.user_metadata.role === 'superadmin');
+    if (isSuperAdmin) return;
+
+    try {
+      const { data, error } = await this.supabase.from('active_sessions')
+        .select('current_session_id')
+        .eq('user_id', this.user.id)
+        .maybeSingle();
+
+      if (data && data.current_session_id && data.current_session_id !== this.clientSessionId) {
+        this.handleSessionExpelled();
+      } else {
+        await this.supabase.from('active_sessions').update({
+          last_heartbeat: new Date().toISOString()
+        }).eq('user_id', this.user.id);
+      }
+    } catch (e) {}
+  },
+
+  handleSessionExpelled() {
+    this.stopSessionHeartbeat();
+    this.user = null;
+    if (this.supabase && this.supabase.auth) {
+      this.supabase.auth.signOut().catch(() => {});
+    }
+    const app = document.getElementById('app');
+    app.innerHTML = `
+      <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+        <div class="card fade-in" style="max-width: 500px; text-align: center; padding: 40px 30px; border: 1px solid rgba(239, 68, 68, 0.4); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+          <div style="font-size: 3.5rem; margin-bottom: 16px;">🔒</div>
+          <h2 style="color: #ef4444; margin-bottom: 12px; font-weight: 700;">Sesión Cerrada</h2>
+          <p style="color: #e2e8f0; font-size: 1.05rem; line-height: 1.6; margin-bottom: 24px;">
+            <strong>Se ha iniciado sesión desde otro dispositivo o navegador.</strong>
+          </p>
+          <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.5; margin-bottom: 28px;">
+            Para proteger la trazabilidad de las historias clínicas y cumplir la política de licencia activa, su sesión anterior en este equipo ha sido invalidada.
+          </p>
+          <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="App.nav('login')">
+            🔑 Iniciar Sesión Nuevamente
+          </button>
+        </div>
+      </div>
+    `;
+    this.screen = 'login';
+  },
+
+  async logAudit(action, details = {}) {
+    if (!this.supabase || !this.user) return;
+    try {
+      await this.supabase.from('audit_logs').insert({
+        user_id: this.user.id,
+        action: action,
+        user_agent: navigator.userAgent || 'Unknown',
+        details: details
+      });
+    } catch (e) {}
   },
 
   async warmUpModel() {
@@ -120,9 +377,32 @@ const App = {
   nav(screen) {
     if (!this.user && screen !== 'login') {
       this.screen = 'login';
-    } else {
-      this.screen = screen;
+      this.render();
+      return;
     }
+
+    // Comprobar bloqueo de concurrencia entre pestañas
+    if ((screen === 'practice' || screen === 'test' || screen === 'pretest') && this.isExamBlockedByOtherTab) {
+      this.renderExamBlockedScreen();
+      return;
+    }
+
+    // Notificar inicio/fin de prueba a otras pestañas
+    if (screen === 'practice' || screen === 'test') {
+      this.focusLostCount = 0;
+      this.totalUnfocusedMs = 0;
+      this.integrityLog = [];
+      this._lastBlurTime = null;
+      if (this.examChannel) {
+        this.examChannel.postMessage({ type: 'EXAM_STARTED', tabId: this.tabId, screen: screen, timestamp: Date.now() });
+      }
+    } else if (this.screen === 'test' || this.screen === 'practice') {
+      if (this.examChannel) {
+        this.examChannel.postMessage({ type: 'EXAM_ENDED', tabId: this.tabId });
+      }
+    }
+
+    this.screen = screen;
     this.render();
   },
 
@@ -205,15 +485,23 @@ const App = {
 
     if (error) {
       console.warn("Login failed:", error.message);
-      // Ocultar mensaje genérico de supabase
+      this.logAudit('LOGIN_FAILED', { email: email });
       errEl.textContent = 'Credenciales inválidas. Compruebe o contáctenos.';
     } else {
       this.user = data.user;
+      // Generar y registrar sesión única para este dispositivo (Single Active Session)
+      this.clientSessionId = 'sess_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+      sessionStorage.setItem('mecapsi_session_id', this.clientSessionId);
+      await this.registerActiveSession();
+      this.logAudit('LOGIN_SUCCESS', { email: this.user.email });
+      this.startSessionHeartbeat();
       this.nav('menu');
     }
   },
 
   async doLogout() {
+    this.stopSessionHeartbeat();
+    this.logAudit('LOGOUT', { email: this.user ? this.user.email : null });
     await this.supabase.auth.signOut();
     this.user = null;
     this.nav('login');
@@ -1750,6 +2038,18 @@ const App = {
       this.metrics.cognitive_load_peaks = pupiloMetrics.cognitive_load_peaks;
       this.metrics.pupil_baseline = pupiloMetrics.pupil_baseline;
 
+      // Auditoría Paraclínica de Integridad y Detección de Foco (Anti-Cheat)
+      const isIntegrityFlagged = (this.focusLostCount > 3 || this.totalUnfocusedMs > 5000);
+      this.metrics.integrity_audit = {
+        focus_lost_count: this.focusLostCount,
+        total_unfocused_ms: Math.round(this.totalUnfocusedMs),
+        is_flagged: isIntegrityFlagged,
+        flag_message: isIntegrityFlagged 
+          ? "⚠️ Evaluación con pérdida de foco recurrente (Sospecha de interrupción/interferencia externa)"
+          : "Óptima — Sin pérdida de foco significativa",
+        events: this.integrityLog
+      };
+
       // Mapear trialsData a linesData para persistencia relacional homogénea
       const trials = result.trialsData || result.levelSummaries || [];
       this.linesData = trials.map((t, idx) => {
@@ -2226,6 +2526,18 @@ const App = {
     this.metrics.cognitive_load_peaks = pupiloMetrics.cognitive_load_peaks;
     this.metrics.pupil_baseline = pupiloMetrics.pupil_baseline;
 
+    // Auditoría Paraclínica de Integridad y Detección de Foco (Anti-Cheat)
+    const isIntegrityFlagged = (this.focusLostCount > 3 || this.totalUnfocusedMs > 5000);
+    this.metrics.integrity_audit = {
+      focus_lost_count: this.focusLostCount,
+      total_unfocused_ms: Math.round(this.totalUnfocusedMs),
+      is_flagged: isIntegrityFlagged,
+      flag_message: isIntegrityFlagged 
+        ? "⚠️ Evaluación con pérdida de foco recurrente (Sospecha de interrupción/interferencia externa)"
+        : "Óptima — Sin pérdida de foco significativa",
+      events: this.integrityLog
+    };
+
     // ML prediction via API
     try {
       const resp = await fetch(API_BASE + '/api/predict', {
@@ -2456,26 +2768,30 @@ const App = {
 
     try {
       if (!this.user || !this.user.email) {
-        if (pwd === 'admin123' || pwd === '123456' || pwd.length >= 4) {
-          this.nav('results');
-          return;
+        errEl.textContent = 'No hay sesión de profesional activa. Inicie sesión para consultar resultados.';
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '🔓 Desbloquear Informe';
         }
+        return;
       }
 
       // Re-autenticamos para verificar la contraseña del profesional actual
       const { error } = await this.supabase.auth.signInWithPassword({
-        email: this.user ? this.user.email : 'admin@mecapsi.com',
+        email: this.user.email,
         password: pwd
       });
 
       if (error) {
+        this.logAudit('UNLOCK_RESULTS_FAILED', { email: this.user.email, reason: 'Invalid password' });
         errEl.textContent = 'Contraseña incorrecta. Intente de nuevo.';
         if (btn) {
           btn.disabled = false;
           btn.textContent = '🔓 Desbloquear Informe';
         }
       } else {
-        // Éxito: Mostrar resultados
+        // Éxito: Registrar auditoría y mostrar resultados
+        this.logAudit('UNLOCK_RESULTS_SUCCESS', { email: this.user.email, evalId: this.evalId });
         this.nav('results');
       }
     } catch (e) {

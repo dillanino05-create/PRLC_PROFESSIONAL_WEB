@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 
 import matplotlib.pyplot as plt
 
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
@@ -120,14 +120,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Módulo de Seguridad: Rate Limiting en Memoria (Sliding Window) ────────────
+class SimpleRateLimiter:
+    """Rate limiter en memoria de ventana deslizante sin dependencias externas (Redis/Memcached)."""
+    def __init__(self):
+        self.records: dict[str, list[float]] = {}
+        self._lock = asyncio.Lock()
+
+    async def check(self, key: str, max_calls: int, window_seconds: float = 60.0) -> bool:
+        now = time.time()
+        async with self._lock:
+            timestamps = self.records.setdefault(key, [])
+            # Purgar marcas que salieron de la ventana temporal
+            self.records[key] = [t for t in timestamps if now - t < window_seconds]
+            if len(self.records[key]) >= max_calls:
+                return False
+            self.records[key].append(now)
+            return True
+
+limiter = SimpleRateLimiter()
+
+# ── Middleware de Cabeceras de Seguridad (OWASP Best Practices) ───────────────
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 # ── Supabase Setup ─────────────────────────────────────────────────────────────
 SUPABASE_URL         = os.getenv("SUPABASE_URL", "https://lfyaiwbtfgoiczyyzlwh.supabase.co")
 SUPABASE_KEY         = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjc1MTEsImV4cCI6MjA5MDY0MzUxMX0.ZfVceXuYWQKEZimgRLt9kGkSGpq8FO7kRgKbL-Ta-3M")
 # Service Role Key: bypass de RLS para consultas de SuperAdmin. Configura en HF Spaces → Settings → Secrets
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
-def get_supabase(authorization: str = Header(None)) -> dict:
+async def get_supabase(request: Request, authorization: str = Header(None)) -> dict:
+    client_ip = request.client.host if request.client else "unknown"
     if not authorization or not authorization.startswith("Bearer "):
+        await asyncio.sleep(1.0)  # Tarpit delay contra bots de fuerza bruta
         raise HTTPException(status_code=401, detail="Falta autorización/Ingresa de nuevo")
     
     token = authorization.split(" ")[1]
@@ -140,16 +173,24 @@ def get_supabase(authorization: str = Header(None)) -> dict:
     sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
     
     # Verificación del usuario contra Supabase Auth
-    res = sb.auth.get_user(token)
+    try:
+        res = sb.auth.get_user(token)
+    except Exception:
+        await asyncio.sleep(1.2)  # Tarpit delay
+        raise HTTPException(status_code=401, detail="Usuario inválido o sesión expirada")
+
     if not res or not res.user:
-         raise HTTPException(status_code=401, detail="Usuario inválido")
+        await asyncio.sleep(1.2)  # Tarpit delay
+        raise HTTPException(status_code=401, detail="Usuario inválido")
          
-    return {"client": sb, "user_id": res.user.id}
+    return {"client": sb, "user_id": res.user.id, "token": token, "ip": client_ip}
 
 
-def verify_superadmin(authorization: str = Header(None)) -> dict:
+async def verify_superadmin(request: Request, authorization: str = Header(None)) -> dict:
     """Dependencia FastAPI: verifica que el JWT pertenezca a un usuario con role='superadmin' en user_metadata."""
+    client_ip = request.client.host if request.client else "unknown"
     if not authorization or not authorization.startswith("Bearer "):
+        await asyncio.sleep(1.2)  # Tarpit
         raise HTTPException(status_code=401, detail="Falta autorización")
     token = authorization.split(" ")[1]
     opts = ClientOptions(
@@ -157,13 +198,21 @@ def verify_superadmin(authorization: str = Header(None)) -> dict:
         httpx_client=httpx.Client(http2=False)
     )
     sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
-    res = sb.auth.get_user(token)
-    if not res or not res.user:
+    try:
+        res = sb.auth.get_user(token)
+    except Exception:
+        await asyncio.sleep(1.2)
         raise HTTPException(status_code=401, detail="Usuario inválido o sesión expirada")
+
+    if not res or not res.user:
+        await asyncio.sleep(1.2)
+        raise HTTPException(status_code=401, detail="Usuario inválido o sesión expirada")
+
     metadata = res.user.user_metadata or {}
     if metadata.get('role') != 'superadmin':
+        await asyncio.sleep(1.5)  # Tarpit delay ante intentos no autorizados de escalada de privilegios
         raise HTTPException(status_code=403, detail="Acceso restringido: Solo SuperAdmin puede acceder a este recurso")
-    return {"user_id": res.user.id, "token": token}
+    return {"user_id": res.user.id, "token": token, "ip": client_ip}
 
 
 # ── Archivos Estáticos ─────────────────────────────────────────────────────────
@@ -177,8 +226,45 @@ def root():
 def status():
     return {'model_available': predictor.available, 'version': '3.3'}
 
+@app.get('/api/session/verify')
+async def verify_session(user_id: str, session_id: str, auth_ctx: dict = Depends(get_supabase)):
+    """Verifica si la sesión del cliente sigue siendo la sesión activa registrada (Single Active Session)."""
+    if auth_ctx["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="No autorizado para verificar esta sesión")
+    sb = auth_ctx["client"]
+    try:
+        res = sb.table("active_sessions").select("current_session_id").eq("user_id", user_id).maybe_single().execute()
+        if res and res.data:
+            is_valid = (res.data.get("current_session_id") == session_id)
+            return {"valid": is_valid}
+        return {"valid": True}
+    except Exception:
+        return {"valid": True}
+
+@app.get('/api/exam-token/verify/{token}')
+async def verify_exam_token(token: str):
+    """Verifica la validez y estado de un token efímero de evaluación de un solo uso."""
+    opts = ClientOptions(httpx_client=httpx.Client(http2=False))
+    sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
+    try:
+        res = sb.table("exam_tokens").select("token, status, test_type, expires_at").eq("token", token).maybe_single().execute()
+        if not res or not res.data:
+            raise HTTPException(status_code=404, detail="Token de evaluación inválido o inexistente")
+        row = res.data
+        if row.get("status") in ("completed", "revoked"):
+            return {"valid": False, "reason": f"El token ya ha sido utilizado o revocado ({row.get('status')})"}
+        return {"valid": True, "token": row.get("token"), "test_type": row.get("test_type")}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error validando token: {str(e)}")
+
+
 @app.post('/api/predict')
-def predict(req: PredictRequest):
+async def predict(req: PredictRequest, request: Request):
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    if not await limiter.check(f"predict:{client_ip}", max_calls=25, window_seconds=60.0):
+        raise HTTPException(status_code=429, detail="Límite de predicciones excedido (Rate limit: 25/min). Por favor espere un momento.")
     req_dict = req.model_dump()
     if req_dict.get("test_type") == "CORSI":
         span = req_dict.get("corsi_span") or 0
@@ -262,10 +348,16 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
         except Exception: pass
 
 @app.post('/api/save')
-def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = Depends(get_supabase)):
+async def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
+    client_ip = auth_ctx.get("ip", "unknown")
     token = authorization.split(" ")[1] if authorization else ""
+
+    # Rate limiting: Máximo 12 guardados por minuto por usuario
+    if not await limiter.check(f"save:{uid}", max_calls=12, window_seconds=60.0):
+        raise HTTPException(status_code=429, detail="Límite de guardado excedido (Rate limit: 12/min). Por favor espere un momento.")
+
     try:
         part      = req.participant.model_dump()
         metrics   = req.metrics.model_dump()
@@ -298,6 +390,22 @@ def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = D
         }
         res = sb.table("evaluations").insert(row_data).execute()
         eval_id = res.data[0]["id"]
+
+        # Registrar log de auditoría médica forense
+        try:
+            sb.table("audit_logs").insert({
+                "user_id": uid,
+                "action": "EVALUATION_SAVED",
+                "ip_address": client_ip,
+                "details": {
+                    "eval_id": eval_id,
+                    "test_type": clean_test,
+                    "participant_id": part["id"],
+                    "is_flagged": metrics.get("integrity_audit", {}).get("is_flagged", False)
+                }
+            }).execute()
+        except Exception:
+            pass
 
         # Generar Tag Forense Unificado: {TEST}_{SESSION_ID}_{PATIENT_CLEAN_ID}_{YYYYMMDD_HHMMSS}
         session_tag = generate_session_tag(clean_test, eval_id, part["id"], timestamp_str)

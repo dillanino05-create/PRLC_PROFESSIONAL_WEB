@@ -1,0 +1,40 @@
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), display-capture=(self)" }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)\\.(env|git|sql|bak|dump|sqlite|sqlite3|py|bat|sh)$",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/\\.env(.*)",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/\\.git(.*)",
+      "destination": "/",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://dalamus2405-plc-backend.hf.space/api/$1" },
+    { "source": "/js/(.*)", "destination": "/web/frontend/js/$1" },
+    { "source": "/css/(.*)", "destination": "/web/frontend/css/$1" },
+    { "source": "/assets/(.*)", "destination": "/web/frontend/assets/$1" },
+    { "source": "/vendor/(.*)", "destination": "/web/frontend/vendor/$1" },
+    { "source": "/", "destination": "/web/frontend/index.html" },
+    { "source": "/index.html", "destination": "/web/frontend/index.html" }
+  ]
+}

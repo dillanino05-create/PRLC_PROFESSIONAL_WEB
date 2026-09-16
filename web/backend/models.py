@@ -173,6 +173,8 @@ class MetricsData(BaseModel):
     test_type: Optional[str] = "PLC"
     session_tag: Optional[str] = None
     session_uid: Optional[str] = None
+    # ── Blindaje e Integridad Paraclínica (Anti-Cheat) ─────────────────────────
+    integrity_audit: Optional[Dict[str, Any]] = None
 
 
 
@@ -185,3 +187,6 @@ class SaveRequest(BaseModel):
     metrics: MetricsData
     ml_prediction: Optional[Dict[str, Any]] = None
     narrative: str = ""
+    client_session_id: Optional[str] = None
+    exam_token: Optional[str] = None
+
