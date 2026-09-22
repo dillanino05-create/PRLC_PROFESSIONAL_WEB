@@ -781,14 +781,16 @@ function generateSessionTag(testType = 'PLC', sessionId = '0', patientId = 'PACI
  */
 function analyzeCursorKinematics(samples) {
   try {
-    const tremor = typeof computeTremorScore === 'function' ? computeTremorScore(samples || []) : { tremor_score: 0.0, tremor_grade: 'NORMAL' };
-    const sweep = typeof computeSweepMetrics === 'function' ? computeSweepMetrics(samples || []) : { regularity_score: 100.0, directionality: 'NORMAL' };
+    const tremor = typeof computeTremorScore === 'function' ? computeTremorScore(samples || []) : { score: 0.0, microtremor: 0.0, tremor_type: 'NORMAL' };
+    const sweep = typeof computeSweepMetrics === 'function' ? computeSweepMetrics(samples || []) : { sweep_regularity: 100.0, regularity_score: 100.0 };
+    const microScore = tremor.score ?? tremor.microtremor ?? tremor.tremor_score ?? 0.0;
+    const regScore = sweep.sweep_regularity ?? sweep.regularity_score ?? 100.0;
     return {
-      microtremor_score: tremor.tremor_score || 0.0,
-      tremor_grade: tremor.tremor_grade || 'NORMAL',
-      sweep_regularity: sweep.regularity_score || 100.0,
+      microtremor_score: microScore,
+      tremor_grade: tremor.tremor_type || (tremor.flag ? 'PATOLÓGICO' : 'NORMAL'),
+      sweep_regularity: regScore,
       directionality: sweep.directionality || 'NORMAL',
-      samples_count: tremor.samples_count || 0
+      samples_count: samples ? samples.length : 0
     };
   } catch (e) {
     return {
@@ -814,6 +816,7 @@ function computeCorsiMetrics(corsiResult, age = 30) {
   const mode = (corsiResult && (corsiResult.testMode || corsiResult.corsiMode)) 
     ? (corsiResult.testMode || corsiResult.corsiMode) 
     : 'direct';
+  const isDual = mode === 'dual' || Boolean(corsiResult?.dual);
   const isReverse = mode === 'reverse';
 
   const totalTrials = summaries.length;
@@ -909,8 +912,14 @@ function computeCorsiMetrics(corsiResult, age = 30) {
     clinicalDesc = "La prueba finalizó sin alcanzar el umbral mínimo de aciertos.";
   }
 
+  const directSpan = corsiResult?.directSpan ?? (summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct') && (s.success ?? s.isCorrect)).map(s => s.sequence_length || s.level || 2).reduce((max, v) => Math.max(max, v), 0) || 2);
+  const reverseSpan = corsiResult?.reverseSpan ?? (summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse') && (s.success ?? s.isCorrect)).map(s => s.sequence_length || s.level || 2).reduce((max, v) => Math.max(max, v), 0) || 2);
+
   return {
-    corsi_span: corsiSpan,
+    corsi_span: isDual ? Math.max(directSpan, reverseSpan) : corsiSpan,
+    direct_span: isDual ? directSpan : (isReverse ? null : corsiSpan),
+    reverse_span: isDual ? reverseSpan : (isReverse ? corsiSpan : null),
+    dual: isDual,
     corsi_mode: mode,
     max_level: maxLevel,
     total_trials: totalTrials,

@@ -2180,41 +2180,201 @@ const App = {
     runCorsiPhase(startMode, async (phase1Result) => {
       if (isDual) {
         this._directCorsiResult = phase1Result;
-        // Pantalla de Transición entre Baterías Directa e Inversa
+        // Pantalla de Transición entre Baterías Directa e Inversa con Mini-Práctica
         app.innerHTML = `
-          <div id="test-screen" style="background:linear-gradient(135deg,#1A237E 0%,#283593 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
-            <div style="background:#fff;padding:36px;border-radius:18px;max-width:580px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,0.35);text-align:center;" class="fade-in">
-              <div style="font-size:3rem;margin-bottom:12px;">✅</div>
-              <h2 style="color:#1A237E;font-family:'Playfair Display',serif;font-size:1.8rem;margin-bottom:8px;">Fase 1 (Modo Directo) Completada</h2>
-              <p style="color:#546E7A;font-size:1rem;line-height:1.55;margin-bottom:20px;">
-                Span visoespacial directo alcanzado: <strong style="color:#2E7D32;font-size:1.25rem;">${phase1Result.corsiSpan} bloques</strong>.
-                <br><br>
-                A continuación comenzará la <strong>Fase 2: Modo Inverso</strong>.
-                <br>
-                <span style="background:#FFF3E0;color:#E65100;font-weight:700;padding:4px 10px;border-radius:8px;display:inline-block;margin-top:8px;border:1px solid #FFE0B2;">
-                  ⚠️ ATENCIÓN: Deberá tocar los bloques en orden INVERSO al presentado (del último al primero).
-                </span>
+          <div id="test-screen" style="background: radial-gradient(circle at center, #1E1B4B 0%, #0F172A 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; user-select: none;">
+            <div style="background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.12); padding: 28px 32px; border-radius: 20px; max-width: 680px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.6); text-align: center; color: #F8FAFC;" class="fade-in">
+              <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); border: 1.5px solid #10B981; font-size: 1.8rem; margin-bottom: 12px;">
+                ✅
+              </div>
+              <h2 style="color: #FFFFFF; font-family: 'Outfit', sans-serif; font-size: 1.65rem; margin-bottom: 6px; font-weight: 700;">
+                ¡Fase 1 (Modo Directo) Completada!
+              </h2>
+              <p style="color: #94A3B8; font-size: 0.95rem; margin-bottom: 14px;">
+                Span visoespacial directo alcanzado: <strong style="color: #34D399; font-size: 1.15rem;">${phase1Result.corsiSpan} bloques</strong>
               </p>
-              <button class="btn btn-primary btn-lg" id="btn-start-phase-2" style="width:100%;justify-content:center;padding:14px;font-size:1.05rem;background:linear-gradient(135deg,#7B1FA2,#4A148C);box-shadow:0 4px 16px rgba(123,31,162,0.4);">
-                ▶ Iniciar Fase 2 (Modo Inverso)
-              </button>
+
+              <div style="background: rgba(126, 34, 206, 0.15); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; text-align: left;">
+                <div style="font-weight: 700; color: #E9D5FF; font-size: 1rem; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                  <span>🧊</span> Fase 2: Modo Inverso (Memoria de Trabajo Ejecutiva)
+                </div>
+                <div style="color: #DDD6FE; font-size: 0.88rem; line-height: 1.45;">
+                  ⚠️ <strong>Regla obligatoria:</strong> En esta fase deberás observar la secuencia y tocar los bloques en <strong>ORDEN INVERSO</strong> (del ÚLTIMO al PRIMERO).
+                </div>
+              </div>
+
+              <!-- Mini-Práctica Interactiva Inversa (2 Cubos) -->
+              <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 14px; margin-bottom: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                  <span style="font-size: 0.85rem; font-weight: 700; color: #38BDF8; text-transform: uppercase; letter-spacing: 0.5px;">
+                    🎯 Mini-Prueba Práctica Inversa (2 cubos)
+                  </span>
+                  <button id="btn-demo-reverse" class="btn btn-ghost btn-sm" style="background: rgba(56, 189, 248, 0.12); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.8rem; padding: 4px 10px; border-radius: 8px;">
+                    ▶️ Ver Demostración
+                  </button>
+                </div>
+
+                <div id="reverse-p-banner" style="font-size: 0.88rem; font-weight: 600; color: #94A3B8; min-height: 24px; margin-bottom: 10px;">
+                  Pulsa "▶️ Ver Demostración" para ver un ejemplo rápido de cómo invertir los cubos.
+                </div>
+
+                <!-- Tablero mini de práctica -->
+                <div id="mini-practice-board" style="position: relative; width: 100%; height: 180px; background: #0B1124; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden; margin-bottom: 8px;">
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                <button class="btn btn-primary btn-lg" id="btn-start-phase-2" style="flex: 1; min-width: 240px; justify-content: center; padding: 14px 24px; font-size: 1.05rem; font-weight: 700; background: linear-gradient(135deg, #7E22CE 0%, #4338CA 100%); border: none; box-shadow: 0 4px 20px rgba(126, 34, 206, 0.45); border-radius: 12px; cursor: pointer;">
+                  ▶ Iniciar Fase 2 Real (Modo Inverso)
+                </button>
+              </div>
             </div>
           </div>
         `;
+
+        // Renderizar mini-tablero de práctica interactiva
+        const miniBoard = document.getElementById('mini-practice-board');
+        const pBanner = document.getElementById('reverse-p-banner');
+        const cubeCoords = (window.CorsiRunner && window.CorsiRunner.cubePositions) ? window.CorsiRunner.cubePositions : [
+          { x: 14, y: 16 }, { x: 76, y: 14 }, { x: 46, y: 28 },
+          { x: 24, y: 48 }, { x: 68, y: 46 }, { x: 86, y: 66 },
+          { x: 10, y: 74 }, { x: 44, y: 80 }, { x: 74, y: 82 }
+        ];
+
+        let pDemoSeq = [1, 5]; // Cubo 2 y Cubo 6 (0-indexed: 1 y 5)
+        let pUserClicks = [];
+        let pCanClick = false;
+
+        const renderMiniCubes = () => {
+          if (!miniBoard) return;
+          miniBoard.innerHTML = '';
+          cubeCoords.forEach((pos, idx) => {
+            const c = document.createElement('div');
+            c.id = `mini-cube-${idx}`;
+            c.style.position = 'absolute';
+            c.style.left = `calc(${pos.x}% - 20px)`;
+            c.style.top = `calc(${pos.y}% - 20px)`;
+            c.style.width = '40px';
+            c.style.height = '40px';
+            c.style.borderRadius = '8px';
+            c.style.background = 'linear-gradient(145deg, #334155, #1E293B)';
+            c.style.border = '1.5px solid rgba(148, 163, 184, 0.2)';
+            c.style.display = 'flex';
+            c.style.alignItems = 'center';
+            c.style.justifyContent = 'center';
+            c.style.cursor = 'pointer';
+            c.style.userSelect = 'none';
+            c.style.color = 'rgba(255,255,255,0.4)';
+            c.style.fontSize = '0.9rem';
+            c.style.fontWeight = '700';
+            c.style.transition = 'all 0.2s ease';
+            c.textContent = idx + 1;
+
+            c.onclick = () => {
+              if (!pCanClick) return;
+              if (pUserClicks.includes(idx)) return;
+              pUserClicks.push(idx);
+
+              // Validar en orden inverso: target esperado es pDemoSeq invertido
+              const expectedTarget = pDemoSeq[pDemoSeq.length - pUserClicks.length];
+              if (idx === expectedTarget) {
+                // Acierto parcial o total
+                c.style.background = 'linear-gradient(145deg, #10B981, #059669)';
+                c.style.borderColor = '#34D399';
+                if (window.CorsiRunner && window.CorsiRunner.playTone) window.CorsiRunner.playTone(640 + pUserClicks.length * 80, 160);
+
+                if (pUserClicks.length === pDemoSeq.length) {
+                  pCanClick = false;
+                  pBanner.innerHTML = `<span style="color:#34D399;font-weight:700;">✓ ¡Excelente! Marcaste 6 → 2 en orden inverso. ¡Regla comprendida!</span>`;
+                  const btnStart = document.getElementById('btn-start-phase-2');
+                  if (btnStart) {
+                    btnStart.style.boxShadow = '0 0 25px rgba(52, 211, 153, 0.7)';
+                    btnStart.style.transform = 'scale(1.02)';
+                  }
+                }
+              } else {
+                // Error (marcó en orden directo u otro cubo)
+                pCanClick = false;
+                c.style.background = 'linear-gradient(145deg, #EF4444, #DC2626)';
+                c.style.borderColor = '#F87171';
+                if (window.CorsiRunner && window.CorsiRunner.playTone) window.CorsiRunner.playTone(240, 280, 'sawtooth');
+                pBanner.innerHTML = `<span style="color:#F87171;font-weight:700;">❌ Marcaste ${idx + 1}. Recuerda: debes tocar primero el ÚLTIMO (6) y luego el primero (2).</span>`;
+                setTimeout(() => {
+                  pUserClicks = [];
+                  pCanClick = true;
+                  renderMiniCubes();
+                }, 1200);
+              }
+            };
+            miniBoard.appendChild(c);
+          });
+        };
+
+        const runDemo = async () => {
+          pCanClick = false;
+          pUserClicks = [];
+          renderMiniCubes();
+          pBanner.innerHTML = `<span style="color:#38BDF8;">Observa la secuencia iluminada...</span>`;
+          await new Promise(r => setTimeout(r, 600));
+
+          for (let i = 0; i < pDemoSeq.length; i++) {
+            const cubeId = pDemoSeq[i];
+            const el = document.getElementById(`mini-cube-${cubeId}`);
+            if (el) {
+              el.style.background = 'linear-gradient(145deg, #00D4FF, #0284C7)';
+              el.style.borderColor = '#FFFFFF';
+              el.style.transform = 'scale(1.15)';
+              if (window.CorsiRunner && window.CorsiRunner.playTone) window.CorsiRunner.playTone(560 + cubeId * 40, 240);
+            }
+            await new Promise(r => setTimeout(r, 850));
+            if (el) {
+              el.style.background = 'linear-gradient(145deg, #334155, #1E293B)';
+              el.style.borderColor = 'rgba(148, 163, 184, 0.2)';
+              el.style.transform = 'scale(1)';
+            }
+            await new Promise(r => setTimeout(r, 350));
+          }
+
+          await new Promise(r => setTimeout(r, 500));
+          if (window.CorsiRunner && window.CorsiRunner.playTone) window.CorsiRunner.playTone(840, 180, 'triangle');
+          pBanner.innerHTML = `<span style="color:#FBBF24;font-weight:700;">▶️ Tu turno: La secuencia fue [2 → 6]. Toca primero el [6] y luego el [2] para invertirla:</span>`;
+          pCanClick = true;
+        };
+
+        renderMiniCubes();
+        document.getElementById('btn-demo-reverse').onclick = () => runDemo();
+
         document.getElementById('btn-start-phase-2').onclick = () => {
           runCorsiPhase('reverse', async (phase2Result) => {
             if (this._mouseMoveHandler) {
               window.removeEventListener('mousemove', this._mouseMoveHandler);
               this._mouseMoveHandler = null;
             }
+
+            const directTrials = (this._directCorsiResult.levelSummaries || this._directCorsiResult.trialsData || []).map((t, idx) => ({
+              ...t,
+              fase: 'Directa',
+              test_mode: 'direct',
+              trial_num: idx + 1
+            }));
+            const reverseTrials = (phase2Result.levelSummaries || phase2Result.trialsData || []).map((t, idx) => ({
+              ...t,
+              fase: 'Inversa',
+              test_mode: 'reverse',
+              trial_num: directTrials.length + idx + 1
+            }));
+            const allTrials = [...directTrials, ...reverseTrials];
+
             const combinedResult = {
               ...phase2Result,
               testMode: 'dual',
+              corsiMode: 'dual',
+              dual: true,
               corsiSpan: Math.max(this._directCorsiResult.corsiSpan || 2, phase2Result.corsiSpan || 2),
               directSpan: this._directCorsiResult.corsiSpan || 2,
               reverseSpan: phase2Result.corsiSpan || 2,
-              dual: true,
-              levelSummaries: [...(this._directCorsiResult.levelSummaries || []), ...(phase2Result.levelSummaries || [])],
+              levelSummaries: allTrials,
+              trialsData: allTrials,
               movementsData: [...(this._directCorsiResult.movementsData || []), ...(phase2Result.movementsData || [])],
               totalTimeMs: (this._directCorsiResult.totalTimeMs || 0) + (phase2Result.totalTimeMs || 0)
             };
@@ -2321,6 +2481,14 @@ const App = {
       this.metrics.cognitive_load_peaks = pupiloMetrics.cognitive_load_peaks;
       this.metrics.pupil_baseline = pupiloMetrics.pupil_baseline;
 
+      if (result.testMode === 'dual' || result.dual) {
+        this.metrics.corsi_mode = 'dual';
+        this.metrics.direct_span = result.directSpan || 2;
+        this.metrics.reverse_span = result.reverseSpan || 2;
+        this.metrics.corsi_span = result.corsiSpan || Math.max(result.directSpan || 2, result.reverseSpan || 2);
+        this.metrics.dual = true;
+      }
+
       // Auditoría Paraclínica de Integridad y Detección de Foco (Anti-Cheat)
       const isIntegrityFlagged = (this.focusLostCount > 3 || this.totalUnfocusedMs > 5000);
       this.metrics.integrity_audit = {
@@ -2347,6 +2515,8 @@ const App = {
 
         return {
           linea: idx + 1,
+          fase: t.fase || (t.test_mode === 'reverse' ? 'Inversa' : 'Directa'),
+          test_mode: t.test_mode || (t.fase === 'Inversa' ? 'reverse' : 'direct'),
           sequence_length: seqLen,
           attempt: t.attempt || 1,
           sequence_presented: seqPresented,
@@ -2360,8 +2530,8 @@ const App = {
           evaluados: seqLen,
           targets_total: seqLen,
           tiempo_s: duration,
-          tremor_score: motorKinematics.microtremor_score || 0.0,
-          sweep_regularity: motorKinematics.sweep_regularity || 100.0,
+          tremor_score: t.tremor_score || motorKinematics.microtremor_score || 0.0,
+          sweep_regularity: t.sweep_regularity || motorKinematics.sweep_regularity || 100.0,
           pupil_dilation_avg: pupiloMetrics.pupil_dilation_avg
         };
       });
@@ -2370,7 +2540,9 @@ const App = {
       // Mapear clics individuales de cubos a clickLog
       this.clickLog = [];
       trials.forEach((trial, tIdx) => {
-        const clicks = trial.clicks || (result.movementsData ? result.movementsData.filter(m => m.level === trial.level) : []);
+        const clicks = (trial.clicks && trial.clicks.length > 0)
+          ? trial.clicks 
+          : (result.movementsData ? result.movementsData.filter(m => m.level === trial.level && (!trial.attempt || m.attempt === trial.attempt)) : []);
         clicks.forEach((clk, cIdx) => {
           const isCorr = Boolean(clk.isCorrect ?? clk.is_correct ?? true);
           this.clickLog.push({
@@ -3242,8 +3414,8 @@ const App = {
         <div>
           <h1 style="display:flex;align-items:center;gap:10px;">
             Test de Bloques de Corsi — Resultados
-            <span class="badge" style="background:${isReverse ? '#7B1FA2' : '#1565C0'};color:#fff;font-size:0.75rem;padding:4px 10px;border-radius:12px;vertical-align:middle;">
-              ${isReverse ? 'Modalidad Inversa' : 'Modalidad Directa'}
+            <span class="badge" style="background:${isDual ? 'linear-gradient(135deg,#0284C7,#7B1FA2)' : isReverse ? '#7B1FA2' : '#1565C0'};color:#fff;font-size:0.75rem;padding:4px 10px;border-radius:12px;vertical-align:middle;">
+              ${isDual ? 'Batería Dual Completa (Directo + Inverso)' : isReverse ? 'Modalidad Inversa' : 'Modalidad Directa'}
             </span>
           </h1>
           <div class="sub">
@@ -3263,6 +3435,30 @@ const App = {
         <!-- A) Métricas Objetivas Principales -->
         <div class="card mb-4">
           <div class="section-title">Métricas Objetivas del Test de Corsi</div>
+          ${isDual ? `
+          <div class="metric-cards">
+            <div class="metric-card" style="background:#EBF5FB;border:1.5px solid #AED6F1;">
+              <div class="val" style="color:#0284C7;">${m.direct_span || 2}</div>
+              <div class="lbl">SPAN Directo</div>
+            </div>
+            <div class="metric-card" style="background:#F4ECF7;border:1.5px solid #D7BDE2;">
+              <div class="val" style="color:#7B1FA2;">${m.reverse_span || 2}</div>
+              <div class="lbl">SPAN Inverso</div>
+            </div>
+            <div class="metric-card" style="background:#E8EAF6;">
+              <div class="val" style="color:#1A237E;">${m.corsi_span || 0}</div>
+              <div class="lbl">SPAN Global</div>
+            </div>
+            <div class="metric-card" style="background:#E8F5E9;">
+              <div class="val" style="color:#2E7D32;">${m.composite_score || 0}</div>
+              <div class="lbl">PUNT Compuesto</div>
+            </div>
+            <div class="metric-card" style="background:#EDE7F6;">
+              <div class="val" style="color:#6A1B9A;">${m.accuracy_pct !== undefined ? Number(m.accuracy_pct).toFixed(1) : '0.0'}%</div>
+              <div class="lbl">PREC % Global</div>
+            </div>
+          </div>
+          ` : `
           <div class="metric-cards">
             <div class="metric-card" style="background:#E8EAF6;">
               <div class="val" style="color:#1A237E;">${m.corsi_span || 0}</div>
@@ -3285,6 +3481,7 @@ const App = {
               <div class="lbl">TR  Medio (ms)</div>
             </div>
           </div>
+          `}
 
           <hr class="form-divider"/>
 
@@ -4430,7 +4627,8 @@ const App = {
       const ml = data.ml_json;
 
       const isCorsi = (metrics.test_type === 'CORSI' || data.test_type === 'CORSI');
-      const isReverse = isCorsi && (metrics.corsi_mode === 'reverse' || String(data.corsi_mode).toLowerCase() === 'reverse');
+      const isDual = isCorsi && (metrics.corsi_mode === 'dual' || String(data.corsi_mode).toLowerCase() === 'dual' || metrics.dual === true);
+      const isReverse = isCorsi && !isDual && (metrics.corsi_mode === 'reverse' || String(data.corsi_mode).toLowerCase() === 'reverse');
 
       this.metrics = metrics;
       this.participant = {
@@ -4442,7 +4640,7 @@ const App = {
       this.linesData = lines;
       this.sessionTag = data.session_tag || (metrics ? metrics.session_tag : null);
       this.testType = isCorsi ? 'CORSI' : 'PLC';
-      this.corsiMode = isReverse ? 'reverse' : 'direct';
+      this.corsiMode = isDual ? 'dual' : (isReverse ? 'reverse' : 'direct');
 
       // 1. Mostrar Modal Clínico
       document.getElementById('clinical-modal').classList.add('active');
@@ -4456,9 +4654,19 @@ const App = {
               Paciente: <span style="color:var(--text);font-weight:400;">${escapeHTML(data.participant_name)}</span> 
               | ID: <span style="color:var(--text);font-weight:400;">${escapeHTML(data.participant_id)}</span> 
               | Prueba: <span style="color:var(--text);font-weight:400;">${new Date(data.created_at).toLocaleString()}</span>
-              | Modalidad: <span style="color:${isReverse ? '#7B1FA2' : '#0284C7'};font-weight:700;">${isReverse ? '🧊 Corsi Inverso' : '🧊 Corsi Directo'}</span>
+              | Modalidad: ${
+                isDual 
+                  ? '<span style="background:linear-gradient(135deg,#0284C7,#7B1FA2);color:#fff;font-weight:700;padding:2px 8px;border-radius:6px;">🔷 Corsi Dual (Directo + Inverso)</span>' 
+                  : isReverse 
+                  ? '<span style="color:#7B1FA2;font-weight:700;">🧊 Corsi Inverso</span>' 
+                  : '<span style="color:#0284C7;font-weight:700;">🧊 Corsi Directo</span>'
+              }
               ${data.session_tag ? ` | Tag: <span style="color:#3949AB;font-weight:600;">${escapeHTML(data.session_tag)}</span>` : ''}
-              <br/><span style="color:#455A64;font-size:0.85rem;font-weight:600;">Nivel Máximo Administrado: ${maxLvl} bloques | Ensayos Evaluados: ${(lines && lines.length) || metrics.total_trials || 0}</span>
+              <br/><span style="color:#455A64;font-size:0.85rem;font-weight:600;">${
+                isDual
+                  ? `Span Directo: ${metrics.direct_span || 2} bloques | Span Inverso: ${metrics.reverse_span || 2} bloques | Span Global: ${metrics.corsi_span || 2} bloques | Ensayos Evaluados: ${(lines && lines.length) || metrics.total_trials || 0}`
+                  : `Nivel Máximo Administrado: ${maxLvl} bloques | Ensayos Evaluados: ${(lines && lines.length) || metrics.total_trials || 0}`
+              }</span>
             </div>
             <button class="btn btn-ghost btn-sm" style="background:#EDE7F6;color:#4527A0;font-weight:700;padding:5px 12px;border-radius:8px;" onclick="App.openFullReportFromModal(${id})" title="Abrir informe clínico completo en vista expandida">
               🖥️ Ver Pantalla Completa
@@ -4491,29 +4699,58 @@ const App = {
         const span = metrics.corsi_span || 0;
         const composite = metrics.composite_score || (span * (metrics.correct_trials || 0));
         const acc = Number(metrics.accuracy_pct || 0).toFixed(1);
-        let sColor = 'yellow', sTitle = 'Promedio Límite', sDesc = 'Amplitud de memoria de trabajo visoespacial limítrofe.';
-        if (span >= 5) {
-          sColor = 'green'; sTitle = 'Rango Normativo'; sDesc = 'Capacidad de retención y memoria visoespacial óptima.';
-        } else if (span <= 3) {
-          sColor = 'red'; sTitle = 'Déficit Visoespacial'; sDesc = 'Rendimiento amnésico/atencional descendido respecto al grupo de edad.';
-        }
 
-        document.getElementById('modal-semaforo').innerHTML = `
-          <div class="semaforo-box semaforo-${sColor}">
-            <div class="semaforo-indicator"></div>
-            <div class="semaforo-text">
-              <div class="st-title">${sTitle.toUpperCase()}</div>
-              <div class="st-desc" style="font-size:0.8rem;">SPAN: ${span} bloques | ${sDesc}</div>
+        if (isDual) {
+          const directSpan = metrics.direct_span || 2;
+          const reverseSpan = metrics.reverse_span || 2;
+          document.getElementById('modal-semaforo').innerHTML = `
+            <div class="semaforo-box semaforo-green" style="background:#EBF5FB;border:1.5px solid #AED6F1;">
+              <div class="semaforo-indicator" style="background:#0284C7;"></div>
+              <div class="semaforo-text">
+                <div class="st-title" style="color:#0284C7;">SPAN DIRECTO: ${directSpan} BLOQUES</div>
+                <div class="st-desc" style="font-size:0.8rem;">Bucle visoespacial pasivo (Media: ~5.4)</div>
+              </div>
             </div>
-          </div>
-          <div class="semaforo-box semaforo-blue" style="background:var(--a-light);border:1px solid var(--border);">
-            <div class="semaforo-indicator" style="background:var(--accent);"></div>
-            <div class="semaforo-text">
-              <div class="st-title">Puntaje Compuesto: ${composite} pts</div>
-              <div class="st-desc" style="font-size:0.8rem;">Precisión: ${acc}% (${metrics.correct_trials || 0} de ${metrics.total_trials || (lines && lines.length) || 0} correctos)</div>
+            <div class="semaforo-box semaforo-purple" style="background:#F4ECF7;border:1.5px solid #D7BDE2;">
+              <div class="semaforo-indicator" style="background:#7B1FA2;"></div>
+              <div class="semaforo-text">
+                <div class="st-title" style="color:#7B1FA2;">SPAN INVERSO: ${reverseSpan} BLOQUES</div>
+                <div class="st-desc" style="font-size:0.8rem;">Memoria ejecutiva activa (Media: ~4.8)</div>
+              </div>
             </div>
-          </div>
-        `;
+            <div class="semaforo-box semaforo-blue" style="background:var(--a-light);border:1px solid var(--border);">
+              <div class="semaforo-indicator" style="background:var(--accent);"></div>
+              <div class="semaforo-text">
+                <div class="st-title">Puntaje Compuesto: ${composite} pts</div>
+                <div class="st-desc" style="font-size:0.8rem;">Precisión: ${acc}% (${metrics.correct_trials || 0} de ${metrics.total_trials || (lines && lines.length) || 0} correctos)</div>
+              </div>
+            </div>
+          `;
+        } else {
+          let sColor = 'yellow', sTitle = 'Promedio Límite', sDesc = 'Amplitud de memoria de trabajo visoespacial limítrofe.';
+          if (span >= 5) {
+            sColor = 'green'; sTitle = 'Rango Normativo'; sDesc = 'Capacidad de retención y memoria visoespacial óptima.';
+          } else if (span <= 3) {
+            sColor = 'red'; sTitle = 'Déficit Visoespacial'; sDesc = 'Rendimiento amnésico/atencional descendido respecto al grupo de edad.';
+          }
+
+          document.getElementById('modal-semaforo').innerHTML = `
+            <div class="semaforo-box semaforo-${sColor}">
+              <div class="semaforo-indicator"></div>
+              <div class="semaforo-text">
+                <div class="st-title">${sTitle.toUpperCase()}</div>
+                <div class="st-desc" style="font-size:0.8rem;">SPAN: ${span} bloques | ${sDesc}</div>
+              </div>
+            </div>
+            <div class="semaforo-box semaforo-blue" style="background:var(--a-light);border:1px solid var(--border);">
+              <div class="semaforo-indicator" style="background:var(--accent);"></div>
+              <div class="semaforo-text">
+                <div class="st-title">Puntaje Compuesto: ${composite} pts</div>
+                <div class="st-desc" style="font-size:0.8rem;">Precisión: ${acc}% (${metrics.correct_trials || 0} de ${metrics.total_trials || (lines && lines.length) || 0} correctos)</div>
+              </div>
+            </div>
+          `;
+        }
       } else {
         const cp = metrics.CP || 0;
         let sColor = 'yellow', sTitle = 'Atípico - Monitorear', sDesc = 'Variabilidad atencional límite.';
@@ -4891,6 +5128,15 @@ const App = {
       const r = await fetch(`${API_BASE}/api/video/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!r.ok) {
+        const errText = await r.text();
+        let errMsg = errText;
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.detail || errText;
+        } catch(e) {}
+        throw new Error(errMsg);
+      }
       const d = await r.json();
       
       if (btn) {

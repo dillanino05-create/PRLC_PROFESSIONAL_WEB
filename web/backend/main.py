@@ -573,7 +573,7 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     )
 
     # Defensa IDOR: Los psicólogos estándar solo ven sus evaluaciones; SuperAdmin tiene visibilidad global
-    query = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path, lines_json, lines_data").eq("id", eval_id)
+    query = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path, lines_json").eq("id", eval_id)
     if not is_superadmin:
         query = query.eq("user_id", uid)
     res = query.execute()
@@ -638,13 +638,22 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
         if secure_url and "download=" not in secure_url:
             sep = "&" if "?" in secure_url else "?"
             download_url = f"{secure_url}{sep}download={download_filename}"
+        lines_val = row.get("lines_json")
+        if isinstance(lines_val, str):
+            try:
+                import json
+                lines_val = json.loads(lines_val)
+            except Exception:
+                lines_val = []
+        if not isinstance(lines_val, list):
+            lines_val = []
 
         return {
             "url": secure_url,
             "download_url": download_url,
             "filename": download_filename,
             "metrics": metrics,
-            "lines_data": row.get("lines_json") or row.get("lines_data") or [],
+            "lines_data": lines_val,
             "participant_name": row.get("participant_name"),
             "participant_id": row.get("participant_id"),
             "session_tag": session_tag

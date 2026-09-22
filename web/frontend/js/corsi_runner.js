@@ -43,7 +43,7 @@ window.CorsiRunner = {
    * Inicializar sistema de audio sintetizado Web Audio API
    */
   initAudio() {
-    if (!this.audioCtx) {
+    if (!this.audioCtx || this.audioCtx.state === 'closed') {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
         this.audioCtx = new AudioContext();
@@ -96,6 +96,12 @@ window.CorsiRunner = {
     this.participantName = options.participantName || '';
     this.participantId = options.participantId || '';
 
+    // Reinicializar audio cleanly para cada fase
+    if (this.audioCtx && this.audioCtx.state === 'closed') {
+      this.audioCtx = null;
+    }
+    this.initAudio();
+
     this.currentLevel = 2;
     this.attemptsLeft = 2;
     this.corsiSpan = 0;
@@ -105,6 +111,7 @@ window.CorsiRunner = {
     this.canClick = false;
     this.movementsData = [];
     this.levelSummaries = [];
+    this.currentTrialClicks = [];
     this.currentSelectedCubes = new Set();
     this.clearTimers();
 
@@ -246,7 +253,7 @@ window.CorsiRunner = {
       cube.style.alignItems = 'center';
       cube.style.justifyContent = 'center';
       cube.style.cursor = 'pointer';
-      cube.style.transition = 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)';
+      cube.style.transition = 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)';
       cube.style.userSelect = 'none';
 
       // Etiqueta del bloque (sutil)
@@ -329,6 +336,8 @@ window.CorsiRunner = {
     this.updateStats();
 
     this.levelStartTime = Date.now();
+    this.trialStartPerf = performance.now();
+    this.currentTrialClicks = [];
     this.errorCount = 0;
 
     // Generar secuencia aleatoria sin repetición de cubos
@@ -341,7 +350,7 @@ window.CorsiRunner = {
     }
 
     this.setBanner(`Nivel ${this.currentLevel} (Intento ${3 - this.attemptsLeft}/2): Observa atentamente la secuencia iluminada...`, 'info');
-    await this.sleep(900);
+    await this.sleep(1000);
     await this.showSequence();
   },
 
@@ -357,11 +366,11 @@ window.CorsiRunner = {
         cubeEl.style.background = 'linear-gradient(145deg, #00D4FF 0%, #0284C7 100%)';
         cubeEl.style.borderColor = '#FFFFFF';
         cubeEl.style.boxShadow = '0 0 35px rgba(0, 212, 255, 0.8), inset 0 2px 4px rgba(255,255,255,0.5)';
-        cubeEl.style.transform = 'scale(1.12)';
-        this.playTone(520 + (cubeId * 45), 240);
+        cubeEl.style.transform = 'scale(1.10)';
+        this.playTone(520 + (cubeId * 45), 280);
       }
 
-      await this.sleep(750);
+      await this.sleep(900);
 
       if (cubeEl) {
         cubeEl.classList.remove('active');
@@ -371,18 +380,23 @@ window.CorsiRunner = {
         cubeEl.style.transform = 'scale(1)';
       }
 
-      await this.sleep(300);
+      await this.sleep(400);
     }
+
+    // Pausa deliberada antes de habilitar interacción (ritmo clínico estándar no invasivo)
+    await this.sleep(700);
+    this.playTone(840, 180, 'triangle');
 
     this.isShowingSequence = false;
     this.canClick = true;
     this.lastClickTime = Date.now();
+    this.trialResponseStartPerf = performance.now();
 
     const isDirect = this.testMode === 'direct';
     this.setBanner(
       isDirect 
-        ? `▶️ Tu turno: Haz clic en los cubos en el MISMO ORDEN en que se iluminaron (${this.sequence.length} cubos)` 
-        : `▶️ Tu turno: Haz clic en los cubos en ORDEN INVERSO (del último al primero) (${this.sequence.length} cubos)`,
+        ? `▶️ ¡Tu turno! Haz clic en los cubos en el MISMO ORDEN (${this.sequence.length} cubos)` 
+        : `▶️ ¡Tu turno! Haz clic en los cubos en ORDEN INVERSO (del último al primero) (${this.sequence.length} cubos)`,
       'success'
     );
   },
@@ -416,10 +430,11 @@ window.CorsiRunner = {
     const isCorrect = (cubeId === expectedCube);
 
     // Registro de evento
-    this.movementsData.push({
+    const clickRecord = {
       timestamp: new Date().toISOString(),
       event_type: 'cube_click',
       level: this.currentLevel,
+      attempt: 3 - this.attemptsLeft,
       cube_id: cubeId + 1,
       sequence_position: this.userSequence.length + 1,
       expected_cube: expectedCube + 1,
@@ -428,7 +443,10 @@ window.CorsiRunner = {
       distance_px: Math.round(distance),
       x_coord: Math.round(coords.x),
       y_coord: Math.round(coords.y)
-    });
+    };
+    if (!this.currentTrialClicks) this.currentTrialClicks = [];
+    this.currentTrialClicks.push(clickRecord);
+    this.movementsData.push(clickRecord);
 
     if (isCorrect) {
       this.currentSelectedCubes.add(cubeId);
@@ -455,7 +473,7 @@ window.CorsiRunner = {
         cubeEl.style.boxShadow = '0 0 30px rgba(239, 68, 68, 0.8)';
       }
       this.playTone(240, 300, 'sawtooth');
-      await this.sleep(450);
+      await this.sleep(500);
       await this.handleLevelError();
     }
   },
@@ -467,10 +485,18 @@ window.CorsiRunner = {
       this.corsiSpan = this.currentLevel;
     }
 
-    const levelClicks = this.movementsData.filter(m => m.level === this.currentLevel);
+    const levelClicks = [...(this.currentTrialClicks || [])];
     const rts = levelClicks.map(m => m.reaction_time_ms).filter(t => t > 0);
     const avgRt = rts.length ? Math.round(rts.reduce((a, b) => a + b, 0) / rts.length) : 0;
     const hesitation = rts.length ? rts[0] : 0;
+
+    // Calcular cinemática de cursor individual para este ensayo
+    const trialMouse = (window.App && window.App.mouseTrackPerLine && window.App.mouseTrackPerLine[0])
+      ? window.App.mouseTrackPerLine[0].filter(p => p.t >= (this.trialStartPerf || 0) && p.t <= performance.now())
+      : [];
+    const kin = typeof analyzeCursorKinematics === 'function' 
+      ? analyzeCursorKinematics(trialMouse) 
+      : { microtremor_score: 0.0, sweep_regularity: 100.0 };
 
     this.levelSummaries.push({
       level: this.currentLevel,
@@ -488,13 +514,15 @@ window.CorsiRunner = {
       reactionTimes: rts,
       clicks: levelClicks,
       error_count: this.errorCount,
-      test_mode: this.testMode
+      test_mode: this.testMode,
+      tremor_score: kin.microtremor_score || 0.0,
+      sweep_regularity: kin.sweep_regularity || 100.0
     });
 
     this.setBanner(`¡Excelente! Secuencia de ${this.currentLevel} cubos completada correctamente. ✅`, 'success');
     this.updateStats();
 
-    await this.sleep(1200);
+    await this.sleep(1400);
 
     if (this.currentLevel < this.maxLevel) {
       this.currentLevel++;
@@ -510,10 +538,17 @@ window.CorsiRunner = {
     this.attemptsLeft--;
     this.updateStats();
 
-    const levelClicks = this.movementsData.filter(m => m.level === this.currentLevel);
+    const levelClicks = [...(this.currentTrialClicks || [])];
     const rts = levelClicks.map(m => m.reaction_time_ms).filter(t => t > 0);
     const avgRt = rts.length ? Math.round(rts.reduce((a, b) => a + b, 0) / rts.length) : 0;
     const hesitation = rts.length ? rts[0] : 0;
+
+    const trialMouse = (window.App && window.App.mouseTrackPerLine && window.App.mouseTrackPerLine[0])
+      ? window.App.mouseTrackPerLine[0].filter(p => p.t >= (this.trialStartPerf || 0) && p.t <= performance.now())
+      : [];
+    const kin = typeof analyzeCursorKinematics === 'function' 
+      ? analyzeCursorKinematics(trialMouse) 
+      : { microtremor_score: 0.0, sweep_regularity: 100.0 };
 
     this.levelSummaries.push({
       level: this.currentLevel,
@@ -531,17 +566,19 @@ window.CorsiRunner = {
       reactionTimes: rts,
       clicks: levelClicks,
       error_count: this.errorCount,
-      test_mode: this.testMode
+      test_mode: this.testMode,
+      tremor_score: kin.microtremor_score || 0.0,
+      sweep_regularity: kin.sweep_regularity || 100.0
     });
 
     if (this.attemptsLeft > 0) {
       this.setBanner(`Secuencia incorrecta ❌ Tienes 1 intento restante para el Nivel ${this.currentLevel}.`, 'warning');
-      await this.sleep(1400);
+      await this.sleep(1600);
       this.clearSelection();
       await this.showSequence();
     } else {
       this.setBanner(`Fin de la prueba: Se agotaron los intentos en el Nivel ${this.currentLevel}.`, 'error');
-      await this.sleep(1500);
+      await this.sleep(1600);
       this.finishTest();
     }
   },
@@ -549,8 +586,9 @@ window.CorsiRunner = {
   finishTest() {
     this.canClick = false;
     this.clearTimers();
-    if (this.audioCtx && this.audioCtx.state !== 'closed') {
+    if (this.audioCtx) {
       try { this.audioCtx.close(); } catch (e) {}
+      this.audioCtx = null;
     }
 
     const finalData = {
@@ -570,8 +608,9 @@ window.CorsiRunner = {
   abortTest() {
     this.canClick = false;
     this.clearTimers();
-    if (this.audioCtx && this.audioCtx.state !== 'closed') {
+    if (this.audioCtx) {
       try { this.audioCtx.close(); } catch (e) {}
+      this.audioCtx = null;
     }
     if (typeof this.onAbort === 'function') {
       this.onAbort();

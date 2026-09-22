@@ -203,6 +203,16 @@ def _charts_corsi_png(lines_data: List[Dict], metrics: Dict, age_v: int) -> io.B
             m_col = '#2E7D32' if ok else '#C62828'
             m_mark = 'o' if ok else 'x'
             ax1.plot(e, n, marker=m_mark, color=m_col, ms=8, mew=2)
+        
+        # Distinción de fases si es Dual
+        fases = [l.get('fase') or ('Inversa' if l.get('test_mode') == 'reverse' else 'Directa') for l in lines_data]
+        if 'Inversa' in fases and 'Directa' in fases:
+            inv_idx = fases.index('Inversa')
+            if inv_idx > 0 and inv_idx < len(ensayos):
+                trans_x = (ensayos[inv_idx - 1] + ensayos[inv_idx]) / 2.0
+                ax1.axvline(trans_x, color='#7B1FA2', linestyle='--', lw=1.5, alpha=0.8, label='Inicio Fase Inversa')
+                ax1.legend(fontsize=8)
+
         ax1.set_title('Progresión de Longitud de Secuencia (Span)', fontweight='bold', fontsize=11)
         ax1.set_xlabel('Nº de Ensayo'); ax1.set_ylabel('Bloques en Secuencia')
         max_lvl = max(niveles + [9])
@@ -225,9 +235,17 @@ def _charts_corsi_png(lines_data: List[Dict], metrics: Dict, age_v: int) -> io.B
     span_val = metrics.get('corsi_span', 0) or 0
     corr_val = metrics.get('correct_trials', 0) or 0
     err_val = metrics.get('error_trials', 0) or 0
-    labels3 = ['Span\nObtenido', 'Ensayos\nCorrectos', 'Ensayos\ncon Error']
-    vals3 = [span_val, corr_val, err_val]
-    cols3 = ['#1565C0', '#2E7D32', '#C62828']
+    is_dual = (metrics.get('corsi_mode') == 'dual' or metrics.get('dual') is True)
+    if is_dual:
+        s_dir = metrics.get('direct_span') or metrics.get('span_directo') or 0
+        s_inv = metrics.get('reverse_span') or metrics.get('span_inverso') or 0
+        labels3 = ['Span\nDirecto', 'Span\nInverso', 'Ensayos\nCorrectos', 'Ensayos\nError']
+        vals3 = [s_dir, s_inv, corr_val, err_val]
+        cols3 = ['#1565C0', '#7B1FA2', '#2E7D32', '#C62828']
+    else:
+        labels3 = ['Span\nObtenido', 'Ensayos\nCorrectos', 'Ensayos\ncon Error']
+        vals3 = [span_val, corr_val, err_val]
+        cols3 = ['#1565C0', '#2E7D32', '#C62828']
     bars3 = ax3.bar(labels3, vals3, color=cols3, width=0.5, edgecolor='white', lw=1.2)
     for b, v in zip(bars3, vals3):
         ax3.text(b.get_x() + b.get_width()/2, b.get_height() + 0.15, str(v), ha='center', va='bottom', fontsize=9, fontweight='bold')
@@ -256,11 +274,17 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
                      timestamp_str: Optional[str], session_tag: str, fp: str) -> str:
     """Genera reporte forense específico para el Test de Bloques de Corsi."""
     with pd.ExcelWriter(fp, engine='openpyxl') as writer:
+        is_dual = (metrics.get('corsi_mode') == 'dual' or metrics.get('dual') is True)
         is_reverse = (metrics.get('corsi_mode') == 'reverse')
-        mode_str = "Inversa (Memoria de Trabajo Ejecutiva)" if is_reverse else "Directa (Span Anterógrado)"
+        if is_dual:
+            mode_str = "Batería Dual Completa (Directa + Inversa)"
+        elif is_reverse:
+            mode_str = "Inversa (Memoria de Trabajo Ejecutiva)"
+        else:
+            mode_str = "Directa (Span Anterógrado)"
 
         # ── Hoja 1: Resumen Clínico ───────────────────────────────────────────
-        df_demog = pd.DataFrame([
+        demog_rows = [
             {"Parámetro": "Batería / Prueba", "Dato": "Test de Bloques de Corsi"},
             {"Parámetro": "Modalidad de Evaluación", "Dato": mode_str},
             {"Parámetro": "Cadena Custodia / Tag", "Dato": session_tag},
@@ -270,21 +294,35 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
             {"Parámetro": "Género Registrado", "Dato": participant.get('gender', '')},
             {"Parámetro": "Educación Aprobada", "Dato": participant.get('education', '')},
             {"Parámetro": "Ocupación Cruda", "Dato": participant.get('occupation', '')},
-            {"Parámetro": "Estado de Aplicación", "Dato": "Completada"},
-            {"Parámetro": "Longitud Máxima (Span)", "Dato": f"{metrics.get('corsi_span', 0)} bloques"}
-        ])
+            {"Parámetro": "Estado de Aplicación", "Dato": "Completada"}
+        ]
+        if is_dual:
+            demog_rows.append({"Parámetro": "Span Directo (Anterógrado)", "Dato": f"{metrics.get('direct_span', 0)} bloques"})
+            demog_rows.append({"Parámetro": "Span Inverso (Memoria Ejecutiva)", "Dato": f"{metrics.get('reverse_span', 0)} bloques"})
+            demog_rows.append({"Parámetro": "Longitud Máxima (Span Global)", "Dato": f"{metrics.get('corsi_span', 0)} bloques"})
+        else:
+            demog_rows.append({"Parámetro": "Longitud Máxima (Span)", "Dato": f"{metrics.get('corsi_span', 0)} bloques"})
+
+        df_demog = pd.DataFrame(demog_rows)
 
         def _safe_f(val, decimals=1):
             try: return round(float(val), decimals) if val is not None else 0.0
             except: return 0.0
 
-        df_metricas = pd.DataFrame([
-            {"Indicador Cuantitativo": "Span de Memoria Visoespacial", "Valor Calculado": f"{metrics.get('corsi_span', 0)} bloques"},
+        metricas_rows = []
+        if is_dual:
+            metricas_rows.append({"Indicador Cuantitativo": "Span Visoespacial Directo", "Valor Calculado": f"{metrics.get('direct_span', 0)} bloques"})
+            metricas_rows.append({"Indicador Cuantitativo": "Span Visoespacial Inverso", "Valor Calculado": f"{metrics.get('reverse_span', 0)} bloques"})
+            metricas_rows.append({"Indicador Cuantitativo": "Span Global (Máximo Alcanzado)", "Valor Calculado": f"{metrics.get('corsi_span', 0)} bloques"})
+        else:
+            metricas_rows.append({"Indicador Cuantitativo": "Span de Memoria Visoespacial", "Valor Calculado": f"{metrics.get('corsi_span', 0)} bloques"})
+
+        metricas_rows.extend([
             {"Indicador Cuantitativo": "Puntaje Compuesto (Span × Aciertos)", "Valor Calculado": f"{metrics.get('composite_score', 0)} pts"},
             {"Indicador Cuantitativo": "Span Esperado Kessels (Media Etaria)", "Valor Calculado": f"{_safe_f(metrics.get('kessels_norm_mean'), 1):.1f} bloques"},
             {"Indicador Cuantitativo": "Puntuación Z Normativa (Kessels)", "Valor Calculado": f"{_safe_f(metrics.get('kessels_z_score'), 2):+.2f} SD"},
             {"Indicador Cuantitativo": "Percentil Poblacional Estimado", "Valor Calculado": f"P{metrics.get('kessels_percentile', 50)}"},
-            {"Indicador Cuantitativo": "Total de Ensayos Realizados", "Valor Calculado": metrics.get('total_trials', 0)},
+            {"Indicador Cuantitativo": "Total de Ensayos Realizados", "Valor Calculado": metrics.get('total_trials', len(lines_data))},
             {"Indicador Cuantitativo": "Ensayos Correctos Acumulados", "Valor Calculado": metrics.get('correct_trials', 0)},
             {"Indicador Cuantitativo": "Ensayos con Error", "Valor Calculado": metrics.get('error_trials', 0)},
             {"Indicador Cuantitativo": "Errores de Transposición (Orden)", "Valor Calculado": f"{metrics.get('transposition_count', 0)} ({_safe_f(metrics.get('transposition_rate'), 1):.1f}%)"},
@@ -294,6 +332,7 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
             {"Indicador Cuantitativo": "Tiempo Medio de Duda Previa (ms)", "Valor Calculado": f"{_safe_f(metrics.get('hesitation_time_avg_ms'), 0):.0f} ms"},
             {"Indicador Cuantitativo": "Tiempo Medio de Reacción / Bloque (ms)", "Valor Calculado": f"{_safe_f(metrics.get('mean_reaction_time_ms'), 0):.0f} ms"}
         ])
+        df_metricas = pd.DataFrame(metricas_rows)
 
         patrones_list = []
         if ml_pred and isinstance(ml_pred, dict) and ml_pred.get('profile_info'):
@@ -307,7 +346,7 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
         patrones_list.extend([
             {"Dominio Observacional Algorítmico": "Clasificación Neuropsicológica: " + str(metrics.get('clinical_category', 'Promedio'))},
             {"Dominio Observacional Algorítmico": "Perfil Clínico: " + str(metrics.get('clinical_desc', 'Rendimiento adecuado para el grupo de edad.'))},
-            {"Dominio Observacional Algorítmico": "Mecanismo Cognitivo: " + ("Retención y manipulación invertida (bucle visoespacial + ejecutivo)" if is_reverse else "Retención anterógrada inmediata pasiva")},
+            {"Dominio Observacional Algorítmico": "Mecanismo Cognitivo: " + ("Batería Dual Completa (Directo pasivo + Inverso ejecutivo)" if is_dual else ("Retención y manipulación invertida (bucle visoespacial + ejecutivo)" if is_reverse else "Retención anterógrada inmediata pasiva"))},
             {"Dominio Observacional Algorítmico": "Estrategia Motora: " + f"Duda táctica de {_safe_f(metrics.get('hesitation_time_avg_ms'), 0):.0f} ms antes del primer contacto"}
         ])
         df_patrones = pd.DataFrame(patrones_list)
@@ -362,16 +401,31 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
             for cell in row: cell.alignment = W_ALIGN
 
         # ── Hoja 2: Análisis por Ensayo/Secuencia ─────────────────────────────
+        def _fmt_seq(seq):
+            if not seq:
+                return "(vacío)"
+            try:
+                vals = [int(x) for x in seq if str(x).strip().lstrip('-').isdigit()]
+                if not vals:
+                    return str(seq)
+                if min(vals) >= 1 and max(vals) <= 9:
+                    return " - ".join(str(v) for v in vals)
+                return " - ".join(str(v + 1) for v in vals)
+            except Exception:
+                return str(seq)
+
         d_seq = []
         for idx, l in enumerate(lines_data):
             seq_p = l.get('sequence_presented') or l.get('sequence') or []
             seq_u = l.get('sequence_user') or l.get('userSequence') or []
-            str_p = " - ".join(str(x + 1) for x in seq_p) if seq_p else "N/A"
-            str_u = " - ".join(str(x + 1) for x in seq_u) if seq_u else "(vacío)"
+            str_p = _fmt_seq(seq_p)
+            str_u = _fmt_seq(seq_u)
             is_ok = (l.get('success') is True or l.get('aciertos', 0) > 0)
+            fase_str = l.get('fase') or ('Inversa' if l.get('test_mode') == 'reverse' else 'Directa')
 
             d_seq.append({
                 "Nº Ensayo": l.get('linea', idx + 1),
+                "Fase": fase_str,
                 "Longitud (Nivel)": l.get('sequence_length', l.get('evaluados', len(seq_p))),
                 "Intento": f"Intento {l.get('attempt', 1)}",
                 "Secuencia Presentada": str_p,
@@ -389,7 +443,7 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
         _add_educational_header(ws2, "Desglose Longitudinal Ensayo por Ensayo",
                                 "Registro secuencial de cada ensayo presentado y la respuesta emitida por el participante. Detalla latencias y biomarcadores por nivel.")
         _style_hdr(ws2, row=5)
-        _set_widths(ws2, [12, 16, 14, 25, 25, 14, 22, 22, 22, 22])
+        _set_widths(ws2, [12, 14, 16, 14, 25, 25, 14, 22, 22, 22, 22])
 
         # ── Hoja 3: Glosario de Métricas Corsi ────────────────────────────────
         glosario_corsi = [
@@ -439,6 +493,7 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
         if lines_data:
             gd = {
                 'Ensayo': [l.get('linea', idx + 1) for idx, l in enumerate(lines_data)],
+                'Fase': [l.get('fase') or ('Inversa' if l.get('test_mode') == 'reverse' else 'Directa') for l in lines_data],
                 'Nivel_Bloques': [l.get('sequence_length', l.get('evaluados', 2)) for l in lines_data],
                 'Resultado_Binario': [1 if (l.get('success') is True or l.get('aciertos', 0) > 0) else 0 for l in lines_data],
                 'Tiempo_Duda_ms': [_safe_f(l.get('hesitation_time_ms'), 0) for l in lines_data],
@@ -448,22 +503,22 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
             ws5 = writer.sheets['05_Arrays_Para_Graficas']
             _add_educational_header(ws5, "Vectores Numéricos de Ejecución Corsi",
                                     "Datos numéricos utilizados para el trazado de curvas interactivas de progresión visoespacial y tiempos de respuesta.")
-            _style_hdr(ws5, row=5); _set_widths(ws5, [10, 15, 18, 18, 16])
+            _style_hdr(ws5, row=5); _set_widths(ws5, [10, 12, 15, 18, 18, 16])
 
             try:
                 n_rows = len(lines_data) + 4
                 lc = LineChart(); lc.title = 'Curva de Progresión de Span por Ensayo'; lc.style = 10; lc.height = 12; lc.width = 22
-                dr = Reference(ws5, min_col=2, min_row=4, max_row=n_rows)
+                dr = Reference(ws5, min_col=3, min_row=4, max_row=n_rows)
                 lc.add_data(dr, titles_from_data=True)
                 lc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows))
-                ws5.add_chart(lc, 'G5')
+                ws5.add_chart(lc, 'H5')
 
                 bc = BarChart(); bc.type = 'col'; bc.title = 'Latencias de Ejecución (Duda vs Reacción ms)'
                 bc.style = 10; bc.height = 12; bc.width = 22
-                er = Reference(ws5, min_col=4, min_row=4, max_col=5, max_row=n_rows)
+                er = Reference(ws5, min_col=5, min_row=4, max_col=6, max_row=n_rows)
                 bc.add_data(er, titles_from_data=True)
                 bc.set_categories(Reference(ws5, min_col=1, min_row=5, max_row=n_rows))
-                ws5.add_chart(bc, 'G25')
+                ws5.add_chart(bc, 'H25')
             except Exception:
                 pass
 
