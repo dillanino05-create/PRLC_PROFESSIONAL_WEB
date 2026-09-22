@@ -99,6 +99,29 @@ class PredictRequest(BaseModel):
     # ── Módulo Corsi ──────────────────────────────────────────────────────────
     corsi_span: Optional[int] = None
     corsi_mode: Optional[str] = None
+    max_level: Optional[int] = None
+    total_trials: Optional[int] = None
+    correct_trials: Optional[int] = None
+    error_trials: Optional[int] = None
+    accuracy_pct: Optional[float] = None
+    mean_reaction_time_ms: Optional[float] = None
+    hesitation_time_avg_ms: Optional[float] = None
+    composite_score: Optional[float] = None
+    transposition_count: Optional[int] = None
+    intrusion_count: Optional[int] = None
+    transposition_rate: Optional[float] = None
+    intrusion_rate: Optional[float] = None
+    euclidean_error_dist: Optional[float] = None
+    kessels_norm_mean: Optional[float] = None
+    kessels_z_score: Optional[float] = None
+    kessels_percentile: Optional[int] = None
+    perseveration_rate: Optional[float] = None
+    first_error_level: Optional[float] = None
+    first_attempt_pass_rate: Optional[float] = None
+    mean_iti_ms: Optional[float] = None
+    iti_cv: Optional[float] = None
+    latency_slope: Optional[float] = None
+    model_config = {"extra": "allow"}
 
 
 
@@ -169,12 +192,21 @@ class MetricsData(BaseModel):
     clinical_category: Optional[str] = None
     clinical_desc: Optional[str] = None
     trials_data: Optional[List[Dict[str, Any]]] = None
+    transposition_count: Optional[int] = None
+    intrusion_count: Optional[int] = None
+    transposition_rate: Optional[float] = None
+    intrusion_rate: Optional[float] = None
+    euclidean_error_dist: Optional[float] = None
+    kessels_norm_mean: Optional[float] = None
+    kessels_z_score: Optional[float] = None
+    kessels_percentile: Optional[int] = None
     # ── Identidad Multi-Test y Cadena de Custodia Digital ─────────────────────
     test_type: Optional[str] = "PLC"
     session_tag: Optional[str] = None
     session_uid: Optional[str] = None
     # ── Blindaje e Integridad Paraclínica (Anti-Cheat) ─────────────────────────
     integrity_audit: Optional[Dict[str, Any]] = None
+    model_config = {"extra": "allow"}
 
 
 

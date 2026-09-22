@@ -1967,7 +1967,7 @@
 
       const o = totalTargets - ta;
       const tot = o + com;
-      const con = ta - tot; // FÓRMULA OFICIAL MECAPSI: CON = TA - (O + COM)
+      const con = Math.max(0, ta - com); // FÓRMULA OFICIAL PLC: CON = TA - COM (TEA Ediciones)
 
       document.getElementById('metric-ta').textContent  = ta;
       document.getElementById('metric-o').textContent   = o;

@@ -281,20 +281,36 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
         df_metricas = pd.DataFrame([
             {"Indicador Cuantitativo": "Span de Memoria Visoespacial", "Valor Calculado": f"{metrics.get('corsi_span', 0)} bloques"},
             {"Indicador Cuantitativo": "Puntaje Compuesto (Span × Aciertos)", "Valor Calculado": f"{metrics.get('composite_score', 0)} pts"},
+            {"Indicador Cuantitativo": "Span Esperado Kessels (Media Etaria)", "Valor Calculado": f"{_safe_f(metrics.get('kessels_norm_mean'), 1):.1f} bloques"},
+            {"Indicador Cuantitativo": "Puntuación Z Normativa (Kessels)", "Valor Calculado": f"{_safe_f(metrics.get('kessels_z_score'), 2):+.2f} SD"},
+            {"Indicador Cuantitativo": "Percentil Poblacional Estimado", "Valor Calculado": f"P{metrics.get('kessels_percentile', 50)}"},
             {"Indicador Cuantitativo": "Total de Ensayos Realizados", "Valor Calculado": metrics.get('total_trials', 0)},
             {"Indicador Cuantitativo": "Ensayos Correctos Acumulados", "Valor Calculado": metrics.get('correct_trials', 0)},
             {"Indicador Cuantitativo": "Ensayos con Error", "Valor Calculado": metrics.get('error_trials', 0)},
+            {"Indicador Cuantitativo": "Errores de Transposición (Orden)", "Valor Calculado": f"{metrics.get('transposition_count', 0)} ({_safe_f(metrics.get('transposition_rate'), 1):.1f}%)"},
+            {"Indicador Cuantitativo": "Errores de Intrusión (Cubo Ajeno)", "Valor Calculado": f"{metrics.get('intrusion_count', 0)} ({_safe_f(metrics.get('intrusion_rate'), 1):.1f}%)"},
+            {"Indicador Cuantitativo": "Dispersión Euclidiana Media (D_E)", "Valor Calculado": f"{_safe_f(metrics.get('euclidean_error_dist'), 1):.1f} % canvas"},
             {"Indicador Cuantitativo": "Tasa Global de Exactitud (%)", "Valor Calculado": f"{_safe_f(metrics.get('accuracy_pct'), 1):.1f} %"},
             {"Indicador Cuantitativo": "Tiempo Medio de Duda Previa (ms)", "Valor Calculado": f"{_safe_f(metrics.get('hesitation_time_avg_ms'), 0):.0f} ms"},
             {"Indicador Cuantitativo": "Tiempo Medio de Reacción / Bloque (ms)", "Valor Calculado": f"{_safe_f(metrics.get('mean_reaction_time_ms'), 0):.0f} ms"}
         ])
 
-        df_patrones = pd.DataFrame([
+        patrones_list = []
+        if ml_pred and isinstance(ml_pred, dict) and ml_pred.get('profile_info'):
+            pinfo = ml_pred['profile_info']
+            patrones_list.append({"Dominio Observacional Algorítmico": f"Perfil Predictivo IA: {pinfo.get('nombre', ml_pred.get('predicted_profile', 'Normativo'))}"})
+            patrones_list.append({"Dominio Observacional Algorítmico": f"Confianza Estadística IA: {ml_pred.get('confidence_percent', 'N/A')}"})
+            patrones_list.append({"Dominio Observacional Algorítmico": f"Descripción Perfil IA: {pinfo.get('desc', '')}"})
+            if pinfo.get('rasgos'):
+                patrones_list.append({"Dominio Observacional Algorítmico": f"Rasgos Observados IA: {'; '.join(pinfo.get('rasgos', []))}"})
+        
+        patrones_list.extend([
             {"Dominio Observacional Algorítmico": "Clasificación Neuropsicológica: " + str(metrics.get('clinical_category', 'Promedio'))},
             {"Dominio Observacional Algorítmico": "Perfil Clínico: " + str(metrics.get('clinical_desc', 'Rendimiento adecuado para el grupo de edad.'))},
             {"Dominio Observacional Algorítmico": "Mecanismo Cognitivo: " + ("Retención y manipulación invertida (bucle visoespacial + ejecutivo)" if is_reverse else "Retención anterógrada inmediata pasiva")},
             {"Dominio Observacional Algorítmico": "Estrategia Motora: " + f"Duda táctica de {_safe_f(metrics.get('hesitation_time_avg_ms'), 0):.0f} ms antes del primer contacto"}
         ])
+        df_patrones = pd.DataFrame(patrones_list)
 
         cam_active = bool(metrics.get('camera_active', False))
         pupil_avg = _safe_f(metrics.get('pupil_dilation_avg'), 2)
@@ -381,8 +397,13 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
             {"Acrónimo": "Modalidad Directa", "Terminología Clínica": "Recuerdo Anterógrado Inmediato", "Definición Teórica Obj.": "Reproducción en el mismo orden de presentación. Evalúa la capacidad de almacenamiento temporal del bucle visoespacial."},
             {"Acrónimo": "Modalidad Inversa", "Terminología Clínica": "Memoria de Trabajo Ejecutiva", "Definición Teórica Obj.": "Reproducción en orden inverso al presentado. Requiere procesamiento activo, reordenamiento mental y control ejecutivo."},
             {"Acrónimo": "Puntaje Compuesto", "Terminología Clínica": "Índice de Producto Kessels", "Definición Teórica Obj.": "Producto del Span obtenido multiplicado por el total de ensayos correctos (Kessels et al., 2000). Medida robusta de estabilidad."},
+            {"Acrónimo": "Baremos Kessels", "Terminología Clínica": "Puntuación Z y Percentil Estandarizado", "Definición Teórica Obj.": "Ajuste normativo según tablas etarias de Kessels et al. (2000, 2008) y Berch et al. (1998) para cuantificar el desvío clínico respecto a la población sana."},
+            {"Acrónimo": "Transposición", "Terminología Clínica": "Falla de Secuenciación / Orden", "Definición Teórica Obj.": "Selección de un cubo que sí pertenecía a la secuencia presentada, pero tocado en una posición temporal incorrecta."},
+            {"Acrónimo": "Intrusión", "Terminología Clínica": "Falla de Mapeo / Reconocimiento", "Definición Teórica Obj.": "Selección de un cubo ajeno que nunca fue iluminado en el ensayo. Sugiere déficit de atención selectiva o degradación de la huella visoespacial."},
+            {"Acrónimo": "Distancia Euclidiana (D_E)", "Terminología Clínica": "Dispersión Topológica del Error", "Definición Teórica Obj.": "Distancia geométrica media entre el cubo erróneo tocado y el cubo esperado. Distingue errores de proximidad física inmediata de elecciones aleatorias."},
             {"Acrónimo": "Tiempo de Duda", "Terminología Clínica": "Latencia de Planificación Inicial", "Definición Teórica Obj.": "Tiempo transcurrido desde el final de la presentación hasta el primer clic del evaluado. Refleja acceso a memoria y preparación motriz."},
-            {"Acrónimo": "Carga Mental Pupilar", "Terminología Clínica": "Reflejo Pupilar Cognitivo", "Definición Teórica Obj.": "Dilatación relativa del iris inducida por el esfuerzo de retención secuencial y manipulación de memoria de trabajo."}
+            {"Acrónimo": "Carga Mental Pupilar", "Terminología Clínica": "Reflejo Pupilar Cognitivo", "Definición Teórica Obj.": "Dilatación relativa del iris inducida por el esfuerzo de retención secuencial y manipulación de memoria de trabajo."},
+            {"Acrónimo": "Perfil IA (Corsi)", "Terminología Clínica": "Clasificación Probabilística Bayesiana", "Definición Teórica Obj.": "Inferencia de fenotipo cognitivo basada en 32 características multidimensionales y 6 perfiles clínicos neuropsicológicos."}
         ]
         pd.DataFrame(glosario_corsi).to_excel(writer, sheet_name='03_Glosario_Metricas', index=False, startrow=4)
         ws3 = writer.sheets['03_Glosario_Metricas']
@@ -517,12 +538,26 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             except: return 0.0
 
         cp_val = _safe_round(metrics.get('CP'), 2)
+        tot_d2_val = _safe_round(metrics.get('TOT_d2', (metrics.get('TR', 0) or 0) - ((metrics.get('O', 0) or 0) + (metrics.get('COM', 0) or 0))), 1)
+        err_rate_val = _safe_round(metrics.get('errorRate', (((metrics.get('O', 0) or 0) + (metrics.get('COM', 0) or 0)) / max(metrics.get('TR', 1) or 1, 1)) * 100), 2)
+        d_prime_val = _safe_round(metrics.get('d_prime'), 2) if metrics.get('d_prime') is not None else "N/A"
+        crit_c_val = _safe_round(metrics.get('criterion_c'), 2) if metrics.get('criterion_c') is not None else "N/A"
+        crit_desc = str(metrics.get('criterion_desc') or "Equilibrado")
+        lapses_cnt = int(metrics.get('lapsesCount') or 0)
+        lapses_mean = int(metrics.get('lapsesMeanMs') or 0)
+
         df_metricas = pd.DataFrame([
             {"Indicador Cuantitativo": "Acumulado de Aciertos (TA)", "Valor Calculado": _safe_round(metrics.get('TA'), 1)},
             {"Indicador Cuantitativo": "Acumulado de Omisiones (O)", "Valor Calculado": _safe_round(metrics.get('O'), 1)},
             {"Indicador Cuantitativo": "Acumulado de Comisiones (COM)", "Valor Calculado": _safe_round(metrics.get('COM'), 1)},
-            {"Indicador Cuantitativo": "Volumen Neto Estimado (CON)", "Valor Calculado": _safe_round(metrics.get('CON'), 1)},
+            {"Indicador Cuantitativo": "Capacidad de Concentración (CON = TA - COM)", "Valor Calculado": _safe_round(metrics.get('CON'), 1)},
+            {"Indicador Cuantitativo": "Efectividad Total (TOT = TR - Errores)", "Valor Calculado": tot_d2_val},
             {"Indicador Cuantitativo": "Tasa Proporcional de Concentración (CP %)", "Valor Calculado": f"{cp_val:.2f} %"},
+            {"Indicador Cuantitativo": "Tasa Global de Error (E %)", "Valor Calculado": f"{err_rate_val:.2f} %"},
+            {"Indicador Cuantitativo": "Sensibilidad Perceptiva (d' SDT)", "Valor Calculado": d_prime_val},
+            {"Indicador Cuantitativo": "Criterio de Decisión (c SDT)", "Valor Calculado": crit_c_val},
+            {"Indicador Cuantitativo": "Estilo de Respuesta Cognitiva (SDT)", "Valor Calculado": crit_desc},
+            {"Indicador Cuantitativo": "Lapsos Atencionales (>1.5s)", "Valor Calculado": f"{lapses_cnt} pausas ({lapses_mean} ms prom.)" if lapses_cnt > 0 else "0 (Flujo Continuo)"},
             {"Indicador Cuantitativo": "Velocidad Latente Promedio (Estímulos/min)", "Valor Calculado": _safe_round(metrics.get('procSpeed'), 1)},
             {"Indicador Cuantitativo": "Discrepancia Temporal entre Bloques (TRM %)", "Valor Calculado": _safe_round(metrics.get('TRM'), 2)},
             {"Indicador Cuantitativo": "Tiempos Medios de Clic (Reacción ms)", "Valor Calculado": _safe_round(metrics.get('meanRt'), 1)}
@@ -734,10 +769,15 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             {"Acrónimo": "TA",  "Terminología Clínica": "Total Aciertos", "Definición Teórica Obj.": "Suma pura de blancos marcados correctamente en el espectro visual."},
             {"Acrónimo": "O",   "Terminología Clínica": "Omisiones", "Definición Teórica Obj.": "Estímulos que correspondían al rasgo diana pero que el evaluado esquivó o no vió en la barrida visomotora."},
             {"Acrónimo": "COM", "Terminología Clínica": "Comisiones", "Definición Teórica Obj.": "Marcaciones falsas positivas. Fallo de la función inhibitoria al seleccionar blancos distractores creyéndolos diana."},
-            {"Acrónimo": "CON", "Terminología Clínica": "Acierto Neto", "Definición Teórica Obj.": "Resta del total de aciertos frente al total crudo acumulado de errores cruzados (Omisiones + Comisiones)."},
-            {"Acrónimo": "CP%", "Terminología Clínica": "Capacidad de Concentración", "Definición Teórica Obj.": "Porcentaje normalizado de exactitud (CON / Total de Tareas Existentes). Refleja pulcritud en filtrado visual."},
-            {"Acrónimo": "TRM", "Terminología Clínica": "Tasa de Variación", "Definición Teórica Obj.": "Desviación estático lineal de exactitud entre las líneas de inicio vs cierre. Disminuciones altas revelan pérdida rápida de rendimiento iterativo."},
-            {"Acrónimo": "IVR", "Terminología Clínica": "Índice Velocidad/Acierto", "Definición Teórica Obj.": "Progresión logarítmica para estimar el costo temporal que el usuario gasta involuntariamente en evitar cada comisión."}
+            {"Acrónimo": "CON", "Terminología Clínica": "Capacidad de Concentración", "Definición Teórica Obj.": "Concentración oficial (TEA Ediciones): CON = TA - COM. Resta del total de aciertos frente a las comisiones. No duplica la penalización de las omisiones."},
+            {"Acrónimo": "TOT", "Terminología Clínica": "Efectividad Total del Test", "Definición Teórica Obj.": "Rendimiento global del test: TOT = TR - (O + COM). Total de estímulos procesados descontando la totalidad de errores."},
+            {"Acrónimo": "CP%", "Terminología Clínica": "Porcentaje de Concentración", "Definición Teórica Obj.": "Porcentaje normalizado de exactitud (CON / Total de Tareas Existentes). Refleja pulcritud en filtrado visual."},
+            {"Acrónimo": "E%",  "Terminología Clínica": "Porcentaje de Error", "Definición Teórica Obj.": "Proporción global de equivocaciones (Norma d2-R): E% = ((O + COM) / TR) * 100. Revela la precisión cualitativa de la ejecución."},
+            {"Acrónimo": "d'",  "Terminología Clínica": "Sensibilidad Perceptiva (SDT)", "Definición Teórica Obj.": "Teoría de Detección de Señales (Hautus, 1995): d' = Z(Hit) - Z(FA). Mide la capacidad sensorial pura para separar la señal del ruido visual."},
+            {"Acrónimo": "c",   "Terminología Clínica": "Criterio de Decisión (SDT)", "Definición Teórica Obj.": "Sesgo de respuesta cognitivo: c = -0.5*(Z(Hit)+Z(FA)). Valores positivos denotan criterio conservador/cauteloso; negativos indican estilo laxo/impulsivo."},
+            {"Acrónimo": "LAPSOS", "Terminología Clínica": "Lapsos Atencionales (>1.5s)", "Definición Teórica Obj.": "Recuento de intervalos entre selecciones consecutivas iguales o superiores a 1.500 ms. Biomarcador de micro-bloqueos en atención sostenida."},
+            {"Acrónimo": "TRM", "Terminología Clínica": "Tasa de Variación / Fatiga", "Definición Teórica Obj.": "Desviación lineal de exactitud entre las líneas de inicio vs cierre. Disminuciones altas revelan pérdida rápida de rendimiento iterativo."},
+            {"Acrónimo": "IVR", "Terminología Clínica": "Índice Velocidad/Acierto", "Definición Teórica Obj.": "Progresión para estimar el costo temporal que el usuario gasta involuntariamente en evitar cada comisión."}
         ]
         pd.DataFrame(glosario).to_excel(writer, sheet_name='03_Glosario_Metricas', index=False, startrow=4)
         ws3 = writer.sheets['03_Glosario_Metricas']

@@ -21,7 +21,7 @@ from supabase import create_client, Client, ClientOptions
 import httpx
 
 from .models import PredictRequest, SaveRequest
-from .predictor import predictor
+from .predictor import predictor, corsi_predictor
 from .excel_export import save_excel, EXPORTS_DIR, sanitize_tag_part, generate_session_tag
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ async def get_supabase(request: Request, authorization: str = Header(None)) -> d
         await asyncio.sleep(1.2)  # Tarpit delay
         raise HTTPException(status_code=401, detail="Usuario inválido")
          
-    return {"client": sb, "user_id": res.user.id, "token": token, "ip": client_ip}
+    return {"client": sb, "user_id": res.user.id, "token": token, "ip": client_ip, "user": res.user, "email": (res.user.email or "").strip().lower()}
 
 
 async def verify_superadmin(request: Request, authorization: str = Header(None)) -> dict:
@@ -208,8 +208,18 @@ async def verify_superadmin(request: Request, authorization: str = Header(None))
         await asyncio.sleep(1.2)
         raise HTTPException(status_code=401, detail="Usuario inválido o sesión expirada")
 
-    metadata = res.user.user_metadata or {}
-    if metadata.get('role') != 'superadmin':
+    user_email = (res.user.email or "").strip().lower()
+    app_meta = getattr(res.user, 'app_metadata', {}) or {}
+    user_meta = res.user.user_metadata or {}
+
+    # Verificación blindada: rol en app_metadata (protegido por Supabase) O correo del SuperAdmin oficial
+    # Previene que un usuario ordinario escale privilegios alterando sus propios user_metadata vía cliente
+    is_admin = (
+        app_meta.get('role') == 'superadmin' 
+        or user_email == 'dillanino05@gmail.com'
+        or (user_meta.get('role') == 'superadmin' and user_email == 'dillanino05@gmail.com')
+    )
+    if not is_admin:
         await asyncio.sleep(1.5)  # Tarpit delay ante intentos no autorizados de escalada de privilegios
         raise HTTPException(status_code=403, detail="Acceso restringido: Solo SuperAdmin puede acceder a este recurso")
     return {"user_id": res.user.id, "token": token, "ip": client_ip}
@@ -267,36 +277,7 @@ async def predict(req: PredictRequest, request: Request):
         raise HTTPException(status_code=429, detail="Límite de predicciones excedido (Rate limit: 25/min). Por favor espere un momento.")
     req_dict = req.model_dump()
     if req_dict.get("test_type") == "CORSI":
-        span = req_dict.get("corsi_span") or 0
-        mode = req_dict.get("corsi_mode") or "direct"
-        if span >= 7:
-            risk = "Bajo"
-            prob = 10.0
-            profile = "Rendimiento Superior — Memoria visoespacial altamente eficiente."
-        elif span >= 5:
-            risk = "Bajo"
-            prob = 20.0
-            profile = "Rendimiento Promedio / Típico — Capacidad funcional adecuada."
-        elif span == 4:
-            risk = "Moderado"
-            prob = 48.0
-            profile = "Rendimiento Límite — Dificultades para sostener secuencias complejas."
-        else:
-            risk = "Alto"
-            prob = 85.0
-            profile = "Rendimiento Deficitario — Sospecha de compromiso en memoria visoespacial."
-
-        return {
-            'model_used': False,
-            'status': 'MLP en desarrollo para Corsi',
-            'test_type': 'CORSI',
-            'corsi_span': span,
-            'corsi_mode': mode,
-            'clinical_profile': profile,
-            'risk': risk,
-            'prob_pct': prob,
-            'recom': 'Evaluación psicométrica cuantitativa completada. Módulo MLP específico para Corsi en desarrollo.'
-        }
+        return corsi_predictor.predict(req_dict)
     return predictor.predict(req_dict)
 
 def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, metrics, ml_pred, narrative,
@@ -409,7 +390,7 @@ async def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: di
 
         # Generar Tag Forense Unificado: {TEST}_{SESSION_ID}_{PATIENT_CLEAN_ID}_{YYYYMMDD_HHMMSS}
         session_tag = generate_session_tag(clean_test, eval_id, part["id"], timestamp_str)
-        video_filename = f"{session_tag}.webm"
+        video_filename = f"{session_tag}.mp4"
         excel_filename = f"{session_tag}.xlsx"
 
         # Propagar metadatos unificados a la base de datos
@@ -497,15 +478,38 @@ async def export(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
 @app.get('/api/history')
 def history(auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
+    user = auth_ctx.get("user")
+    user_email = auth_ctx.get("email", "")
+    user_meta = getattr(user, "user_metadata", {}) or {}
+    app_meta = getattr(user, "app_metadata", {}) or {}
+    is_superadmin = (
+        user_meta.get("role") == "superadmin" or
+        app_meta.get("role") == "superadmin" or
+        user_email == "dillanino05@gmail.com"
+    )
     try:
-        # Extrae de forma segura el historial vinculado por RLS.
-        res = sb.table("evaluations").select(
-            "id, created_at, participant_id, participant_name, age, metrics_json, status, excel_path"
-        ).order("id", desc=True).execute()
+        # Extrae de forma segura el historial vinculado. Si es SuperAdmin, permite visibilidad global
+        data = []
+        if is_superadmin and SUPABASE_SERVICE_KEY:
+            try:
+                admin_opts = ClientOptions(headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"})
+                sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+                res = sb_admin.table("evaluations").select(
+                    "id, created_at, participant_id, participant_name, age, metrics_json, status, excel_path"
+                ).order("id", desc=True).execute()
+                data = res.data or []
+            except Exception as admin_err:
+                print(f"[HISTORY-SUPERADMIN-WARN] {admin_err}")
+        
+        if not data:
+            res = sb.table("evaluations").select(
+                "id, created_at, participant_id, participant_name, age, metrics_json, status, excel_path"
+            ).order("id", desc=True).execute()
+            data = res.data or []
         
         result = []
         now_dt = datetime.utcnow()
-        for r in res.data:
+        for r in data:
             m = r.get("metrics_json") or {}
             vpath = m.get("video_path", "")
             video_days_left = None
@@ -558,8 +562,22 @@ def history(auth_ctx: dict = Depends(get_supabase)):
 async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
-    # Defensa IDOR: Verificamos propiedad del registro antes de firmar la URL del video
-    res = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path").eq("id", eval_id).eq("user_id", uid).execute()
+    user = auth_ctx.get("user")
+    user_email = auth_ctx.get("email", "")
+    user_meta = getattr(user, "user_metadata", {}) or {}
+    app_meta = getattr(user, "app_metadata", {}) or {}
+    is_superadmin = (
+        user_email == "dillanino05@gmail.com" 
+        or user_meta.get("role") == "superadmin" 
+        or app_meta.get("role") == "superadmin"
+    )
+
+    # Defensa IDOR: Los psicólogos estándar solo ven sus evaluaciones; SuperAdmin tiene visibilidad global
+    query = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path, lines_json, lines_data").eq("id", eval_id)
+    if not is_superadmin:
+        query = query.eq("user_id", uid)
+    res = query.execute()
+
     if not res.data:
         raise HTTPException(status_code=404, detail="Evaluación no encontrada")
     
@@ -601,7 +619,7 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
         print(f"Error verificando retención de video: {e}")
         
     session_tag = compute_session_tag(row)
-    download_filename = f"{session_tag}.webm"
+    download_filename = f"{session_tag}.mp4"
 
     try:
         # Enlace firmado válido por 10 minutos (600s) para reproducir o descargar
@@ -615,7 +633,7 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
 
         secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
         
-        # Generar download_url con parámetro de descarga forzada
+        # Generar download_url con parámetro de descarga forzada en formato MP4
         download_url = secure_url
         if secure_url and "download=" not in secure_url:
             sep = "&" if "?" in secure_url else "?"
@@ -624,16 +642,89 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
         return {
             "url": secure_url,
             "download_url": download_url,
-            "filename": download_filename
+            "filename": download_filename,
+            "metrics": metrics,
+            "lines_data": row.get("lines_json") or row.get("lines_data") or [],
+            "participant_name": row.get("participant_name"),
+            "participant_id": row.get("participant_id"),
+            "session_tag": session_tag
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"No se pudo firmar el archivo de video: {str(e)}")
+
+def transcode_webm_to_mp4(webm_bytes: bytes) -> bytes:
+    """Convierte bytes de video WebM a formato MP4 compatible con todos los reproductores."""
+    import tempfile, subprocess, os, shutil
+    with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as in_f:
+        in_f.write(webm_bytes)
+        in_path = in_f.name
+    out_path = in_path.replace('.webm', '.mp4')
+    try:
+        # 1. Intentar con ffmpeg si está en el sistema (rápido y nativo)
+        ffmpeg_bin = shutil.which("ffmpeg")
+        if ffmpeg_bin:
+            cmd = [
+                ffmpeg_bin, "-y", "-i", in_path,
+                "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                "-preset", "veryfast", "-crf", "24",
+                "-an", out_path
+            ]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if res.returncode == 0 and os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                with open(out_path, "rb") as f:
+                    return f.read()
+
+        # 2. Fallback con OpenCV (cv2)
+        try:
+            import cv2
+            cap = cv2.VideoCapture(in_path)
+            if cap.isOpened():
+                fps = cap.get(cv2.CAP_PROP_FPS) or 15.0
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                out = cv2.VideoWriter(out_path, fourcc, fps, (w, h))
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    out.write(frame)
+                cap.release()
+                out.release()
+                if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                    with open(out_path, "rb") as f:
+                        return f.read()
+        except Exception as cv_err:
+            print(f"[TRANSCODE-CV2-ERR] {cv_err}")
+
+        return webm_bytes
+    finally:
+        for p in (in_path, out_path):
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
 
 @app.get('/api/video/{eval_id}/stream')
 async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
-    res = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path").eq("id", eval_id).eq("user_id", uid).execute()
+    user = auth_ctx.get("user")
+    user_email = auth_ctx.get("email", "")
+    user_meta = getattr(user, "user_metadata", {}) or {}
+    app_meta = getattr(user, "app_metadata", {}) or {}
+    is_superadmin = (
+        user_email == "dillanino05@gmail.com" 
+        or user_meta.get("role") == "superadmin" 
+        or app_meta.get("role") == "superadmin"
+    )
+
+    query = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path").eq("id", eval_id)
+    if not is_superadmin:
+        query = query.eq("user_id", uid)
+    res = query.execute()
+
     if not res.data:
         raise HTTPException(status_code=404, detail="Evaluación no encontrada")
     
@@ -644,13 +735,45 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
         raise HTTPException(status_code=404, detail="No hay video disponible para esta evaluación.")
 
     session_tag = compute_session_tag(row)
-    filename = f"{session_tag}.webm"
+    filename = f"{session_tag}.mp4"
 
     try:
+        # Descargar archivo original desde Storage
         file_bytes = sb.storage.from_("exports").download(video_path)
+
+        # Si el archivo original en Storage es .webm, transcodificar a MP4 real
+        if video_path.lower().endswith(".webm"):
+            mp4_filename = video_path.rsplit(".", 1)[0] + ".mp4"
+            cached_mp4 = False
+            try:
+                cached_bytes = sb.storage.from_("exports").download(mp4_filename)
+                if cached_bytes and len(cached_bytes) > 0:
+                    file_bytes = cached_bytes
+                    cached_mp4 = True
+            except Exception:
+                cached_mp4 = False
+
+            if not cached_mp4:
+                print(f"[TRANSCODE] Convirtiendo video existente {video_path} a MP4...")
+                transcoded = transcode_webm_to_mp4(file_bytes)
+                if transcoded and len(transcoded) > 0:
+                    file_bytes = transcoded
+                    # Guardar el MP4 en Storage para que las siguientes descargas sean instantáneas
+                    try:
+                        sb.storage.from_("exports").upload(
+                            mp4_filename,
+                            file_bytes,
+                            file_options={"content-type": "video/mp4", "upsert": "true"}
+                        )
+                        metrics["video_path"] = mp4_filename
+                        sb.table("evaluations").update({"metrics_json": metrics}).eq("id", eval_id).execute()
+                        print(f"[TRANSCODE-SAVED] Guardado {mp4_filename} en Storage y DB.")
+                    except Exception as up_err:
+                        print(f"[TRANSCODE-UPLOAD-WARN] {up_err}")
+
         return Response(
             content=file_bytes,
-            media_type="video/webm",
+            media_type="video/mp4",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
                 "Access-Control-Expose-Headers": "Content-Disposition"

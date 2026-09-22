@@ -90,4 +90,70 @@ El backend compila un libro `.xlsx` de 6 hojas mediante `openpyxl`:
 * `06_XL_Visuales`: Panel de 4 gráficos vectoriales Matplotlib incrustados.
 
 ---
+
+## 🧠 7. Vector Estandarizado de 32 Características de Corsi
+
+El motor `CorsiMLPredictor` extrae un vector de 32 entradas multidimensionales que integran cronometría, psicometría, baremos poblacionales y biomarcadores paraclínicos:
+
+| Índice | Variable | Tipo / Escala | Descripción Clínica |
+| :--- | :--- | :--- | :--- |
+| 1 | `edad_norm` | $[0, 1]$ | $(\text{Edad} - 6) / 79$ (estratificación etaria) |
+| 2 | `lateralidad` | $\{-1, 0, +1\}$ | Diestro (+1), Zurdo (-1), Ambidiestro (0) |
+| 3 | `corsi_span` | $[2, 9]$ | Span máximo completado |
+| 4 | `max_level` | $[2, 9]$ | Longitud máxima evaluada |
+| 5 | `total_trials` | $\mathbb{N}$ | Volumen total de ensayos administrados |
+| 6 | `correct_trials` | $\mathbb{N}$ | Ensayos completados con éxito |
+| 7 | `error_trials` | $\mathbb{N}$ | Ensayos con falla secuencial |
+| 8 | `accuracy_pct` | $[0, 100]\%$ | Tasa global de exactitud |
+| 9 | `composite_score` | $\mathbb{N}$ | Block-Product Score ($\text{Span} \times \text{Aciertos}$) |
+| 10 | `mean_rt_ms` | ms | Latencia media de reacción entre bloques |
+| 11 | `hesitation_time_avg_ms` | ms | Tiempo medio de vacilación / duda táctica previa |
+| 12 | `total_time_sec` | Segundos | Duración total acumulada del test |
+| 13 | `is_reverse` | $\{0, 1\}$ | Modalidad Inversa (1) vs Directa (0) |
+| 14 | `span_dev_kessels` | $\mathbb{R}$ | $\text{Span} - \text{Media Normativa Kessels}(\text{edad})$ |
+| 15 | `block_product` | $\mathbb{N}$ | $\text{Span} \times \text{Aciertos}$ |
+| 16 | `transposition_rate` | $[0, 100]\%$ | Porcentaje de errores de orden secuencial |
+| 17 | `intrusion_rate` | $[0, 100]\%$ | Porcentaje de errores por tocar cubos ajenos |
+| 18 | `euclidean_error_dist` | $\%$ Canvas | Desviación topológica media respecto al objetivo |
+| 19 | `perseveration_rate` | $[0, 100]\%$ | Clics repetitivos sobre el mismo cubo erróneo |
+| 20 | `first_error_level` | $[2, 9]$ | Nivel en que se produjo la primera falla |
+| 21 | `first_attempt_pass_rate`| $[0, 100]\%$ | % de niveles superados en el intento 1 |
+| 22 | `mean_iti_ms` | ms | Intervalo entre pulsaciones inter-bloque |
+| 23 | `iti_cv` | $\%$ | Coeficiente de variación temporal del ritmo motor |
+| 24 | `latency_slope` | $\text{ms}/\text{bloque}$ | Pendiente de incremento de latencia por nivel |
+| 25 | `microtremor_avg` | $\text{px/s}^2$ | Jitter cinemático del cursor a 60 FPS |
+| 26 | `sweep_regularity_avg`| $[0, 100]\%$ | Regularidad de avance visual y motriz |
+| 27 | `pupil_dilation_avg` | Ratio $[0.8, 1.8]x$| Dilatación pupilar relativa vs línea base de reposo |
+| 28 | `cognitive_load_peaks`| Conteo | Picos transitorios de sobreesfuerzo mental ($>120\%$) |
+| 29 | `blink_rate_min` | Blinks/min | Frecuencia de parpadeo oculomotor |
+| 30 | `fer_tension_score` | $[0, 100]\%$ | Tensión facial sostenida (AU4/AU7) |
+| 31 | `fer_frustration_events`| Conteo | Microexpresiones de frustración ante el error |
+| 32 | `focus_lost_count` | Conteo | Pérdidas de foco de ventana (auditoría anti-cheat) |
+
+---
+
+## 🔬 8. Taxonomía de los 6 Perfiles Clínicos Neuropsicológicos
+
+El clasificador bayesiano e inferencial de Corsi (`CorsiMLPredictor`) categoriza al paciente en 6 fenotipos clínicos basados en la literatura neuropsicológica:
+
+1. **Normativo_Tipico (Rendimiento Base Normativo):**
+   * $\text{Span} \ge 5$, precisión $\ge 65\%$, vacilación táctica fisiológica ($350 - 1600\text{ ms}$).
+   * Mapeo visoespacial intacto sin sesgos en transposición ni intrusión.
+2. **Disociacion_Ejecutiva_Frontal (Disfunción Frontal DLPFC):**
+   * Discrepancia marcada entre Span Directo e Inverso ($\ge 2$ bloques de caída).
+   * Severo incremento de latencia en modalidad inversa y alta tasa de transposiciones.
+3. **Deficit_Almacenamiento_Primario (Déficit Parieto-Occipital Derecho):**
+   * $\text{Span} \le 3$ tanto en directo como en inverso.
+   * Compromiso intrínseco del almacén pasivo; alta frecuencia de intrusiones de cubos ajenos y alta dispersión euclidiana.
+4. **Fatiga_Agotamiento_Cognitivo (Fatiga Mental Progresiva):**
+   * Buen desempeño en niveles 2 a 4 con degradación súbita en niveles avanzados.
+   * Marcado incremento de picos pupilares ($>2$), dilatación noradrenérgica y microexpresiones de frustración facial (FER).
+5. **Impulsividad_Visomotora (Falta de Freno Inhibitorio):**
+   * Latencia de duda táctica previa casi inexistente ($<300\text{ ms}$).
+   * Clics acelerados y erráticos, microtemblor aumentado en el cursor y alta tasa de errores evitables.
+6. **Bradipsiquia_Enlentecimiento (Lentificación Cognitivo-Motora):**
+   * Tiempos de reacción y vacilación marcadamente dilatados ($>1800\text{ ms}$).
+   * Alta precisión mantenida a costa de un costo temporal elevado; compatible con bradipsiquia, cautela excesiva o enlentecimiento motor.
+
+---
 *Módulo Corsi MecaPsi · Diseñado para Bóveda de Conocimiento Obsidian*

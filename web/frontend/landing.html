@@ -1967,7 +1967,7 @@
 
       const o = totalTargets - ta;
       const tot = o + com;
-      const con = ta - tot; // FÓRMULA OFICIAL MECAPSI: CON = TA - (O + COM)
+      const con = Math.max(0, ta - com); // FÓRMULA OFICIAL PLC: CON = TA - COM (TEA Ediciones)
 
       document.getElementById('metric-ta').textContent  = ta;
       document.getElementById('metric-o').textContent   = o;
@@ -2499,7 +2499,8 @@
     function fillLoginDemo() {
       setAuthTab('login');
       document.getElementById('login-email').value = 'profesional@mecapsi.co';
-      document.getElementById('login-password').value = 'MecaPsi2026!';
+      document.getElementById('login-password').value = '';
+      document.getElementById('login-password').focus();
     }
 
     async function handleAuthSubmit(e, mode) {
@@ -2517,7 +2518,8 @@
           if (supabaseClient) {
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
             if (error) {
-              console.warn('Supabase auth notice:', error.message);
+              alert('Error de autenticación: Credenciales no válidas. Por favor verifique su correo y contraseña.');
+              return;
             }
           }
           alert('¡Bienvenido/a a MecaPsi! Sesión verificada.\n\nRedirigiendo a la plataforma clínica operativa...');
@@ -2525,7 +2527,7 @@
           window.location.href = redirectUrl;
         } catch(err) {
           console.error('Auth error fallback:', err);
-          window.location.href = redirectUrl;
+          alert('Error de conexión al autenticar. Por favor intente nuevamente.');
         } finally {
           btn.disabled = false;
           btn.textContent = 'Entrar a la Plataforma';

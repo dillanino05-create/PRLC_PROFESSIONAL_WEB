@@ -12,3 +12,4 @@ openpyxl>=3.1
 Pillow>=10.0
 aiofiles>=23.0
 supabase>=2.0
+opencv-python-headless>=4.8.0

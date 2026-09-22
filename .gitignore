@@ -33,3 +33,5 @@ Thumbs.db
 .vscode/
 .idea/
 scratch/
+resultados_plc/
+*.webm

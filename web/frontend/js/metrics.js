@@ -1,4 +1,93 @@
-// metrics.js — Cálculo de métricas (portado exacto de _calc_metrics en el desktop)
+// metrics.js — Cálculo de métricas psicométricas oficiales y biomarcadores para PLC / MecaPsi
+// Adaptado a la norma psicométrica estandarizada del Test d2 (TEA Ediciones / Rolf Brickenkamp / d2-R)
+
+/**
+ * Aproximación racional de Abramowitz & Stegun para la función probit Z(p) (Inversa de CDF normal).
+ * Precisión absoluta con error < 1.5e-4, sin dependencias externas.
+ */
+function probit(p) {
+  if (p <= 0.0001) p = 0.0001;
+  if (p >= 0.9999) p = 0.9999;
+  const isLower = p < 0.5;
+  const t = Math.sqrt(-2.0 * Math.log(isLower ? p : 1.0 - p));
+  const c0 = 2.515517, c1 = 0.802853, c2 = 0.010328;
+  const d1 = 1.432788, d2 = 0.189269, d3 = 0.001308;
+  const z = t - ((c2 * t + c1) * t + c0) / (((d3 * t + d2) * t + d1) * t + 1.0);
+  return isLower ? -z : z;
+}
+
+/**
+ * Teoría de Detección de Señales (Signal Detection Theory - SDT)
+ * Modela al paciente como un discriminador sensorial frente al ruido visual.
+ * Calcula Sensibilidad d' (d-prime) y Criterio de Respuesta c (sesgo conservador vs impulsivo).
+ */
+function computeSignalDetection(TA, O, COM, totalEvaluados) {
+  const targets = Math.max(TA + O, 1);
+  const distractors = Math.max(totalEvaluados - targets, 1);
+  const CR = Math.max(distractors - COM, 0);
+
+  // Corrección log-lineal para evitar infinitos en tasas de 0 o 1 (Hautus, 1995; Macmillan & Creelman, 2005)
+  const hitRate = (TA + 0.5) / (targets + 1);
+  const falseAlarmRate = (COM + 0.5) / (distractors + 1);
+
+  const zH = probit(hitRate);
+  const zFA = probit(falseAlarmRate);
+
+  const dPrime = zH - zFA;
+  const criterionC = -0.5 * (zH + zFA);
+  const beta = Math.exp(criterionC * dPrime);
+
+  let criterionDesc = "Equilibrado";
+  if (criterionC > 0.25) {
+    criterionDesc = "Conservador / Cauteloso (Prioriza evitar comisiones a costa de omisiones)";
+  } else if (criterionC < -0.25) {
+    criterionDesc = "Laxo / Impulsivo (Prioriza velocidad a expensas de falsas alarmas)";
+  }
+
+  return {
+    d_prime: parseFloat(Math.max(-1.0, Math.min(5.0, dPrime)).toFixed(2)),
+    criterion_c: parseFloat(criterionC.toFixed(2)),
+    beta: parseFloat(Math.min(beta, 50.0).toFixed(2)),
+    hit_rate: parseFloat((hitRate * 100).toFixed(1)),
+    false_alarm_rate: parseFloat((falseAlarmRate * 100).toFixed(1)),
+    criterion_desc: criterionDesc
+  };
+}
+
+/**
+ * Detección de Lapsos Atencionales (Micro-pausas cognitivas > 1.500 ms)
+ * Marcador neurobiológico cardinal de desregulación de atención sostenida en TDAH.
+ */
+function computeAttentionalLapses(clickLog) {
+  if (!clickLog || clickLog.length < 2) return { count: 0, total_ms: 0, mean_ms: 0, max_ms: 0 };
+
+  const clicksByLine = {};
+  clickLog.forEach(cl => {
+    if (cl.action === 'sel') {
+      const ln = cl.line !== undefined ? cl.line : 0;
+      if (!clicksByLine[ln]) clicksByLine[ln] = [];
+      clicksByLine[ln].push(cl.elapsed_ms);
+    }
+  });
+
+  const lapses = [];
+  Object.values(clicksByLine).forEach(times => {
+    times.sort((a, b) => a - b);
+    for (let i = 1; i < times.length; i++) {
+      const diff = times[i] - times[i - 1];
+      if (diff >= 1500) { // Micro-pausa igual o mayor a 1.5 segundos
+        lapses.push(diff);
+      }
+    }
+  });
+
+  const count = lapses.length;
+  const total_ms = lapses.reduce((a, b) => a + b, 0);
+  const mean_ms = count > 0 ? Math.round(total_ms / count) : 0;
+  const max_ms = count > 0 ? Math.max(...lapses) : 0;
+
+  return { count, total_ms, mean_ms, max_ms };
+}
 
 function calcMetrics(linesData, clickLog, age) {
   // Encontrar la última página con actividad real
@@ -11,13 +100,31 @@ function calcMetrics(linesData, clickLog, age) {
   const activeLines = lastAttemptedIndex >= 0 ? linesData.slice(0, lastAttemptedIndex + 1) : linesData.slice(0, 1);
   const isIncomplete = (lastAttemptedIndex + 1) < linesData.length;
 
-  const TA  = activeLines.reduce((s, l) => s + l.aciertos,   0);
-  const O   = activeLines.reduce((s, l) => s + l.omisiones,  0);
-  const COM = activeLines.reduce((s, l) => s + l.comisiones, 0);
-  const TN  = TA + O;
-  const TOT = O + COM;
-  const CON = TA - TOT;
-  const CP  = TN > 0 ? (CON / TN) * 100 : 0;
+  // 1. Puntuaciones primarias estandarizadas
+  const TA  = activeLines.reduce((s, l) => s + l.aciertos,   0); // Total Aciertos (Dianas)
+  const O   = activeLines.reduce((s, l) => s + l.omisiones,  0); // Omisiones (Dianas no marcadas)
+  const COM = activeLines.reduce((s, l) => s + l.comisiones, 0); // Comisiones (Distractores marcados)
+  const TN  = TA + O; // Total Dianas Alcanzadas
+  const E   = O + COM; // Total de Errores
+  const TOT = O + COM; // Mantener TOT = E para retrocompatibilidad con pipelines que lo esperan
+
+  // Total de caracteres procesados (TR en norma TEA Ediciones / BPR en d2-R)
+  const totalEvaluados = activeLines.reduce((s, l) => s + (l.evaluados !== undefined ? l.evaluados : 47), 0);
+  const TR = totalEvaluados;
+
+  // 2. Fórmulas Psicométricas Oficiales
+  // Concentración Oficial TEA Ediciones: CON = TA - COM (No penaliza omisiones por duplicado)
+  const CON = Math.max(0, TA - COM);
+  const CON_legacy = TA - (O + COM); // Versión previa para retrocompatibilidad interna
+  
+  // Efectividad Total oficial del Test d2 (Rendimiento Total: TR - Errores)
+  const TOT_d2 = Math.max(0, TR - (O + COM));
+
+  // Concentración porcentual
+  const CP  = TN > 0 ? Math.min(100, Math.max(0, (CON / TN) * 100)) : 0;
+
+  // Tasa de Error E% (Norma d2-R)
+  const errorRate = TR > 0 ? parseFloat(((O + COM) / TR * 100).toFixed(2)) : 0;
 
   const times = activeLines.map(l => l.tiempo_s);
   const totalTime = times.reduce((a, b) => a + b, 0);
@@ -26,7 +133,6 @@ function calcMetrics(linesData, clickLog, age) {
   const stdTpl    = Math.sqrt(variance);
   const cvTime    = meanTpl > 0 ? (stdTpl / meanTpl) * 100 : 0;
 
-  const totalEvaluados = activeLines.reduce((s, l) => s + (l.evaluados !== undefined ? l.evaluados : 47), 0);
   const procSpeed = totalTime > 0 ? (totalEvaluados / totalTime) * 60 : 0;
   const efficiency= totalTime > 0 ? (TA / totalTime) * 60 : 0;
   const FA        = totalTime > 0 ? TA / totalTime : 0;
@@ -38,6 +144,10 @@ function calcMetrics(linesData, clickLog, age) {
   const VAR       = hm > 0 ? (hs / hm) * 100 : 0;
   const estabilidad = Math.max(0, 100 - VAR);
   const consistency = Math.max(...hits) - Math.min(...hits);
+
+  // Variabilidad clásica Brickenkamp (TRmax - TRmin)
+  const lineEvaluados = activeLines.map(l => l.evaluados !== undefined ? l.evaluados : 47);
+  const VAR_clasica = Math.max(...lineEvaluados) - Math.min(...lineEvaluados);
 
   // TRM se calcula comparando los dos bloques de líneas activas
   const mid = Math.floor(activeLines.length / 2);
@@ -76,6 +186,10 @@ function calcMetrics(linesData, clickLog, age) {
         ? (sortedRts[sortedRts.length/2-1] + sortedRts[sortedRts.length/2]) / 2
         : sortedRts[Math.floor(sortedRts.length/2)])
     : 0;
+
+  // 3. Teoría de Detección de Señales (SDT) & Lapsos Atencionales
+  const sdt = computeSignalDetection(TA, O, COM, totalEvaluados);
+  const lapses = computeAttentionalLapses(clickLog);
 
   // Patrón de atención
   let attnStyle, attnDesc;
@@ -125,13 +239,22 @@ function calcMetrics(linesData, clickLog, age) {
   const lastChar = lastAttemptedIndex >= 0 ? linesData[lastAttemptedIndex].evaluados : 0;
 
   return {
-    TA, O, COM, TN, TOT, CON, CP,
+    TR, TA, O, COM, TN, TOT, E, TOT_d2, CON, CON_legacy, CP, errorRate,
     totalTime, meanTpl, stdTpl, cvTime,
     procSpeed, efficiency, FA, GQ,
-    VAR, estabilidad, consistency,
+    VAR, VAR_clasica, estabilidad, consistency,
     TRM, IVR, blockHits, errorPat, adjScore,
     meanRt, medRt, attnStyle, attnDesc, focusType,
-    isIncomplete, lastLine, lastChar
+    isIncomplete, lastLine, lastChar,
+    sdt,
+    d_prime: sdt.d_prime,
+    criterion_c: sdt.criterion_c,
+    criterion_desc: sdt.criterion_desc,
+    beta: sdt.beta,
+    lapsesCount: lapses.count,
+    lapsesTotalMs: lapses.total_ms,
+    lapsesMeanMs: lapses.mean_ms,
+    lapsesMaxMs: lapses.max_ms
   };
 }
 
@@ -594,7 +717,7 @@ function analyzeCursorKinematics(samples) {
 /* ═══════════════════════════════════════════════════════════════════════════════
    MÉTRICAS PSICOMÉTRICAS Y NORMATIVAS DEL TEST DE CORSI
    ──────────────────────────────────────────────────────────────────────────── */
-function computeCorsiMetrics(corsiResult) {
+function computeCorsiMetrics(corsiResult, age = 30) {
   const summaries = (corsiResult && (corsiResult.levelSummaries || corsiResult.trialsData)) 
     ? (corsiResult.levelSummaries || corsiResult.trialsData) 
     : [];
@@ -604,6 +727,7 @@ function computeCorsiMetrics(corsiResult) {
   const mode = (corsiResult && (corsiResult.testMode || corsiResult.corsiMode)) 
     ? (corsiResult.testMode || corsiResult.corsiMode) 
     : 'direct';
+  const isReverse = mode === 'reverse';
 
   const totalTrials = summaries.length;
   const correctTrials = summaries.filter(s => (s.success ?? s.isCorrect)).length;
@@ -626,8 +750,56 @@ function computeCorsiMetrics(corsiResult) {
   const totalTimeMs = summaries.reduce((acc, s) => acc + (s.total_time_ms || 0), 0);
   const totalTimeSec = parseFloat((totalTimeMs / 1000).toFixed(1));
 
-  // Puntuación Compuesta (Corsi Product Score: Span * Total Aciertos)
+  // Puntuación Compuesta (Corsi Block-Product Score: Span * Total Aciertos)
   const compositeScore = corsiSpan * correctTrials;
+
+  // Tipología de Errores y Distancia Euclidiana de Desviación
+  const cubeCoords = [
+    { x: 14, y: 16 }, { x: 76, y: 14 }, { x: 46, y: 28 },
+    { x: 24, y: 48 }, { x: 68, y: 46 }, { x: 86, y: 66 },
+    { x: 10, y: 74 }, { x: 44, y: 80 }, { x: 74, y: 82 }
+  ];
+  let transpositionCount = 0;
+  let intrusionCount = 0;
+  let totalErrorClicks = 0;
+  let euclideanDistSum = 0;
+
+  summaries.forEach(s => {
+    if (!s.success && !s.isCorrect) {
+      const pres = (s.sequence_presented || s.sequence || []).map(x => Number(x));
+      const targetSeq = isReverse ? [...pres].reverse() : [...pres];
+      const userSeq = (s.sequence_user || s.userSequence || []).map(x => Number(x));
+
+      userSeq.forEach((clickedCube, idx) => {
+        const expectedCube = targetSeq[idx];
+        if (clickedCube !== undefined && expectedCube !== undefined && clickedCube !== expectedCube) {
+          totalErrorClicks++;
+          if (pres.includes(clickedCube)) {
+            transpositionCount++; // Cubo parte de la secuencia pero en orden erróneo
+          } else {
+            intrusionCount++; // Cubo ajeno no perteneciente a la secuencia
+          }
+          const c1 = cubeCoords[clickedCube - 1] || cubeCoords[clickedCube] || { x: 50, y: 50 };
+          const c2 = cubeCoords[expectedCube - 1] || cubeCoords[expectedCube] || { x: 50, y: 50 };
+          const dist = Math.sqrt((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2);
+          euclideanDistSum += dist;
+        }
+      });
+    }
+  });
+
+  const meanEuclideanDist = totalErrorClicks > 0 ? parseFloat((euclideanDistSum / totalErrorClicks).toFixed(1)) : 0.0;
+  const transpositionRate = totalErrorClicks > 0 ? parseFloat(((transpositionCount / totalErrorClicks) * 100).toFixed(1)) : 0.0;
+  const intrusionRate = totalErrorClicks > 0 ? parseFloat(((intrusionCount / totalErrorClicks) * 100).toFixed(1)) : 0.0;
+
+  // Baremos Normativos de Kessels (2000)
+  const normMean = age < 30 ? (isReverse ? 5.3 : 5.8)
+                 : age < 50 ? (isReverse ? 4.9 : 5.4)
+                 : age < 70 ? (isReverse ? 4.5 : 5.1)
+                 : (isReverse ? 4.0 : 4.6);
+  const normSd = 1.05;
+  const zScore = parseFloat(((corsiSpan - normMean) / normSd).toFixed(2));
+  const normPercentile = Math.round(Math.min(99, Math.max(1, (0.5 * (1.0 + Math.sign(zScore) * Math.sqrt(1.0 - Math.exp(-2.0 * zScore * zScore / Math.PI)))) * 100)));
 
   // Calificación normativa clínica cualitativa
   let clinicalCategory = "Promedio";
@@ -635,16 +807,16 @@ function computeCorsiMetrics(corsiResult) {
 
   if (corsiSpan >= 7) {
     clinicalCategory = "Superior";
-    clinicalDesc = "Excelente capacidad de retención, mapeo y secuenciación visoespacial. Rendimiento por encima del promedio normativo.";
+    clinicalDesc = "Excelente capacidad de retención, mapeo y secuenciación visoespacial. Rendimiento por encima del percentil 85 poblacional.";
   } else if (corsiSpan >= 5) {
     clinicalCategory = "Promedio / Típico";
     clinicalDesc = "Memoria de trabajo visoespacial adecuada. Capacidad de retención funcional para demandas ejecutivas cotidianas.";
   } else if (corsiSpan === 4) {
     clinicalCategory = "Límite / Bajo";
-    clinicalDesc = "Rendimiento en el límite inferior esperado. Se aprecian dificultades para retener secuencias complejas ante sobrecarga.";
+    clinicalDesc = "Rendimiento en la franja límite inferior. Se aprecian dificultades de retención secuencial ante aumento de longitud.";
   } else if (corsiSpan <= 3 && corsiSpan > 0) {
     clinicalCategory = "Déficit Visoespacial";
-    clinicalDesc = "Rendimiento significativamente descendido respecto al grupo de referencia. Sugestivo de dificultades atencionales o amnésicas visoespaciales.";
+    clinicalDesc = "Rendimiento significativamente descendido respecto al grupo normativo (Kessels et al.). Sugestivo de compromiso en la red dorsal visoespacial o ejecutivo frontal.";
   } else {
     clinicalCategory = "No Determinable";
     clinicalDesc = "La prueba finalizó sin alcanzar el umbral mínimo de aciertos.";
@@ -664,7 +836,16 @@ function computeCorsiMetrics(corsiResult) {
     composite_score: compositeScore,
     clinical_category: clinicalCategory,
     clinical_desc: clinicalDesc,
-    trials_data: summaries
+    trials_data: summaries,
+    // Métricas avanzadas
+    transposition_count: transpositionCount,
+    intrusion_count: intrusionCount,
+    transposition_rate: transpositionRate,
+    intrusion_rate: intrusionRate,
+    euclidean_error_dist: meanEuclideanDist,
+    kessels_norm_mean: normMean,
+    kessels_z_score: zScore,
+    kessels_percentile: normPercentile
   };
 }
 
