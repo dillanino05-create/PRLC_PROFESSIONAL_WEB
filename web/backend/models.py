@@ -15,6 +15,8 @@ class LineData(BaseModel):
     # ── Biomarcadores Digitales: Cinemática del Cursor ──────────────────────────
     tremor_score: float = 0.0   # Índice de variabilidad cinemática (Jitter)
     tremor_flag: bool = False    # True si supera el umbral clínico de alerta
+    tremor_classification: Optional[str] = None # Tipo de cinemática (ej. 'Movimiento Voluntario Rápido', 'Temblor Multimodal Confirmado')
+    camera_head_tremor: Optional[float] = None # Microtemblor cefálico detectado por webcam (MediaPipe)
     microtremor_score: float = 0.0 # Amplitud de microtemblor instantáneo
     sweep_regularity: float = 100.0 # Regularidad de avance izquierda a derecha (%)
     retrocesos_mouse: int = 0   # Rectificaciones bruscas hacia atrás

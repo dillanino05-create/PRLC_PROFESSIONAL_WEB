@@ -286,67 +286,111 @@ function generateNarrative(m) {
 /* ═══════════════════════════════════════════════════════════════════════════════
    BIOMARCADORES DIGITALES — Cinemática del Cursor (Jitter / Tremor Motor)
    ────────────────────────────────────────────────────────────────────────────
-   Calcula el Tremor Score por línea a partir de las posiciones del mouse
-   muestreadas a ~60fps durante la ejecución del test.
-
-   Fórmula:
-     velocidades    v[i] = √((Δx)²+(Δy)²) / Δt
-     aceleraciones  a[i] = |v[i] - v[i-1]| / Δt
-     jitter_raw     = σ(aceleraciones)          ← desviación estándar
-     cambios_dir    θ > 45° entre muestras consecutivas
-     tremor_score   = jitter_raw × (1 + 0.3 × dirChanges/s)
-     tremor_flag    = tremor_score > TREMOR_THRESHOLD
-
-   Umbral clínico inicial: 85.0 (px/s² relativo). Calibrar con datos reales.
+   Filtra aceleración balística voluntaria (movimientos rápidos intencionales) 
+   para aislar el verdadero temblor patológico (micro-oscilaciones de 4 a 12 Hz 
+   y micro-inversiones angulares >110° en desplazamientos pequeños <18px).
+   Integra correlación multimodal con micro-temblor cefálico de cámara.
 ═══════════════════════════════════════════════════════════════════════════════ */
 const TREMOR_THRESHOLD = 85.0;
 
-function computeTremorScore(samples) {
+function computeTremorScore(samples, cameraHeadTremor = 0.0) {
   // samples: [{x, y, t}, …] donde t es performance.now() en ms
-  if (!samples || samples.length < 5) return { score: 0.0, flag: false, microtremor: 0.0 };
+  if (!samples || samples.length < 5) {
+    return { score: 0.0, flag: false, microtremor: 0.0, tremor_type: 'Estable' };
+  }
 
-  const accels     = [];
-  const dirChanges = [];
+  const subMovementAccels = [];
+  let microReversals = 0;
+  let ballisticCount = 0;
+  let subMovementCount = 0;
 
   for (let i = 2; i < samples.length; i++) {
     const dt1 = (samples[i-1].t - samples[i-2].t) / 1000.0;
     const dt2 = (samples[i].t   - samples[i-1].t)   / 1000.0;
-    if (dt1 <= 0 || dt2 <= 0) continue;
+    if (dt1 <= 0 || dt2 <= 0 || dt1 > 0.5 || dt2 > 0.5) continue;
 
     const dx1 = samples[i-1].x - samples[i-2].x;
     const dy1 = samples[i-1].y - samples[i-2].y;
     const dx2 = samples[i].x   - samples[i-1].x;
     const dy2 = samples[i].y   - samples[i-1].y;
 
-    const v1 = Math.sqrt(dx1*dx1 + dy1*dy1) / dt1; // px/s
-    const v2 = Math.sqrt(dx2*dx2 + dy2*dy2) / dt2; // px/s
-    accels.push(Math.abs(v2 - v1) / dt2);          // px/s^2
+    const dist1 = Math.sqrt(dx1*dx1 + dy1*dy1);
+    const dist2 = Math.sqrt(dx2*dx2 + dy2*dy2);
 
-    // Cambio de dirección > 45° = posible temblor o corrección brusca
-    const theta1 = Math.atan2(dy1, dx1);
-    const theta2 = Math.atan2(dy2, dx2);
-    let dTheta = Math.abs(theta2 - theta1);
-    if (dTheta > Math.PI) dTheta = 2 * Math.PI - dTheta;
-    if (dTheta > Math.PI / 4) dirChanges.push(1);
+    const v1 = dist1 / dt1; // px/s
+    const v2 = dist2 / dt2; // px/s
+    const accel = Math.abs(v2 - v1) / dt2; // px/s^2
+
+    // Movimiento balístico voluntario: desplazamiento amplio (>22px) a alta velocidad (>250 px/s)
+    if (dist2 >= 22 && v2 > 250) {
+      ballisticCount++;
+      continue; // Filtrar aceleraciones de carrera voluntaria hacia el siguiente estímulo
+    }
+
+    // Sub-movimientos y micro-ajustes finos (<18px)
+    subMovementCount++;
+    subMovementAccels.push(accel);
+
+    // Micro-inversión de trayectoria: cambio angular brusco (>110°) en espacio reducido (<18px)
+    // Indica oscilación o sacudida involuntaria (típica de temblor postural/cinético)
+    if (dist1 > 1.5 && dist2 > 1.5 && dist2 < 18) {
+      const theta1 = Math.atan2(dy1, dx1);
+      const theta2 = Math.atan2(dy2, dx2);
+      let dTheta = Math.abs(theta2 - theta1);
+      if (dTheta > Math.PI) dTheta = 2 * Math.PI - dTheta;
+      if (dTheta > (Math.PI * 0.61)) { // > 110 grados
+        microReversals++;
+      }
+    }
   }
 
-  if (accels.length === 0) return { score: 0.0, flag: false, microtremor: 0.0 };
+  if (subMovementAccels.length === 0) {
+    return { score: 0.0, flag: false, microtremor: 0.0, tremor_type: 'Estable' };
+  }
 
-  // Jitter = σ de las aceleraciones instantáneas
-  const mean     = accels.reduce((a, b) => a + b, 0) / accels.length;
-  const variance = accels.reduce((s, a) => s + (a - mean) ** 2, 0) / accels.length;
+  // Jitter fisiológico en micro-desplazamientos
+  const meanAccel = subMovementAccels.reduce((a, b) => a + b, 0) / subMovementAccels.length;
+  const variance = subMovementAccels.reduce((s, a) => s + (a - meanAccel) ** 2, 0) / subMovementAccels.length;
   const rawJitter = Math.sqrt(variance);
 
-  // Escala psicométrica normalizada (px/s² normalizado a escala clínica [0 - 150])
-  const normJitter = rawJitter / 500.0;
   const totalDurationSec = Math.max((samples[samples.length - 1].t - samples[0].t) / 1000, 0.001);
-  const dirChangesPerSec = dirChanges.length / totalDurationSec;
-  const score = normJitter * (1 + 0.3 * dirChangesPerSec);
+  const reversalsPerSec = microReversals / totalDurationSec;
 
+  // Normalización calibrada: el jitter voluntario en hardware gamer/alto DPI se acota
+  let normJitter = rawJitter / 1200.0;
+  
+  // Ponderación por frecuencia de oscilación (temblor patológico oscila a 4-12 Hz)
+  let oscillationFactor = 1.0;
+  if (reversalsPerSec >= 3.5) {
+    oscillationFactor = 1.0 + (reversalsPerSec - 3.5) * 0.45;
+  } else {
+    // Si la frecuencia de inversión es baja (<3.5 Hz), se trata de apuntado voluntario normal
+    oscillationFactor = Math.max(0.45, 0.65 + reversalsPerSec * 0.1);
+  }
+
+  let finalScore = normJitter * 28.0 * oscillationFactor;
+
+  // Fusión Multimodal con Cámara (si la cámara no registra micro-temblor cefálico, descartar falsos positivos de mouse)
+  let tremorType = 'Estable / Control Voluntario';
+  if (cameraHeadTremor > 1.8 && reversalsPerSec >= 4.0) {
+    // Confirmación multimodal: cuerpo/cabeza y mouse oscilan conjuntamente
+    finalScore = finalScore * 1.35;
+    tremorType = 'Temblor Multimodal Confirmado (Cámara + Ratón)';
+  } else if (ballisticCount > subMovementCount * 0.7 && cameraHeadTremor < 1.0) {
+    // Movimiento rápido ágil de teclado/ratón sin temblor físico
+    finalScore = Math.min(finalScore, 42.0);
+    tremorType = 'Movimiento Voluntario Rápido (Cinemática Ágil)';
+  } else if (finalScore > TREMOR_THRESHOLD) {
+    tremorType = 'Microinestabilidad Motora Manual';
+  }
+
+  const scoreFormatted = parseFloat(Math.min(150, Math.max(0, finalScore)).toFixed(2));
   return { 
-    score: parseFloat(score.toFixed(2)), 
-    flag: score > TREMOR_THRESHOLD,
-    microtremor: parseFloat(normJitter.toFixed(2))
+    score: scoreFormatted, 
+    flag: scoreFormatted > TREMOR_THRESHOLD,
+    microtremor: parseFloat((rawJitter / 1000.0).toFixed(2)),
+    reversals_per_sec: parseFloat(reversalsPerSec.toFixed(1)),
+    tremor_type: tremorType
   };
 }
 
@@ -369,7 +413,8 @@ function computeSweepMetrics(samples) {
   for (let i = 1; i < samples.length; i++) {
     const dx = samples[i].x - samples[i-1].x;
     const dy = samples[i].y - samples[i-1].y;
-    const dt = Math.max(samples[i].t - samples[i-1].t, 1);
+    const dt = samples[i].t - samples[i-1].t;
+    if (dt <= 0) continue;
 
     if (dx > 0) {
       forwardPx += dx;
@@ -400,10 +445,10 @@ function computeSweepMetrics(samples) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   BIOMARCADORES OCULOMOTORES (MediaPipe Face Mesh)
+   BIOMARCADORES OCULOMOTORES (MediaPipe Face Mesh + Iris Tracking)
    ────────────────────────────────────────────────────────────────────────────
-   Calcula parpadeos (EAR), tasa de parpadeo por minuto y eventos de desvío
-   de la mirada respecto al área del Canvas.
+   Calcula parpadeos con calibración adaptativa para evaluados con o sin lentes,
+   tasa de parpadeo por minuto y eventos de desvío real fuera del monitor.
 ═══════════════════════════════════════════════════════════════════════════════ */
 function computeOculomotorMetrics(earSamples, gazeEvents, durationSec, cameraWasActive = false) {
   const cameraActive = Boolean(cameraWasActive || (earSamples && earSamples.length > 0));
@@ -414,57 +459,99 @@ function computeOculomotorMetrics(earSamples, gazeEvents, durationSec, cameraWas
       blink_count: 0,
       blink_rate_min: 0.0,
       gaze_diverted_count: 0,
-      gaze_diverted_ms: 0.0
+      gaze_diverted_ms: 0.0,
+      glasses_calibrated: false
     };
   }
 
   if (!earSamples || earSamples.length === 0) {
     return {
       camera_active: true,
-      ear_mean: 0.28,
+      ear_mean: 0.32,
+      ear_baseline: 0.35,
       blink_count: 0,
       blink_rate_min: 0.0,
       gaze_diverted_count: (gazeEvents && gazeEvents.length) || 0,
-      gaze_diverted_ms: (gazeEvents && gazeEvents.reduce((a, b) => a + (b.duration_ms || 0), 0)) || 0.0
+      gaze_diverted_ms: (gazeEvents && gazeEvents.reduce((a, b) => a + (b.duration_ms || 0), 0)) || 0.0,
+      glasses_calibrated: false
     };
   }
 
-  // Media de EAR
-  const sumEar = earSamples.reduce((acc, s) => acc + (s.ear || 0), 0);
-  const ear_mean = parseFloat((sumEar / earSamples.length).toFixed(3));
+  // Filtrar muestras numéricas válidas de EAR
+  const validEars = earSamples.map(s => s.ear || 0).filter(e => e > 0.06 && e < 0.60);
+  if (validEars.length === 0) {
+    return {
+      camera_active: true,
+      ear_mean: 0.30,
+      ear_baseline: 0.32,
+      blink_count: 0,
+      blink_rate_min: 0.0,
+      gaze_diverted_count: 0,
+      gaze_diverted_ms: 0.0,
+      glasses_calibrated: false
+    };
+  }
 
-  // Conteo de parpadeos adaptativo a la morfología ocular del evaluado
+  // Media de EAR general
+  const sumEar = validEars.reduce((a, b) => a + b, 0);
+  const ear_mean = parseFloat((sumEar / validEars.length).toFixed(3));
+
+  // Estimación de línea base de ojos abiertos (percentil 75 para eliminar sesgo de parpadeos y fatiga)
+  const sortedEars = [...validEars].sort((a, b) => a - b);
+  const p75Idx = Math.floor(sortedEars.length * 0.75);
+  const earBaseline = sortedEars[p75Idx] || ear_mean;
+
+  // Detección de usuario con lentes o hendidura palpebral estrecha
+  const isGlassesUser = (earBaseline < 0.28 || sortedEars[0] > 0.18);
+
+  // Umbral dinámico adaptativo a la morfología y presencia de lentes
+  // Un parpadeo natural genera una caída relativa del 22% al 28% respecto a su apertura normal
+  const blinkRatio = isGlassesUser ? 0.78 : 0.74;
+  const blinkThreshold = earBaseline * blinkRatio;
+
   let blinkCount = 0;
   let inBlink = false;
-  const blinkThreshold = Math.min(0.24, Math.max(0.18, ear_mean * 0.75));
+  let blinkConsecutive = 0;
+
   for (let i = 0; i < earSamples.length; i++) {
     const ear = earSamples[i].ear || 0;
-    if (ear < blinkThreshold && !inBlink) {
-      blinkCount++;
-      inBlink = true;
-    } else if (ear >= blinkThreshold) {
-      inBlink = false;
+    
+    // Caída rápida respecto a la línea base personal
+    if (ear < blinkThreshold) {
+      blinkConsecutive++;
+      if (!inBlink && blinkConsecutive >= 1) {
+        blinkCount++;
+        inBlink = true;
+      }
+    } else {
+      blinkConsecutive = 0;
+      if (ear >= (blinkThreshold * 1.05)) {
+        inBlink = false;
+      }
     }
   }
 
   const validDurationSec = Math.max(durationSec || 1, 1);
   const blink_rate_min = parseFloat(((blinkCount / validDurationSec) * 60).toFixed(1));
 
-  // Conteo y tiempo total de desvíos de mirada
+  // Conteo y tiempo total de desvíos de mirada reales (desvíos confirmados >450ms)
   let gazeDivertedCount = 0;
   let gazeDivertedMs = 0;
   if (gazeEvents && gazeEvents.length > 0) {
-    gazeDivertedCount = gazeEvents.length;
-    gazeDivertedMs = gazeEvents.reduce((acc, ev) => acc + (ev.duration_ms || 0), 0);
+    const filteredEvents = gazeEvents.filter(ev => (ev.duration_ms || 0) >= 450);
+    gazeDivertedCount = filteredEvents.length;
+    gazeDivertedMs = filteredEvents.reduce((acc, ev) => acc + (ev.duration_ms || 0), 0);
   }
 
   return {
     camera_active: true,
     ear_mean,
+    ear_baseline: parseFloat(earBaseline.toFixed(3)),
     blink_count: blinkCount,
     blink_rate_min,
     gaze_diverted_count: gazeDivertedCount,
-    gaze_diverted_ms: parseFloat(gazeDivertedMs.toFixed(1))
+    gaze_diverted_ms: parseFloat(gazeDivertedMs.toFixed(1)),
+    glasses_calibrated: isGlassesUser
   };
 }
 

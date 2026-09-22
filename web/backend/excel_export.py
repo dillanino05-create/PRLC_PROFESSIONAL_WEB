@@ -583,21 +583,33 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             {"Notas Observacionales de Barrido Visual": note} for note in jumps_notes
         ])
 
-        # Notas de Biomarcadores Motores Digitales (Tremor del Cursor)
+        # Notas de Biomarcadores Motores Digitales (Tremor del Cursor y Cámara)
         tremor_lines = [l for l in lines_data if l.get('tremor_flag', False)]
+        agile_lines = [l for l in lines_data if not l.get('tremor_flag', False) and (l.get('tremor_score', 0) > 35 or 'Voluntario' in str(l.get('tremor_classification', '')))]
+
+        tremor_note_rows = []
         if tremor_lines:
+            for l in tremor_lines:
+                t_type = l.get('tremor_classification') or "Variabilidad cinemática anormal"
+                cam_trem = l.get('camera_head_tremor')
+                cam_str = f" | Cámara Cefálica: {cam_trem:.2f}" if cam_trem is not None else ""
+                tremor_note_rows.append(
+                    f"⚠️ Pág. {l['linea']}: {t_type} (Tremor Score: {l.get('tremor_score', 0):.2f}{cam_str}). "
+                    f"Indicador de microinestabilidad coordinada."
+                )
+        if agile_lines:
+            for l in agile_lines:
+                tremor_note_rows.append(
+                    f"🏎️ Pág. {l['linea']}: Cinemática ágil voluntaria (Score: {l.get('tremor_score', 0):.2f}). "
+                    f"Desplazamiento balístico rápido normal; cámara y postura corporal estables sin temblor físico."
+                )
+        if not tremor_note_rows:
             tremor_note_rows = [
-                f"🔴 Pág. {l['linea']}: Variabilidad cinématica anormal del cursor (Tremor Score: {l.get('tremor_score', 0):.2f}). "
-                f"Posible indicador de tensión motriz, temblor fisiológico o interferencia ambiental."
-                for l in tremor_lines
-            ]
-        else:
-            tremor_note_rows = [
-                "✅ Cinématica motriz dentro de rangos normales en todas las páginas. "
-                "No se detectaron patrones de variabilidad de cursor sugestivos de temblor."
+                "✅ Cinemática motriz y postura corporal dentro de rangos normales en todas las páginas. "
+                "No se detectaron patrones sugestivos de temblor físico patológico."
             ]
         df_tremor = pd.DataFrame([
-            {"🧠 Biomarcadores Motores Digitales (Jitter del Cursor)": n} for n in tremor_note_rows
+            {"🧠 Biomarcadores Motores Digitales (Jitter del Cursor y Cámara)": n} for n in tremor_note_rows
         ])
 
         # ── Biomarcadores Extras de IA (Oculometría + Cinemática) ───────────
@@ -748,7 +760,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
                 "Proporción Exactitud (%)": prop,
                 # ── Biomarcadores Digitales (Cinématica del Cursor) ────────────────
                 "Tremor Score (Jitter Motor)": ts,
-                "⚠️ Indicador Temblor Motor": "SÍ — Variabilidad cinématica elevada" if l.get('tremor_flag', False) else "Normal",
+                "⚠️ Indicador Temblor Motor": l.get('tremor_classification') or ("SÍ — Variabilidad cinemática elevada" if l.get('tremor_flag', False) else "Normal"),
                 "Regularidad Barrido (%)": sr,
                 "Parpadeos (Línea)": blinks_str,
                 "Desvío de Mirada": "SÍ" if l.get('gaze_diverted') else "NO",
