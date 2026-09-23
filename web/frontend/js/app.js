@@ -1893,6 +1893,10 @@ const App = {
       this.currentCameraHeadTremor = 0.0;
       this._earBaseline = 0.34;
       this._earHistory = [];
+      this._browRatioBaseline = 0.48;
+      this._browRatioHistory = [];
+      this._browDropBaseline = 0.20;
+      this._browDropHistory = [];
       this._blinkInProgress = false;
       this._blinkStartTime = 0;
       this._blinkMinEar = 1.0;
@@ -2089,42 +2093,61 @@ const App = {
           blinkCount: this.blinkEvents.length
         };
 
-        // 3. FER (Facial Emotion Recognition): Action Units AU4 (ceño fruncido) y AU24 (tensión labial)
+        // 3. FER (Facial Emotion Recognition): Action Units AU4 (acomodación visual/ceño) y AU24 (tensión labial)
         // Referencia anatómica constante: Distancia interocular externa (33 a 263)
         const eyeDist = Math.hypot(landmarks[33].x - landmarks[263].x, landmarks[33].y - landmarks[263].y);
         const safeEyeDist = eyeDist > 0 ? eyeDist : 0.25;
 
         // AU4 - Acercamiento medial de cejas (107 y 336)
         const browDist = Math.hypot(landmarks[107].x - landmarks[336].x, landmarks[107].y - landmarks[336].y);
-        const browRatio = browDist / safeEyeDist; // Normal: ~0.46 - 0.55. Fruncido: < 0.40.
+        const browRatio = browDist / safeEyeDist;
 
         // AU4 - Descenso vertical de cejas hacia los párpados
         const browLeftToEye = Math.hypot(landmarks[107].x - landmarks[159].x, landmarks[107].y - landmarks[159].y);
         const browRightToEye = Math.hypot(landmarks[336].x - landmarks[386].x, landmarks[336].y - landmarks[386].y);
-        const browDrop = ((browLeftToEye + browRightToEye) / 2.0) / safeEyeDist; // Normal: ~0.19 - 0.25. Deprimido: < 0.16.
+        const browDrop = ((browLeftToEye + browRightToEye) / 2.0) / safeEyeDist;
+
+        // Adaptación dinámica de línea base anatómica individual (percentil 75 en ventana temporal)
+        if (browRatio > 0.25 && browRatio < 0.75) {
+          this._browRatioHistory.push(browRatio);
+          if (this._browRatioHistory.length > 80) this._browRatioHistory.shift();
+          const sortedRatio = [...this._browRatioHistory].sort((a, b) => a - b);
+          this._browRatioBaseline = sortedRatio[Math.floor(sortedRatio.length * 0.75)] || browRatio;
+        }
+        if (browDrop > 0.08 && browDrop < 0.40) {
+          this._browDropHistory.push(browDrop);
+          if (this._browDropHistory.length > 80) this._browDropHistory.shift();
+          const sortedDrop = [...this._browDropHistory].sort((a, b) => a - b);
+          this._browDropBaseline = sortedDrop[Math.floor(sortedDrop.length * 0.75)] || browDrop;
+        }
+
+        const baseRatio = this._browRatioBaseline || 0.48;
+        const baseDrop = this._browDropBaseline || 0.20;
+        const relBrowDist = browRatio / baseRatio;
+        const relBrowDrop = browDrop / baseDrop;
 
         // AU24 - Compresión labial (13 y 14 vs 61 y 291)
         const lipHeight = Math.hypot(landmarks[13].x - landmarks[14].x, landmarks[13].y - landmarks[14].y);
         const lipWidth = Math.hypot(landmarks[61].x - landmarks[291].x, landmarks[61].y - landmarks[291].y);
         const lipRatio = lipWidth > 0 ? (lipHeight / lipWidth) : 0.20;
 
-        let tension = 0;
-        let isFrustrationPeak = false;
-        let expr = 'Concentración';
+        let tension = 14; // Tono base fisiológico de reposo durante el test
+        let isAU4Active = false;
+        let expr = 'Concentración / Foco Sereno';
 
-        // Clasificación calibrada de tensión facial y frustración
-        if (browRatio < 0.39 || browDrop < 0.15) {
-          tension += 65;
-          isFrustrationPeak = true;
-          expr = 'Frustración / Tensión';
-        } else if (browRatio < 0.44 || browDrop < 0.18) {
-          tension += 35;
-          expr = 'Sobreesfuerzo';
+        // Calibración científica: Detección de contracción genuina respecto a su morfología basal
+        // Contracción activa del corrugator supercilii para discriminar detalles visuales diminutos (d con 2 rayas)
+        if (relBrowDist < 0.82 && relBrowDrop < 0.84) {
+          tension += 26;
+          isAU4Active = true;
+          expr = 'Acomodación Visual / Foco Intenso (AU4)';
+        } else if (relBrowDist < 0.90 || relBrowDrop < 0.90) {
+          tension += 12;
+          expr = 'Concentración / Esfuerzo Atencional';
         }
 
-        if (lipRatio < 0.10) {
-          tension += 25;
-          if (tension > 50) expr = 'Tensión Psicomotora';
+        if (lipRatio < 0.08) {
+          tension += 8;
         }
 
         if (earAvg < 0.19) {
@@ -2132,14 +2155,15 @@ const App = {
         }
 
         tension = Math.min(100, Math.max(0, tension));
-        if (tension < 20 && expr === 'Concentración') {
-          expr = 'Foco Sereno';
+        if (tension < 20 && expr.includes('Concentración')) {
+          expr = 'Concentración / Foco Sereno';
         }
 
         this.ferSamples.push({
           tension: tension,
           expr: expr,
-          is_frustration_peak: isFrustrationPeak,
+          is_frustration_peak: isAU4Active,
+          is_au4_active: isAU4Active,
           t: now,
           line: this.currentLine + 1
         });
@@ -3794,8 +3818,8 @@ const App = {
                     <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Tensión Facial</div>
                   </div>
                   <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
-                    <div style="font-size:1.15rem;font-weight:700;color:${(m.fer_frustration_events || 0) > 0 ? '#C62828' : '#2E7D32'};">${m.fer_frustration_events || 0}</div>
-                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Picos Frustración</div>
+                    <div style="font-size:1.15rem;font-weight:700;color:${(m.fer_frustration_events || 0) > 6 ? '#D84315' : '#1565C0'};">${m.fer_frustration_events || 0}</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Esfuerzo AU4</div>
                   </div>
                 </div>
 
@@ -3803,7 +3827,7 @@ const App = {
                   ${(function(){
                     let notes = [];
                     if ((m.fer_frustration_events || 0) > 0) {
-                      notes.push(`<strong>Picos de tensión:</strong> Se detectaron ${m.fer_frustration_events} eventos de microexpresión de frustración.`);
+                      notes.push(`<strong>Esfuerzo Atencional (AU4):</strong> Se detectaron ${m.fer_frustration_events} episodios de acomodación visual / foco intenso ante secuencias de alta demanda visoespacial.`);
                     }
                     if (notes.length === 0) {
                       return '<span style="color:#2E7D32;">✓ Patrón gestual sereno y concentración adecuada ante la demanda visoespacial.</span>';
@@ -4244,8 +4268,8 @@ const App = {
                     <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Tensión Facial</div>
                   </div>
                   <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
-                    <div style="font-size:1.15rem;font-weight:700;color:${(m.fer_frustration_events || 0) > 0 ? '#C62828' : '#2E7D32'};">${m.fer_frustration_events || 0}</div>
-                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Picos Frustración</div>
+                    <div style="font-size:1.15rem;font-weight:700;color:${(m.fer_frustration_events || 0) > 6 ? '#D84315' : '#1565C0'};">${m.fer_frustration_events || 0}</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Esfuerzo AU4</div>
                   </div>
                 </div>
 
@@ -4253,10 +4277,10 @@ const App = {
                   ${(function(){
                     let notes = [];
                     if ((m.fer_frustration_events || 0) > 0) {
-                      notes.push(`<strong>Picos de frustración:</strong> Se detectaron ${m.fer_frustration_events} contracciones intensas del corrugador superciliar (AU4) correlacionadas con estímulos complejos.`);
+                      notes.push(`<strong>Esfuerzo Atencional (AU4):</strong> Se detectaron ${m.fer_frustration_events} episodios de acomodación visual y concentración sostenida (contracción fisiológica del corrugador superciliar AU4 para discriminación foveal de estímulos d2).`);
                     }
-                    if ((m.fer_tension_score || 0) > 35) {
-                      notes.push(`<strong>Tensión sostenida:</strong> Índice de tensión facial elevado (${m.fer_tension_score}%). Mayor esfuerzo gestual.`);
+                    if ((m.fer_tension_score || 0) > 45) {
+                      notes.push(`<strong>Tensión gestual moderada:</strong> Índice de tensión facial de ${m.fer_tension_score}%, compatible con alta exigencia perceptiva ante la presión temporal.`);
                     }
                     if (notes.length === 0) {
                       return '<span style="color:#2E7D32;">✓ Patrón gestual sereno, compatible con autorregulación emocional y foco atencional disciplinado.</span>';
@@ -4925,8 +4949,8 @@ const App = {
                       <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Tensión</div>
                     </div>
                     <div style="background:#FFF;padding:8px;border-radius:6px;border:1px solid #E2E8F0;">
-                      <div style="font-size:1.05rem;font-weight:700;color:${(metrics.fer_frustration_events || 0) > 0 ? '#C62828' : '#2E7D32'};">${metrics.fer_frustration_events || 0}</div>
-                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Frustración</div>
+                      <div style="font-size:1.05rem;font-weight:700;color:${(metrics.fer_frustration_events || 0) > 6 ? '#D84315' : '#1565C0'};">${metrics.fer_frustration_events || 0}</div>
+                      <div style="font-size:0.68rem;color:#64748B;font-weight:600;">Esfuerzo AU4</div>
                     </div>
                   </div>
                 ` : `
@@ -5531,11 +5555,13 @@ const App = {
     ctx.fillText(`Tiempo de ${isCorsiHud ? 'ensayo' : 'línea'}: ${lineSeconds.toFixed(1)}s / ${lineDuration.toFixed(1)}s [Total: ${this.formatTimeSec(curTime)}]`, 24, 71);
     ctx.restore();
 
-    // ── 2. HUD Superior Derecho: Panel Oculomotor & Atención Visual ──
+    // ── 2. HUD Superior Izquierdo (Apilado): Panel Oculomotor & Atención Visual ──
+    // Ubicado en la columna izquierda (x: 14, y: 92) para dejar completamente libre el cuadrante
+    // superior derecho donde se ubica el Picture-in-Picture de la cámara web (evita tapar la cara).
     const oculoCardW = 280;
     const oculoCardH = 72;
-    const oculoCardX = canvas.width - oculoCardW - 14;
-    const oculoCardY = 14;
+    const oculoCardX = 14;
+    const oculoCardY = 92;
 
     ctx.save();
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';

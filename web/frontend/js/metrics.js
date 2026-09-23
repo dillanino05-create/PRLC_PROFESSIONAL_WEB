@@ -295,8 +295,8 @@ const TREMOR_THRESHOLD = 85.0;
 
 function computeTremorScore(samples, cameraHeadTremor = 0.0) {
   // samples: [{x, y, t}, …] donde t es performance.now() en ms
-  if (!samples || samples.length < 5) {
-    return { score: 0.0, flag: false, microtremor: 0.0, tremor_type: 'Estable' };
+  if (!samples || samples.length < 6) {
+    return { score: 0.0, flag: false, microtremor: 0.0, reversals_per_sec: 0.0, tremor_type: 'Estable' };
   }
 
   const subMovementAccels = [];
@@ -307,7 +307,7 @@ function computeTremorScore(samples, cameraHeadTremor = 0.0) {
   for (let i = 2; i < samples.length; i++) {
     const dt1 = (samples[i-1].t - samples[i-2].t) / 1000.0;
     const dt2 = (samples[i].t   - samples[i-1].t)   / 1000.0;
-    if (dt1 <= 0 || dt2 <= 0 || dt1 > 0.5 || dt2 > 0.5) continue;
+    if (dt1 <= 0.002 || dt2 <= 0.002 || dt1 > 0.4 || dt2 > 0.4) continue;
 
     const dx1 = samples[i-1].x - samples[i-2].x;
     const dy1 = samples[i-1].y - samples[i-2].y;
@@ -321,31 +321,31 @@ function computeTremorScore(samples, cameraHeadTremor = 0.0) {
     const v2 = dist2 / dt2; // px/s
     const accel = Math.abs(v2 - v1) / dt2; // px/s^2
 
-    // Movimiento balístico voluntario: desplazamiento amplio (>22px) a alta velocidad (>250 px/s)
-    if (dist2 >= 22 && v2 > 250) {
+    // Movimiento voluntario amplio: desplazamiento amplio (>20px) o velocidad de avance (>220 px/s)
+    if (dist2 >= 20 || v2 > 220) {
       ballisticCount++;
-      continue; // Filtrar aceleraciones de carrera voluntaria hacia el siguiente estímulo
+      continue; // Filtrar aceleraciones de traslación voluntaria hacia el siguiente estímulo
     }
 
-    // Sub-movimientos y micro-ajustes finos (<18px)
+    // Micro-movimientos y ajustes de aproximación (<14px)
     subMovementCount++;
     subMovementAccels.push(accel);
 
-    // Micro-inversión de trayectoria: cambio angular brusco (>110°) en espacio reducido (<18px)
-    // Indica oscilación o sacudida involuntaria (típica de temblor postural/cinético)
-    if (dist1 > 1.5 && dist2 > 1.5 && dist2 < 18) {
+    // Micro-inversión de trayectoria: inversión angular neta (>120°) confinada en radio estrecho (<12px)
+    // Típica de oscilación involuntaria (temblor postural/cinético)
+    if (dist1 > 1.2 && dist2 > 1.2 && dist2 < 12) {
       const theta1 = Math.atan2(dy1, dx1);
       const theta2 = Math.atan2(dy2, dx2);
       let dTheta = Math.abs(theta2 - theta1);
       if (dTheta > Math.PI) dTheta = 2 * Math.PI - dTheta;
-      if (dTheta > (Math.PI * 0.61)) { // > 110 grados
+      if (dTheta > (Math.PI * 0.66)) { // > 120 grados
         microReversals++;
       }
     }
   }
 
   if (subMovementAccels.length === 0) {
-    return { score: 0.0, flag: false, microtremor: 0.0, tremor_type: 'Estable' };
+    return { score: 0.0, flag: false, microtremor: 0.0, reversals_per_sec: 0.0, tremor_type: 'Estable' };
   }
 
   // Jitter fisiológico en micro-desplazamientos
@@ -356,32 +356,46 @@ function computeTremorScore(samples, cameraHeadTremor = 0.0) {
   const totalDurationSec = Math.max((samples[samples.length - 1].t - samples[0].t) / 1000, 0.001);
   const reversalsPerSec = microReversals / totalDurationSec;
 
-  // Normalización calibrada: el jitter voluntario en hardware gamer/alto DPI se acota
-  let normJitter = rawJitter / 1200.0;
-  
-  // Ponderación por frecuencia de oscilación (temblor patológico oscila a 4-12 Hz)
-  let oscillationFactor = 1.0;
-  if (reversalsPerSec >= 3.5) {
-    oscillationFactor = 1.0 + (reversalsPerSec - 3.5) * 0.45;
+  // Calibración científica a 60 FPS:
+  // La varianza típica de aceleración voluntaria en ratón ronda los 28,000 px/s²
+  const normJitter = rawJitter / 28000.0;
+
+  // Ponderación por banda de frecuencia fisiológica:
+  // El temblor patológico humano se sitúa entre 4.0 Hz y 12.0 Hz.
+  // Movimientos con inversiones < 2.5 Hz corresponden a navegación secuencial normal entre estímulos.
+  let oscillationFactor = 0.25;
+  if (reversalsPerSec < 2.5) {
+    // Desplazamiento voluntario secuencial: atenuación drástica de falsos positivos
+    oscillationFactor = Math.max(0.15, 0.20 + (reversalsPerSec / 2.5) * 0.25);
+  } else if (reversalsPerSec < 4.0) {
+    // Inestabilidad leve o vacilación en clics
+    oscillationFactor = 0.45 + ((reversalsPerSec - 2.5) / 1.5) * 0.45;
   } else {
-    // Si la frecuencia de inversión es baja (<3.5 Hz), se trata de apuntado voluntario normal
-    oscillationFactor = Math.max(0.45, 0.65 + reversalsPerSec * 0.1);
+    // Banda de temblor patológico (>= 4.0 Hz)
+    oscillationFactor = 1.0 + Math.min(2.5, (reversalsPerSec - 4.0) * 0.6);
   }
 
   let finalScore = normJitter * 28.0 * oscillationFactor;
 
-  // Fusión Multimodal con Cámara (si la cámara no registra micro-temblor cefálico, descartar falsos positivos de mouse)
+  // Clasificación y Fusión Multimodal con Cámara Cefálica
   let tremorType = 'Estable / Control Voluntario';
-  if (cameraHeadTremor > 1.8 && reversalsPerSec >= 4.0) {
-    // Confirmación multimodal: cuerpo/cabeza y mouse oscilan conjuntamente
-    finalScore = finalScore * 1.35;
+
+  // Si la cámara confirma calma postural (< 1.2), el usuario tiene cuerpo estable y control voluntario
+  if (cameraHeadTremor < 1.2) {
+    finalScore = Math.min(finalScore, 42.0); // No puede superar el umbral clínico patológico
+    if (ballisticCount > subMovementCount * 0.4) {
+      tremorType = 'Cinemática Ágil Voluntaria (Sin temblor)';
+    } else {
+      tremorType = 'Estable / Control Voluntario';
+    }
+  } else if (cameraHeadTremor >= 1.6 && reversalsPerSec >= 4.0) {
+    // Confirmación multimodal: cuerpo/cabeza y mouse oscilan conjuntamente en frecuencia de temblor
+    finalScore = Math.min(150, finalScore * 1.6 + 45.0);
     tremorType = 'Temblor Multimodal Confirmado (Cámara + Ratón)';
-  } else if (ballisticCount > subMovementCount * 0.7 && cameraHeadTremor < 1.0) {
-    // Movimiento rápido ágil de teclado/ratón sin temblor físico
-    finalScore = Math.min(finalScore, 42.0);
-    tremorType = 'Movimiento Voluntario Rápido (Cinemática Ágil)';
-  } else if (finalScore > TREMOR_THRESHOLD) {
+  } else if (finalScore > TREMOR_THRESHOLD && reversalsPerSec >= 4.5) {
     tremorType = 'Microinestabilidad Motora Manual';
+  } else {
+    tremorType = 'Ajuste Motor Normal';
   }
 
   const scoreFormatted = parseFloat(Math.min(150, Math.max(0, finalScore)).toFixed(2));
@@ -573,25 +587,49 @@ function computeFERMetrics(ferSamples, cameraWasActive = false) {
 
   if (!ferSamples || ferSamples.length === 0) {
     return {
-      fer_dominant: 'Concentración / Foco Neutro',
-      fer_tension_score: 12.0,
+      fer_dominant: 'Concentración / Foco Sereno',
+      fer_tension_score: 14.0,
       fer_frustration_events: 0
     };
   }
 
   const counts = {};
   let totalTension = 0;
-  let frustrationCount = 0;
+  
+  // Agrupación en episodios temporales de esfuerzo atencional / acomodación visual (AU4)
+  // En lugar de acumular cada frame individual a 10 Hz (que generaba conteos espurios de >1.400 frames),
+  // se cuantifican episodios neurofisiológicos discretos de contracción sostenida del corrugador superciliar:
+  // Inicio: >= 4 fotogramas consecutivos de contracción activa (~400 ms).
+  // Cierre: >= 8 fotogramas consecutivos de relajación gestual (~800 ms).
+  let au4Episodes = 0;
+  let inEpisode = false;
+  let activeConsecutive = 0;
+  let relaxedConsecutive = 0;
 
   for (let i = 0; i < ferSamples.length; i++) {
     const s = ferSamples[i];
-    const expr = s.expr || 'Concentrado';
+    const expr = s.expr || 'Concentración / Foco Sereno';
     counts[expr] = (counts[expr] || 0) + 1;
     totalTension += (s.tension || 0);
-    if (s.is_frustration_peak) frustrationCount++;
+
+    const isActive = Boolean(s.is_frustration_peak || s.is_au4_active);
+    if (isActive) {
+      activeConsecutive++;
+      relaxedConsecutive = 0;
+      if (!inEpisode && activeConsecutive >= 4) {
+        au4Episodes++;
+        inEpisode = true;
+      }
+    } else {
+      relaxedConsecutive++;
+      if (relaxedConsecutive >= 8) {
+        inEpisode = false;
+        activeConsecutive = 0;
+      }
+    }
   }
 
-  let dominantExpr = 'Concentración Neutra';
+  let dominantExpr = 'Concentración / Foco Sereno';
   let maxC = 0;
   for (const [k, v] of Object.entries(counts)) {
     if (v > maxC) {
@@ -600,12 +638,13 @@ function computeFERMetrics(ferSamples, cameraWasActive = false) {
     }
   }
 
-  const avgTension = parseFloat((totalTension / ferSamples.length).toFixed(1));
+  const rawAvgTension = totalTension / ferSamples.length;
+  const avgTension = parseFloat(Math.min(100, Math.max(0, rawAvgTension)).toFixed(1));
 
   return {
     fer_dominant: dominantExpr,
     fer_tension_score: avgTension,
-    fer_frustration_events: frustrationCount
+    fer_frustration_events: au4Episodes
   };
 }
 
