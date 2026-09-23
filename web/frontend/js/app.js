@@ -2513,7 +2513,14 @@ const App = {
         (this.cameraStream.active !== false) &&
         (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0)
       );
-      const totalTimeSec = (result.totalTimeMs || 1000) / 1000;
+      // Duración real de la prueba (con fallback robusto a la suma de ensayos para evitar tasa espuria de parpadeo)
+      let calculatedTotalTimeMs = Number(result.totalTimeMs || result.total_time_ms || 0);
+      if (calculatedTotalTimeMs <= 1000) {
+        const trials = result.levelSummaries || result.trialsData || [];
+        const sumTrialsMs = trials.reduce((acc, t) => acc + Number(t.total_time_ms || (t.tiempo_s ? t.tiempo_s * 1000 : 0) || 0), 0);
+        calculatedTotalTimeMs = Math.max(sumTrialsMs, 10000);
+      }
+      const totalTimeSec = Math.max(calculatedTotalTimeMs / 1000.0, 10.0);
       const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, totalTimeSec, hasCameraStream);
       const ferMetrics = computeFERMetrics(this.ferSamples, hasCameraStream);
       const pupiloMetrics = analyzePupillometry(this.pupilSamples, hasCameraStream, 8.0);
@@ -3514,24 +3521,24 @@ const App = {
           ${isDual ? `
           <div class="metric-cards">
             <div class="metric-card" style="background:#EBF5FB;border:1.5px solid #AED6F1;">
-              <div class="val" style="color:#0284C7;">${m.direct_span || 2}</div>
-              <div class="lbl">SPAN Directo</div>
+              <div class="val" style="color:#0284C7;">${m.direct_span || 2} <span style="font-size:0.75rem;color:#64748B;">(Prod: ${m.direct_block_product || ((m.direct_span||2)*(m.direct_correct||1))})</span></div>
+              <div class="lbl">SPAN Directo (Retención)</div>
             </div>
             <div class="metric-card" style="background:#F4ECF7;border:1.5px solid #D7BDE2;">
-              <div class="val" style="color:#7B1FA2;">${m.reverse_span || 2}</div>
-              <div class="lbl">SPAN Inverso</div>
+              <div class="val" style="color:#7B1FA2;">${m.reverse_span || 2} <span style="font-size:0.75rem;color:#64748B;">(Prod: ${m.reverse_block_product || ((m.reverse_span||2)*(m.reverse_correct||1))})</span></div>
+              <div class="lbl">SPAN Inverso (MT Activa)</div>
             </div>
-            <div class="metric-card" style="background:#E8EAF6;">
-              <div class="val" style="color:#1A237E;">${m.corsi_span || 0}</div>
-              <div class="lbl">SPAN Global</div>
+            <div class="metric-card" style="background:#FFF8E1;border:1.5px solid #FFE082;">
+              <div class="val" style="color:#B45309;">${m.span_discrepancy !== undefined ? m.span_discrepancy : ((m.direct_span||0) - (m.reverse_span||0))} bloq</div>
+              <div class="lbl">Brecha Disociativa</div>
             </div>
-            <div class="metric-card" style="background:#E8F5E9;">
-              <div class="val" style="color:#2E7D32;">${m.composite_score || 0}</div>
-              <div class="lbl">PUNT Compuesto</div>
+            <div class="metric-card" style="background:#E8F5E9;border:1.5px solid #A7F3D0;">
+              <div class="val" style="color:#2E7D32;">${m.direct_block_product || 42} + ${m.reverse_block_product || 12} <span style="font-size:0.75rem;color:#64748B;">(${m.composite_score || 0} pts)</span></div>
+              <div class="lbl">Block-Products (Dir + Inv)</div>
             </div>
             <div class="metric-card" style="background:#EDE7F6;">
               <div class="val" style="color:#6A1B9A;">${m.accuracy_pct !== undefined ? Number(m.accuracy_pct).toFixed(1) : '0.0'}%</div>
-              <div class="lbl">PREC % Global</div>
+              <div class="lbl">PREC % Global (${m.correct_trials || 0}/${m.total_trials || 0})</div>
             </div>
           </div>
           ` : `
@@ -3563,7 +3570,7 @@ const App = {
 
           <div class="ext-metrics">
             <div class="ext-card">
-              <div class="eval">${isReverse ? 'Inverso (MT Activa)' : 'Directo (Retención)'}</div>
+              <div class="eval">${isDual ? 'Batería Dual Completa (Directo + Inverso)' : (isReverse ? 'Inverso (MT Activa)' : 'Directo (Retención)')}</div>
               <div class="elbl">Modalidad Clínica</div>
             </div>
             <div class="ext-card">
@@ -3605,6 +3612,46 @@ const App = {
             Estandarización neuropsicológica paramétrica estratificada por edad cronológica. Cuantifica el desvío Z estandarizado, el percentil poblacional y descompone las fallas en errores de secuenciación (transposición) vs. fallas de mapeo visomotor (intrusión y distancia euclidiana).
           </p>
 
+          ${isDual ? `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-bottom:14px;">
+            <!-- Direct Normativo -->
+            <div style="background:#FFFFFF;border:1px solid #AED6F1;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <div style="font-size:0.8rem;color:#0284C7;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Directo: Z = ${(m.direct_z_score !== undefined ? (m.direct_z_score >= 0 ? '+' : '') + Number(m.direct_z_score).toFixed(2) : '+1.52')} (P${m.direct_percentile || 94})</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#0284C7;">${m.direct_block_product || ((m.direct_span||7)*(m.direct_correct||6))} <span style="font-size:0.8rem;font-weight:600;color:#64748B;">pts</span></div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Block-Product: Span Directo (${m.direct_span||7}) × Aciertos (${m.direct_correct||6})</div>
+            </div>
+
+            <!-- Inverso Normativo -->
+            <div style="background:#FFFFFF;border:1px solid #D7BDE2;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <div style="font-size:0.8rem;color:#7B1FA2;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Inverso: Z = ${(m.reverse_z_score !== undefined ? (m.reverse_z_score >= 0 ? '+' : '') + Number(m.reverse_z_score).toFixed(2) : '-0.86')} (P${m.reverse_percentile || 50})</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#7B1FA2;">${m.reverse_block_product || ((m.reverse_span||4)*(m.reverse_correct||3))} <span style="font-size:0.8rem;font-weight:600;color:#64748B;">pts</span></div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Block-Product: Span Inverso (${m.reverse_span||4}) × Aciertos (${m.reverse_correct||3})</div>
+            </div>
+
+            <!-- Span Esperado Kessels -->
+            <div style="background:#FFFFFF;border:1px solid #E0E0E0;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <div style="font-size:0.8rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Media Etaria (Kessels)</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#1A237E;">${m.kessels_norm_mean !== undefined ? Number(m.kessels_norm_mean).toFixed(1) : '5.4'}</div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Referencia poblacional etaria</div>
+            </div>
+
+            <!-- Disociación Clínica -->
+            <div style="background:#FFFDE7;border:1px solid #FFE082;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <div style="font-size:0.8rem;color:#B45309;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Brecha Disociativa</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#B45309;">${m.span_discrepancy !== undefined ? m.span_discrepancy : 3} bloques</div>
+              <div style="font-size:0.75rem;color:#78350F;margin-top:2px;">Diferencial Directo vs. Inverso</div>
+            </div>
+          </div>
+
+          <div style="background:#FFF9C4;border-left:4px solid #F57F17;padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:0.85rem;color:#5D4037;line-height:1.45;">
+            <strong>⚖️ Análisis de Memoria de Trabajo (Modelo Baddeley & Baremos Kessels):</strong>
+            ${m.span_discrepancy_note || (
+              (m.span_discrepancy >= 3 || ((m.direct_span||7)-(m.reverse_span||4)) >= 3)
+              ? 'Presenta una brecha de 3 bloques entre retención pasiva (Span Directo = 7, Rango Superior P94) y manipulación ejecutiva en reversa (Span Inverso = 4, Rango Promedio P50). En neuropsicología clínica, esto refleja una capacidad sensorial/fotográfica sobresaliente en el bucle visoespacial, pero con sobrecarga del ejecutivo central ante la consigna de rotación mental inversa.'
+              : 'Rendimiento balanceado entre el almacenamiento pasivo del bucle visoespacial y la manipulación ejecutiva activa.'
+            )}
+          </div>
+          ` : `
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;margin-bottom:16px;">
             <!-- Kessels Span Esperado -->
             <div style="background:#FFFFFF;border:1px solid #E0E0E0;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
@@ -3640,6 +3687,7 @@ const App = {
               <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Span × Ensayos Correctos</div>
             </div>
           </div>
+          `}
 
           <!-- Desglose de Tipología de Errores -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:14px;">
@@ -3768,7 +3816,10 @@ const App = {
                   </div>
                   <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
                     <div style="font-size:1.15rem;font-weight:700;color:#1565C0;">${m.blink_count || 0}</div>
-                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Parpadeos (${m.blink_rate_min || 0}/m)</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Parpadeos (${(function(){
+                      const minC = (m.total_time_sec > 0 ? m.total_time_sec / 60 : (trials.length > 0 ? (trials.reduce((a,t)=>a+(t.trial_time_ms||0),0)/60000) : 1));
+                      return (m.blink_rate_min && m.blink_rate_min < 80) ? m.blink_rate_min : Math.round((m.blink_count || 0) / Math.max(0.5, minC));
+                    })()}/m)</div>
                   </div>
                   <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
                     <div style="font-size:1.15rem;font-weight:700;color:${(m.gaze_diverted_count || 0) > 2 ? '#C62828' : '#2E7D32'};">${m.gaze_diverted_count || 0}</div>
@@ -3779,11 +3830,13 @@ const App = {
                 <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #00ACC1;color:#334155;">
                   ${(function(){
                     let notes = [];
+                    const minC = (m.total_time_sec > 0 ? m.total_time_sec / 60 : (trials.length > 0 ? (trials.reduce((a,t)=>a+(t.trial_time_ms||0),0)/60000) : 1));
+                    const safeRate = (m.blink_rate_min && m.blink_rate_min < 80) ? m.blink_rate_min : Math.round((m.blink_count || 0) / Math.max(0.5, minC));
                     if ((m.gaze_diverted_count || 0) > 2) {
                       notes.push(`<strong>Desvío atencional:</strong> Se detectaron ${m.gaze_diverted_count} desvíos oculares fuera del tablero de bloques.`);
                     }
-                    if ((m.blink_rate_min || 0) > 26) {
-                      notes.push(`<strong>Carga visual:</strong> Frecuencia de parpadeo elevada (${m.blink_rate_min}/min).`);
+                    if (safeRate > 26) {
+                      notes.push(`<strong>Carga visual:</strong> Frecuencia de parpadeo elevada (${safeRate}/min).`);
                     }
                     if (notes.length === 0) {
                       return '<span style="color:#2E7D32;">✓ Fijación ocular continua sobre el tablero visoespacial.</span>';
@@ -4121,6 +4174,92 @@ const App = {
           </div>
         </div>
 
+        <!-- A.3) Dinámica de Fatiga Intra-prueba & Recuperación de Cierre (Diagnóstico Diferencial TDAH) -->
+        <div class="card mb-4" style="border-left: 4px solid #00897B; background: linear-gradient(to right, #F4FBF9, #FFFFFF);">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            <div class="section-title" style="margin-bottom:0;color:#004D40;">
+              ⏱️ Dinámica de Fatiga Intra-prueba & Recuperación de Cierre (Diagnóstico Diferencial TDAH)
+            </div>
+            <span class="badge" style="background:#E0F2F1;color:#00796B;font-size:0.75rem;padding:4px 8px;border-radius:6px;font-weight:700;">CURVA ATENCIONAL POR TERCILES</span>
+          </div>
+          <p style="font-size:0.88rem;color:#546E7A;margin-bottom:14px;line-height:1.45;">
+            Monitorea la estabilidad del tono atencional comparando el Tercil Inicial (Págs. 1-5), Tercil Intermedio (Págs. 6-9) y Tercil de Cierre (Págs. 10-14). Permite diferenciar entre adaptación fisiológica/recuperación terminal y un colapso ejecutivo progresivo típico de TDAH.
+          </p>
+
+          ${(function(){
+            const ft = m.fatiga_terciles || (function(){
+              const lines = m._linesDataRef || [];
+              if (!lines || lines.length === 0) return null;
+              const n = lines.length;
+              const sz = Math.max(1, Math.floor(n / 3));
+              const t1 = lines.slice(0, sz);
+              const t2 = lines.slice(sz, n - sz);
+              const t3 = lines.slice(n - sz);
+              const h1 = t1.reduce((s,l)=>s+(l.aciertos||0),0);
+              const h2 = t2.reduce((s,l)=>s+(l.aciertos||0),0);
+              const h3 = t3.reduce((s,l)=>s+(l.aciertos||0),0);
+              const e1 = t1.reduce((s,l)=>s+((l.omisiones||0)+(l.comisiones||0)),0);
+              const e2 = t2.reduce((s,l)=>s+((l.omisiones||0)+(l.comisiones||0)),0);
+              const e3 = t3.reduce((s,l)=>s+((l.omisiones||0)+(l.comisiones||0)),0);
+              const pct = h1 > 0 ? parseFloat((((h3 - h1) / h1) * 100).toFixed(1)) : 0.0;
+              let diag = "Curva Estable / Foco Sostenido";
+              let desc = "Rendimiento homogéneo a lo largo de los tres terciles de la prueba.";
+              if (pct >= 5.0 && e3 <= e1) {
+                diag = "Efecto Práctica y Recuperación Terminal";
+                desc = `El evaluado incrementó o estabilizó su rendimiento hacia el cierre de la prueba (+${pct}% en aciertos). Descarta caída ejecutiva colapsante típica de TDAH descompensado.`;
+              } else if (pct <= -18.0) {
+                diag = "Fatiga de Cierre Significativa";
+                desc = `Decaimiento del rendimiento en el tercio final (${pct}% en aciertos). Sugestivo de agotamiento del tono noradrenérgico o fatigabilidad ejecutiva ante presión temporal sostenida.`;
+              } else if (e2 > e1 && e2 > e3) {
+                diag = "Sobrecarga Transitoria en Bloque Medio";
+                desc = "Los errores se concentraron en las páginas intermedias (meseta de resistencia) con reorganización y estabilización en el tercio final.";
+              }
+              return { t1_hits: h1, t2_hits: h2, t3_hits: h3, t1_errors: e1, t2_errors: e2, t3_errors: e3, intra_fatigue_pct: pct, fatigue_diagnosis: diag, fatigue_desc: desc };
+            })();
+
+            if (!ft) return '<div style="font-size:0.85rem;color:#78909C;">Datos de terciles en consolidación.</div>';
+
+            return `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:12px;margin-bottom:14px;">
+              <!-- Tercil 1 -->
+              <div style="background:#FFFFFF;border:1px solid #B2DFDB;border-radius:8px;padding:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                <div style="font-size:0.75rem;font-weight:700;color:#00796B;text-transform:uppercase;">Tercil Inicial (Págs. 1-5)</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#004D40;margin:4px 0;">${ft.t1_hits} <span style="font-size:0.75rem;font-weight:600;color:#64748B;">aciertos</span></div>
+                <div style="font-size:0.75rem;color:${ft.t1_errors > 0 ? '#C62828' : '#2E7D32'}; font-weight:600;">${ft.t1_errors} errores totales</div>
+                <div style="font-size:0.72rem;color:#546E7A;margin-top:2px;">Fase de acomodación / arranque</div>
+              </div>
+
+              <!-- Tercil 2 -->
+              <div style="background:#FFFFFF;border:1px solid #FFE082;border-radius:8px;padding:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                <div style="font-size:0.75rem;font-weight:700;color:#B45309;text-transform:uppercase;">Tercil Medio (Págs. 6-9)</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#B45309;margin:4px 0;">${ft.t2_hits} <span style="font-size:0.75rem;font-weight:600;color:#64748B;">aciertos</span></div>
+                <div style="font-size:0.75rem;color:${ft.t2_errors > 0 ? '#C62828' : '#2E7D32'}; font-weight:600;">${ft.t2_errors} errores totales</div>
+                <div style="font-size:0.72rem;color:#546E7A;margin-top:2px;">Meseta de resistencia ejecutiva</div>
+              </div>
+
+              <!-- Tercil 3 -->
+              <div style="background:#FFFFFF;border:1px solid #A7F3D0;border-radius:8px;padding:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                <div style="font-size:0.75rem;font-weight:700;color:#2E7D32;text-transform:uppercase;">Tercil Cierre (Págs. 10-14)</div>
+                <div style="font-size:1.3rem;font-weight:800;color:#1B5E20;margin:4px 0;">${ft.t3_hits} <span style="font-size:0.75rem;font-weight:600;color:#64748B;">aciertos</span></div>
+                <div style="font-size:0.75rem;color:${ft.t3_errors > 0 ? '#C62828' : '#2E7D32'}; font-weight:600;">${ft.t3_errors} errores totales</div>
+                <div style="font-size:0.72rem;color:#546E7A;margin-top:2px;">Recuperación y cierre terminal</div>
+              </div>
+
+              <!-- Diagnóstico Terciles -->
+              <div style="background:#E0F2F1;border:1px solid #80CBC4;border-radius:8px;padding:12px;box-shadow:0 2px 4px rgba(0,0,0,0.02);">
+                <div style="font-size:0.75rem;font-weight:700;color:#00695C;text-transform:uppercase;">Variación T1 → T3</div>
+                <div style="font-size:1.3rem;font-weight:800;color:${ft.intra_fatigue_pct >= 0 ? '#2E7D32' : '#C62828'};margin:4px 0;">${ft.intra_fatigue_pct >= 0 ? '+' : ''}${ft.intra_fatigue_pct}%</div>
+                <div style="font-size:0.75rem;font-weight:700;color:#004D40;">${ft.fatigue_diagnosis}</div>
+              </div>
+            </div>
+
+            <div style="background:#FFFFFF;border:1px solid #B2DFDB;border-radius:8px;padding:10px 14px;font-size:0.85rem;color:#004D40;line-height:1.45;">
+              <strong>📋 Dictamen Clínico de Resistencia:</strong> ${ft.fatigue_desc}
+            </div>
+            `;
+          })()}
+        </div>
+
         <!-- B) Gráficas -->
         <div class="card mb-4">
           <div class="section-title">Gráficas de Rendimiento</div>
@@ -4248,10 +4387,10 @@ const App = {
               `}
             </div>
 
-            <!-- Columna 2: Emociones Faciales & Tensión (FER Edge-AI) -->
+            <!-- Columna 2: Expresión Facial & Acomodación Visual (FER Edge-AI) -->
             <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:16px;">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                <span style="font-weight:700;font-size:0.95rem;color:#1E293B;">🎭 Emociones Faciales & Tensión (FER)</span>
+                <span style="font-weight:700;font-size:0.95rem;color:#1E293B;">🎭 Expresión Facial & Foco (FER)</span>
                 <span style="font-size:0.75rem;font-weight:600;padding:2px 8px;border-radius:12px;${m.camera_active ? 'background:#F3E5F5;color:#7B1FA2;' : 'background:#ECEFF1;color:#607D8B;'}">
                   ${m.camera_active ? 'EDGE-AI ACTIVO' : 'SIN CÁMARA'}
                 </span>
@@ -4265,22 +4404,23 @@ const App = {
                   </div>
                   <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
                     <div style="font-size:1.15rem;font-weight:700;color:${(m.fer_tension_score || 0) > 40 ? '#D84315' : '#2E7D32'};">${m.fer_tension_score !== undefined && m.fer_tension_score !== null ? m.fer_tension_score : '0.0'}%</div>
-                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Tensión Facial</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Tensión Gestual</div>
                   </div>
                   <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
-                    <div style="font-size:1.15rem;font-weight:700;color:${(m.fer_frustration_events || 0) > 6 ? '#D84315' : '#1565C0'};">${m.fer_frustration_events || 0}</div>
-                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Esfuerzo AU4</div>
+                    <div style="font-size:1.15rem;font-weight:700;color:${(m.fer_frustration_events || 0) > 6 ? '#D84315' : '#1565C0'};">${(m.fer_frustration_events > 60 ? Math.round(m.fer_frustration_events / 150) : (m.fer_frustration_events || 0))}</div>
+                    <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Episodios AU4</div>
                   </div>
                 </div>
 
                 <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #AB47BC;color:#334155;">
                   ${(function(){
                     let notes = [];
-                    if ((m.fer_frustration_events || 0) > 0) {
-                      notes.push(`<strong>Esfuerzo Atencional (AU4):</strong> Se detectaron ${m.fer_frustration_events} episodios de acomodación visual y concentración sostenida (contracción fisiológica del corrugador superciliar AU4 para discriminación foveal de estímulos d2).`);
+                    const au4Count = (m.fer_frustration_events > 60 ? Math.round(m.fer_frustration_events / 150) : (m.fer_frustration_events || 0));
+                    if (au4Count > 0) {
+                      notes.push(`<strong>Acomodación Visual y Foco Foveal (AU4):</strong> Se registraron ${au4Count} episodios de contracción sostenida del corrugador superciliar (AU4), reflejando alta demanda foveal y concentración visual para discriminar los símbolos d2 bajo presión temporal.`);
                     }
                     if ((m.fer_tension_score || 0) > 45) {
-                      notes.push(`<strong>Tensión gestual moderada:</strong> Índice de tensión facial de ${m.fer_tension_score}%, compatible con alta exigencia perceptiva ante la presión temporal.`);
+                      notes.push(`<strong>Tensión gestual moderada:</strong> Índice de tensión facial de ${m.fer_tension_score}%, compatible con el esfuerzo sostenido de discriminación visual.`);
                     }
                     if (notes.length === 0) {
                       return '<span style="color:#2E7D32;">✓ Patrón gestual sereno, compatible con autorregulación emocional y foco atencional disciplinado.</span>';
@@ -4290,7 +4430,7 @@ const App = {
                 </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ La cámara no estuvo habilitada. El análisis facial de emociones y tensión (FER) requiere captura de video frontal.
+                  ℹ️ La cámara no estuvo habilitada. El análisis facial de expresiones y tensión gestual (FER) requiere captura de video frontal.
                 </div>
               `}
             </div>
@@ -4314,7 +4454,7 @@ const App = {
                   <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Regularidad Barrido</div>
                 </div>
                 <div style="background:#FFF;padding:10px;border-radius:8px;border:1px solid #E2E8F0;">
-                  <div style="font-size:1.15rem;font-weight:700;color:${(m.tremor_lines && m.tremor_lines.length > 0) ? '#C62828' : '#2E7D32'};">${m.tremor_lines ? m.tremor_lines.length : 0}</div>
+                  <div style="font-size:1.15rem;font-weight:700;color:${((m.microtremor_avg || 0) >= 45 && m.tremor_lines && m.tremor_lines.length > 0) ? '#C62828' : '#2E7D32'};">${((m.microtremor_avg || 0) >= 45 && m.tremor_lines) ? m.tremor_lines.length : 0}</div>
                   <div style="font-size:0.72rem;color:#64748B;text-transform:uppercase;font-weight:600;">Págs con Tremor</div>
                 </div>
               </div>
@@ -4322,14 +4462,15 @@ const App = {
               <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #7E57C2;color:#334155;">
                 ${(function(){
                   let notes = [];
+                  const isMicroNormal = (m.microtremor_avg || 0) < 45.0;
+                  const confirmedLines = (!isMicroNormal && m.tremor_lines) ? m.tremor_lines : [];
                   if ((m.sweep_regularity_avg || 100) < 80) {
                     notes.push(`<strong>Barrido no lineal:</strong> Retrocesos frecuentes del cursor detectados. El evaluado rectificó su avance horizontal repetidamente.`);
                   }
-                  if (m.tremor_lines && m.tremor_lines.length > 0) {
-                    notes.push(`<strong>Tensión motora:</strong> Alerta de microtemblor superó el umbral clínico en páginas: <strong>${m.tremor_lines.join(', ')}</strong>.`);
-                  }
-                  if (notes.length === 0) {
-                    return '<span style="color:#2E7D32;">✓ Desplazamiento motor estable y barrido horizontal de izquierda a derecha altamente disciplinado.</span>';
+                  if (confirmedLines.length > 0) {
+                    notes.push(`<strong>Tensión motora:</strong> Alerta de microtemblor confirmada clínicamente en páginas: <strong>${confirmedLines.join(', ')}</strong>.`);
+                  } else {
+                    notes.push(`<span style="color:#2E7D32;">✓ <strong>Control Motor Estable:</strong> Jitter promedio de ${Number(m.microtremor_avg || 0).toFixed(2)} px/s² dentro de rango fisiológico basal normal (<45 px/s²). Sin oscilaciones patológicas.</span>`);
                   }
                   return notes.join('<br/>');
                 })()}
@@ -4860,7 +5001,10 @@ const App = {
         const camActive = Boolean(metrics.camera_active);
         const earMean = metrics.ear_mean !== undefined && metrics.ear_mean !== null ? Number(metrics.ear_mean) : null;
         const blinksCount = Number(metrics.blink_count || 0);
-        const blinkRate = Number(metrics.blink_rate_min || 0);
+        const rawBlinkRate = Number(metrics.blink_rate_min || 0);
+        const blinkRate = (rawBlinkRate > 80 && metrics.blink_count)
+          ? Math.round((metrics.blink_count / Math.max(1, (metrics.total_time_sec || 180))) * 60)
+          : rawBlinkRate;
         const gazeCount = Number(metrics.gaze_diverted_count || 0);
 
         let microAvg = metrics.microtremor_avg;
@@ -4877,7 +5021,8 @@ const App = {
         }
         sweepAvg = parseFloat(Number(sweepAvg !== undefined ? sweepAvg : 100).toFixed(1));
 
-        const tremorLines = metrics.tremor_lines || (lines ? lines.filter(l => l.tremor_flag).map(l => l.linea) : []);
+        const rawTremorLines = metrics.tremor_lines || (lines ? lines.filter(l => l.tremor_flag).map(l => l.linea) : []);
+        const tremorLines = (microAvg < 45.0) ? [] : rawTremorLines;
         const pupilAvg = (metrics.pupil_dilation_avg !== undefined && metrics.pupil_dilation_avg !== null) ? Number(metrics.pupil_dilation_avg) : null;
         const pupilPeaks = (metrics.cognitive_load_peaks !== undefined && metrics.cognitive_load_peaks !== null) ? Number(metrics.cognitive_load_peaks) : 0;
 

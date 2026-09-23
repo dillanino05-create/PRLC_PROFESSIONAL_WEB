@@ -202,6 +202,21 @@ class MetricsData(BaseModel):
     kessels_norm_mean: Optional[float] = None
     kessels_z_score: Optional[float] = None
     kessels_percentile: Optional[int] = None
+    direct_span: Optional[int] = None
+    reverse_span: Optional[int] = None
+    direct_correct: Optional[int] = None
+    reverse_correct: Optional[int] = None
+    direct_trials: Optional[int] = None
+    reverse_trials: Optional[int] = None
+    direct_block_product: Optional[int] = None
+    reverse_block_product: Optional[int] = None
+    span_discrepancy: Optional[int] = None
+    span_discrepancy_note: Optional[str] = None
+    direct_z_score: Optional[float] = None
+    direct_percentile: Optional[int] = None
+    reverse_z_score: Optional[float] = None
+    reverse_percentile: Optional[int] = None
+    fatiga_terciles: Optional[Dict[str, Any]] = None
     # ── Identidad Multi-Test y Cadena de Custodia Digital ─────────────────────
     test_type: Optional[str] = "PLC"
     session_tag: Optional[str] = None

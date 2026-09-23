@@ -114,6 +114,7 @@ window.CorsiRunner = {
     this.currentTrialClicks = [];
     this.currentSelectedCubes = new Set();
     this.clearTimers();
+    this.testStartTime = Date.now();
 
     this.renderUI();
     this.startLevel();
@@ -591,13 +592,19 @@ window.CorsiRunner = {
       this.audioCtx = null;
     }
 
+    const totalDurationMs = this.testStartTime 
+      ? Math.max(1000, Date.now() - this.testStartTime)
+      : Math.max(1000, this.levelSummaries.reduce((acc, s) => acc + (s.total_time_ms || 0), 0));
+
     const finalData = {
       testMode: this.testMode,
       corsiSpan: this.corsiSpan,
       maxLevelReached: this.currentLevel,
       levelSummaries: this.levelSummaries,
       trialsData: this.levelSummaries,
-      movementsData: this.movementsData
+      movementsData: this.movementsData,
+      totalTimeMs: totalDurationMs,
+      total_time_ms: totalDurationMs
     };
 
     if (typeof this.onFinish === 'function') {

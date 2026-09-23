@@ -155,6 +155,48 @@ function calcMetrics(linesData, clickLog, age) {
   const h2  = activeLines.slice(mid).reduce((s, l) => s + l.aciertos, 0);
   const TRM = h1 > 0 ? ((h2 - h1) / h1) * 100 : 0;
 
+  // ── Dinámica de Fatiga Intra-prueba y Terciles (Diagnóstico Diferencial TDAH / Esfuerzo Sostenido) ──
+  const nLines = activeLines.length;
+  const tercilSize = Math.max(1, Math.floor(nLines / 3));
+  const t1Lines = activeLines.slice(0, tercilSize);
+  const t2Lines = activeLines.slice(tercilSize, nLines - tercilSize);
+  const t3Lines = activeLines.slice(nLines - tercilSize);
+
+  const t1_hits = t1Lines.reduce((s, l) => s + (l.aciertos || 0), 0);
+  const t2_hits = t2Lines.reduce((s, l) => s + (l.aciertos || 0), 0);
+  const t3_hits = t3Lines.reduce((s, l) => s + (l.aciertos || 0), 0);
+
+  const t1_errors = t1Lines.reduce((s, l) => s + ((l.omisiones || 0) + (l.comisiones || 0)), 0);
+  const t2_errors = t2Lines.reduce((s, l) => s + ((l.omisiones || 0) + (l.comisiones || 0)), 0);
+  const t3_errors = t3Lines.reduce((s, l) => s + ((l.omisiones || 0) + (l.comisiones || 0)), 0);
+
+  const intra_fatigue_pct = t1_hits > 0 ? parseFloat((((t3_hits - t1_hits) / t1_hits) * 100).toFixed(1)) : 0.0;
+  
+  let fatigue_diagnosis = "Curva Estable / Foco Sostenido";
+  let fatigue_desc = "Rendimiento homogéneo a lo largo de los tres terciles de la prueba.";
+
+  if (intra_fatigue_pct >= 5.0 && t3_errors <= t1_errors) {
+    fatigue_diagnosis = "Efecto Práctica y Recuperación Terminal";
+    fatigue_desc = `El evaluado incrementó o estabilizó su rendimiento hacia el cierre de la prueba (+${intra_fatigue_pct}% en aciertos). Descarta caída ejecutiva colapsante típica de TDAH descompensado.`;
+  } else if (intra_fatigue_pct <= -18.0) {
+    fatigue_diagnosis = "Fatiga de Cierre Significativa";
+    fatigue_desc = `Decaimiento del rendimiento en el tercio final (${intra_fatigue_pct}% en aciertos). Sugestivo de agotamiento del tono noradrenérgico o fatigabilidad ejecutiva ante presión temporal sostenida.`;
+  } else if (t2_errors > t1_errors && t2_errors > t3_errors) {
+    fatigue_diagnosis = "Sobrecarga Transitoria en Bloque Medio";
+    fatigue_desc = "Los errores se concentraron en las páginas intermedias (meseta de resistencia) con reorganización y estabilización en el tercio final.";
+  } else {
+    fatigue_diagnosis = "Ritmo Visomotor y Foco Armónico";
+    fatigue_desc = "Fluctuación fisiológica natural dentro de los parámetros esperados de concentración sostenida.";
+  }
+
+  const fatiga_terciles = {
+    t1_hits, t2_hits, t3_hits,
+    t1_errors, t2_errors, t3_errors,
+    intra_fatigue_pct,
+    fatigue_diagnosis,
+    fatigue_desc
+  };
+
   const IVR = procSpeed > 0 ? COM / (procSpeed / 100) : 0;
 
   // Block hits (5 blocks for MLP) - se calculan sobre las 14 líneas para la IA
@@ -254,7 +296,8 @@ function calcMetrics(linesData, clickLog, age) {
     lapsesCount: lapses.count,
     lapsesTotalMs: lapses.total_ms,
     lapsesMeanMs: lapses.mean_ms,
-    lapsesMaxMs: lapses.max_ms
+    lapsesMaxMs: lapses.max_ms,
+    fatiga_terciles
   };
 }
 
@@ -954,10 +997,53 @@ function computeCorsiMetrics(corsiResult, age = 30) {
   const directSpan = corsiResult?.directSpan ?? (summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct') && (s.success ?? s.isCorrect)).map(s => s.sequence_length || s.level || 2).reduce((max, v) => Math.max(max, v), 0) || 2);
   const reverseSpan = corsiResult?.reverseSpan ?? (summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse') && (s.success ?? s.isCorrect)).map(s => s.sequence_length || s.level || 2).reduce((max, v) => Math.max(max, v), 0) || 2);
 
+  const directCorrect = summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct') && (s.success ?? s.isCorrect)).length;
+  const reverseCorrect = summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse') && (s.success ?? s.isCorrect)).length;
+  const directTrialsCount = summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct')).length;
+  const reverseTrialsCount = summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse')).length;
+
+  const directBlockProduct = directSpan * directCorrect;
+  const reverseBlockProduct = reverseSpan * reverseCorrect;
+
+  // Baremos normativos desagregados según Kessels (2000, 2008)
+  const directNormMean = age < 30 ? 5.8 : age < 50 ? 5.4 : age < 70 ? 5.1 : 4.6;
+  const directZ = parseFloat(((directSpan - directNormMean) / normSd).toFixed(2));
+  const directP = Math.round(Math.min(99, Math.max(1, (0.5 * (1.0 + Math.sign(directZ) * Math.sqrt(1.0 - Math.exp(-2.0 * directZ * directZ / Math.PI)))) * 100)));
+
+  const reverseNormMean = age < 30 ? 5.3 : age < 50 ? 4.9 : age < 70 ? 4.5 : 4.0;
+  const reverseZ = parseFloat(((reverseSpan - reverseNormMean) / normSd).toFixed(2));
+  const reverseP = Math.round(Math.min(99, Math.max(1, (0.5 * (1.0 + Math.sign(reverseZ) * Math.sqrt(1.0 - Math.exp(-2.0 * reverseZ * reverseZ / Math.PI)))) * 100)));
+
+  const spanDiscrepancy = isDual ? (directSpan - reverseSpan) : 0;
+  let spanDiscrepancyNote = "";
+  if (isDual) {
+    if (spanDiscrepancy >= 3) {
+      spanDiscrepancyNote = `Disociación Marcada (Brecha = ${spanDiscrepancy} bloques): Rendimiento superior en retención directa (P${directP}) con caída en inversión ejecutiva (P${reverseP}). Sugiere sobrecarga del ejecutivo central en rotación mental o fatiga de cambio de tarea.`;
+    } else if (spanDiscrepancy === 2) {
+      spanDiscrepancyNote = `Discrepancia Moderada (Brecha = 2 bloques): Límite fisiológico normal entre retención pasiva sensorial y manipulación activa.`;
+    } else if (spanDiscrepancy >= 0 && spanDiscrepancy <= 1) {
+      spanDiscrepancyNote = `Equilibrio Visoespacial-Ejecutivo Óptimo (Brecha = ${spanDiscrepancy} bloques): Proporción estándar esperada entre retención y manipulación mental.`;
+    } else {
+      spanDiscrepancyNote = `Inversión Paradójica: Mayor span inverso que directo.`;
+    }
+  }
+
   return {
     corsi_span: isDual ? Math.max(directSpan, reverseSpan) : corsiSpan,
     direct_span: isDual ? directSpan : (isReverse ? null : corsiSpan),
     reverse_span: isDual ? reverseSpan : (isReverse ? corsiSpan : null),
+    direct_correct: directCorrect,
+    reverse_correct: reverseCorrect,
+    direct_trials: directTrialsCount,
+    reverse_trials: reverseTrialsCount,
+    direct_block_product: directBlockProduct,
+    reverse_block_product: reverseBlockProduct,
+    span_discrepancy: spanDiscrepancy,
+    span_discrepancy_note: spanDiscrepancyNote,
+    direct_z_score: directZ,
+    direct_percentile: directP,
+    reverse_z_score: reverseZ,
+    reverse_percentile: reverseP,
     dual: isDual,
     corsi_mode: mode,
     max_level: maxLevel,
