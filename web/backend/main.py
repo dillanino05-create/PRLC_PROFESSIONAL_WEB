@@ -573,7 +573,7 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     )
 
     # Defensa IDOR: Los psicólogos estándar solo ven sus evaluaciones; SuperAdmin tiene visibilidad global
-    query = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path, lines_json").eq("id", eval_id)
+    query = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path, lines_json, clicks_json").eq("id", eval_id)
     if not is_superadmin:
         query = query.eq("user_id", uid)
     res = query.execute()
@@ -648,14 +648,39 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
         if not isinstance(lines_val, list):
             lines_val = []
 
+        clicks_val = row.get("clicks_json")
+        if isinstance(clicks_val, str):
+            try:
+                import json
+                clicks_val = json.loads(clicks_val)
+            except Exception:
+                clicks_val = []
+        if not isinstance(clicks_val, list):
+            clicks_val = []
+
+        test_type = metrics.get("test_type") or ("CORSI" if "CORSI" in session_tag.upper() else "PLC")
+        p_name = row.get("participant_name") or metrics.get("participant_name") or "Evaluado"
+        p_id = row.get("participant_id") or metrics.get("participant_id") or "N/A"
+        cat_str = row.get("created_at") or ""
+        test_label = "Test de Bloques de Corsi (CBT)" if test_type == "CORSI" else "Test d2 de Atención"
+
         return {
             "url": secure_url,
             "download_url": download_url,
             "filename": download_filename,
             "metrics": metrics,
             "lines_data": lines_val,
-            "participant_name": row.get("participant_name"),
-            "participant_id": row.get("participant_id"),
+            "clicks_data": clicks_val,
+            "participant_name": p_name,
+            "participant_id": p_id,
+            "created_at": cat_str,
+            "test_type": test_type,
+            "participant": {
+                "name": p_name,
+                "doc_id": p_id,
+                "test_type": test_label,
+                "created_at": cat_str
+            },
             "session_tag": session_tag
         }
     except Exception as e:

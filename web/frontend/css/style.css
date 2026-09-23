@@ -613,3 +613,52 @@ canvas.stim.sel-test { box-shadow: 0 0 0 3px #1565C0        !important; }
   display: block;
   max-height: 50vh;
 }
+
+/* Video HUD Container & Fullscreen Synchronization */
+#video-hud-container {
+  position: relative;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #334155;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+#video-hud-container:fullscreen,
+#video-hud-container:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  background: #000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  border-radius: 0 !important;
+  z-index: 999999 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#video-hud-container:fullscreen #player-video,
+#video-hud-container:-webkit-full-screen #player-video {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100vh !important;
+  object-fit: contain !important;
+}
+
+#video-hud-container:fullscreen #video-ai-hud,
+#video-hud-container:-webkit-full-screen #video-ai-hud {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 100 !important;
+  pointer-events: none !important;
+}

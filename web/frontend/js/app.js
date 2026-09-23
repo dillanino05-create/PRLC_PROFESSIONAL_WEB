@@ -5046,6 +5046,9 @@ const App = {
               <button id="btn-toggle-ai-hud" class="btn btn-sm" onclick="App.toggleAIHUD()" style="background:#1E293B;color:#38BDF8;border:1px solid #0284C7;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;">
                 👁️ Capa IA: ACTIVA
               </button>
+              <button id="btn-fullscreen-hud" class="btn btn-sm" onclick="App.toggleVideoFullscreen()" style="background:#1E293B;color:#F8FAFC;border:1px solid #475569;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                ⛶ Pantalla Completa
+              </button>
               <button id="modal-btn-download-video" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:6px 16px;background:linear-gradient(135deg,#0284C7,#2563EB);color:#FFF;border-radius:8px;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(2,132,199,0.4);" onclick="App.downloadCurrentVideo(this)">
                 ⬇️ Descargar Video (.mp4)
               </button>
@@ -5055,7 +5058,7 @@ const App = {
           <!-- Grid: Video + HUD (Izq) | Timeline Forense (Der) -->
           <div style="display:grid;grid-template-columns:1fr 350px;gap:18px;align-items:start;">
             <!-- Left: Video & HUD Overlay -->
-            <div style="position:relative;background:#000;border-radius:12px;overflow:hidden;border:1px solid #334155;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+            <div id="video-hud-container" style="position:relative;background:#000;border-radius:12px;overflow:hidden;border:1px solid #334155;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
               <video id="player-video" controls playsinline style="width:100%;max-height:64vh;display:block;outline:none;background:#000;"></video>
               <canvas id="video-ai-hud" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:15;"></canvas>
             </div>
@@ -5186,6 +5189,7 @@ const App = {
           this.renderForensicTimeline(d);
           this.aiHudEnabled = true;
           this.startAIHUDLoop();
+          this.setupFullscreenSync();
         } else {
           this.stopAIHUDLoop();
         }
@@ -5246,6 +5250,79 @@ const App = {
     }
   },
 
+  toggleVideoFullscreen() {
+    const container = document.getElementById('video-hud-container');
+    if (!container) return;
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } else {
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(err => {
+          console.warn("Fullscreen request error:", err);
+        });
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      }
+    }
+  },
+
+  setupFullscreenSync() {
+    const container = document.getElementById('video-hud-container');
+    const canvas = document.getElementById('video-ai-hud');
+    const player = document.getElementById('player-video');
+    if (!container || !canvas || !player) return;
+
+    const handler = () => {
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+      const isFs = (fsEl === container || fsEl === player);
+      const fsBtn = document.getElementById('btn-fullscreen-hud');
+      if (fsBtn) {
+        fsBtn.innerHTML = isFs ? '🗗 Salir de Pantalla Completa' : '⛶ Pantalla Completa';
+      }
+
+      // Si el reproductor nativo entró a pantalla completa, transferir de inmediato al contenedor para que el HUD canvas sea visible
+      if (fsEl === player && document.exitFullscreen) {
+        document.exitFullscreen().then(() => {
+          container.requestFullscreen().catch(() => {});
+        }).catch(() => {});
+      }
+
+      if (isFs) {
+        canvas.style.position = 'absolute';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.zIndex = '2147483647';
+        canvas.style.pointerEvents = 'none';
+        canvas.style.display = this.aiHudEnabled ? 'block' : 'none';
+      } else {
+        canvas.style.zIndex = '15';
+      }
+
+      const rect = player.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        canvas.width = Math.floor(rect.width);
+        canvas.height = Math.floor(rect.height);
+      }
+    };
+
+    if (!this._fullscreenSyncBound) {
+      this._fullscreenSyncBound = true;
+      document.addEventListener('fullscreenchange', handler);
+      document.addEventListener('webkitfullscreenchange', handler);
+    }
+
+    player.ondblclick = (e) => {
+      e.preventDefault();
+      this.toggleVideoFullscreen();
+    };
+  },
+
   renderAIHUDFrame(player, canvas) {
     if (!player || !canvas) return;
     const rect = player.getBoundingClientRect();
@@ -5260,13 +5337,54 @@ const App = {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const curTime = player.currentTime || 0;
-    const curLine = Math.min(14, Math.max(1, Math.floor(curTime / 20) + 1));
-    const lineSeconds = curTime % 20;
-
     const evalData = this.activeVideoEvalData || {};
     const lines = evalData.lines_data || [];
-    const curLineData = lines.find(l => Number(l.linea) === curLine) || {};
     const metrics = evalData.metrics || {};
+    const participant = evalData.participant || {};
+    const isCorsiHud = Boolean(
+      evalData.test_type === 'CORSI' ||
+      String(participant.test_type || '').toUpperCase().includes('CORSI') ||
+      String(metrics.test_type || '').toUpperCase() === 'CORSI' ||
+      String(evalData.session_tag || '').toUpperCase().includes('CORSI')
+    );
+
+    let totalLines = 14;
+    let curLine = 1;
+    let lineSeconds = 0;
+    let lineDuration = 20;
+    let curLineData = {};
+
+    if (isCorsiHud) {
+      totalLines = Math.max(lines.length, 1);
+      let cumulativeSec = 0;
+      const trialIntervals = lines.map((l, idx) => {
+        const dur = Math.max(Number(l.tiempo_s || l.duration_s || 0), 4);
+        const start = cumulativeSec;
+        cumulativeSec += dur;
+        return { idx: idx + 1, start, end: cumulativeSec, dur, trial: l };
+      });
+      let activeInterval = trialIntervals.find(t => curTime >= t.start && curTime < t.end);
+      if (!activeInterval && trialIntervals.length > 0) {
+        activeInterval = (curTime >= cumulativeSec) ? trialIntervals[trialIntervals.length - 1] : trialIntervals[0];
+      }
+      if (activeInterval) {
+        curLine = activeInterval.idx;
+        lineSeconds = Math.max(0, curTime - activeInterval.start);
+        lineDuration = activeInterval.dur;
+        curLineData = activeInterval.trial || {};
+      } else {
+        lineDuration = 15;
+        curLine = Math.min(totalLines, Math.max(1, Math.floor(curTime / lineDuration) + 1));
+        lineSeconds = curTime - (curLine - 1) * lineDuration;
+        curLineData = lines[curLine - 1] || {};
+      }
+    } else {
+      totalLines = 14;
+      lineDuration = 20;
+      curLine = Math.min(14, Math.max(1, Math.floor(curTime / 20) + 1));
+      lineSeconds = curTime - (curLine - 1) * 20;
+      curLineData = lines.find(l => Number(l.linea) === curLine) || lines[curLine - 1] || {};
+    }
 
     const mouseScore = curLineData.tremor_score || 0;
     const hasTremorFlag = Boolean(curLineData.tremor_flag);
@@ -5279,7 +5397,16 @@ const App = {
     const statusLine = document.getElementById('hud-status-line');
     const statusTremor = document.getElementById('hud-status-tremor');
     const statusGaze = document.getElementById('hud-status-gaze');
-    if (statusLine) statusLine.textContent = `Línea: ${curLine}/14 (${lineSeconds.toFixed(1)}s)`;
+    if (statusLine) {
+      if (isCorsiHud) {
+        const lvl = curLineData.sequence_length || curLineData.level || '?';
+        const att = curLineData.attempt || 1;
+        const fase = curLineData.fase || (curLineData.test_mode === 'reverse' ? 'Inverso' : 'Directo');
+        statusLine.textContent = `Ensayo: ${curLine}/${totalLines} (Nivel ${lvl}, Int. ${att} - ${fase}) — ${lineSeconds.toFixed(1)}s`;
+      } else {
+        statusLine.textContent = `Línea: ${curLine}/${totalLines} (${lineSeconds.toFixed(1)}s)`;
+      }
+    }
     if (statusTremor) {
       if (isConfirmedTremor) {
         statusTremor.textContent = `⚠️ Temblor Multimodal Confirmado (Mouse: ${mouseScore.toFixed(0)}, Cam: ${camHeadTremor.toFixed(1)})`;
@@ -5293,49 +5420,42 @@ const App = {
       }
     }
 
-    // Comprobar desvío de mirada en este instante
+    // Comprobar desvío de mirada en este instante (solo si hay datos reales)
     let isGazeDiverted = false;
-    if (metrics.gaze_events && Array.isArray(metrics.gaze_events)) {
+    if (metrics.gaze_events && Array.isArray(metrics.gaze_events) && metrics.gaze_events.length > 0) {
       isGazeDiverted = metrics.gaze_events.some(g => {
-        const sec = g.line ? ((g.line - 1) * 20 + 8) : 15;
-        const dur = (g.duration_ms || 450) / 1000;
-        return (curTime >= sec && curTime <= (sec + dur));
+        if (typeof g.start_sec === 'number') {
+          const dur = (g.duration_ms || 450) / 1000;
+          return (curTime >= g.start_sec && curTime <= (g.start_sec + dur));
+        }
+        return false;
       });
-    } else if (metrics.gaze_diverted_count > 0) {
-      isGazeDiverted = (curTime % 18 >= 14 && curTime % 18 <= 16.5);
     }
     if (statusGaze) {
       statusGaze.textContent = isGazeDiverted ? '🔴 Desvío Ocular Detectado' : 'Oculometría: Foco Centrado';
       statusGaze.style.color = isGazeDiverted ? '#EF4444' : '#10B981';
     }
 
-    // Comprobar parpadeo en este instante
+    // Comprobar parpadeo en este instante (solo si hay datos reales)
     let isBlinkingNow = false;
-    if (metrics.blink_events && Array.isArray(metrics.blink_events)) {
+    if (metrics.blink_events && Array.isArray(metrics.blink_events) && metrics.blink_events.length > 0) {
       isBlinkingNow = metrics.blink_events.some(b => {
-        const sec = (b.t ? (b.t / 1000) : (b.line ? (b.line - 1) * 20 + 7 : 0));
-        const dur = (b.duration_ms || 200) / 1000;
-        return (curTime >= sec - 0.05 && curTime <= sec + dur + 0.15);
+        if (typeof b.sec === 'number') {
+          const dur = (b.duration_ms || 200) / 1000;
+          return (curTime >= b.sec - 0.05 && curTime <= b.sec + dur + 0.1);
+        }
+        return false;
       });
-    } else {
-      isBlinkingNow = (curTime % 4.3 < 0.22);
     }
 
-    // Posición del recuadro webcam (PiP streamer esquina sup. derecha: 240x180 en canvas 1280x720)
-    const scaleX = canvas.width / 1280;
-    const scaleY = canvas.height / 720;
-    const camW = 240 * scaleX;
-    const camH = 180 * scaleY;
-    const camX = canvas.width - camW - (20 * scaleX);
-    const camY = 20 * scaleY;
-
-    // ── 1. HUD Superior Izquierdo: Estado de Línea y Cronómetro ──
+    // ── 1. HUD Superior Izquierdo: Estado de Línea/Ensayo y Cronómetro ──
     ctx.save();
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.strokeStyle = '#0284C7';
     ctx.lineWidth = 1.5;
-    if (ctx.roundRect) ctx.roundRect(14, 14, 230, 72, 8);
-    else ctx.rect(14, 14, 230, 72);
+    const tlCardW = isCorsiHud ? 310 : 240;
+    if (ctx.roundRect) ctx.roundRect(14, 14, tlCardW, 72, 8);
+    else ctx.rect(14, 14, tlCardW, 72);
     ctx.fill();
     ctx.stroke();
 
@@ -5344,160 +5464,64 @@ const App = {
     ctx.fillText('⚡ IA TELEMETRÍA FORENSE', 24, 33);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 14px Inter, sans-serif';
-    ctx.fillText(`Línea ${curLine} de 14 [${this.formatTimeSec(curTime)}]`, 24, 53);
+    ctx.font = 'bold 13px Inter, sans-serif';
+    if (isCorsiHud) {
+      const lvl = curLineData.sequence_length || curLineData.level || '?';
+      const att = curLineData.attempt || 1;
+      const fase = curLineData.fase || (curLineData.test_mode === 'reverse' ? 'Inverso' : 'Directo');
+      ctx.fillText(`Ensayo ${curLine} de ${totalLines} [Nivel ${lvl} · Intento ${att}]`, 24, 53);
+    } else {
+      ctx.fillText(`Línea ${curLine} de 14 [${this.formatTimeSec(curTime)}]`, 24, 53);
+    }
 
     ctx.fillStyle = '#94A3B8';
     ctx.font = '10px Inter, sans-serif';
-    ctx.fillText(`Tiempo de línea: ${lineSeconds.toFixed(1)}s / 20.0s`, 24, 71);
+    ctx.fillText(`Tiempo de ${isCorsiHud ? 'ensayo' : 'línea'}: ${lineSeconds.toFixed(1)}s / ${lineDuration.toFixed(1)}s [Total: ${this.formatTimeSec(curTime)}]`, 24, 71);
     ctx.restore();
 
-    // ── 2. HUD Superior Derecho: Bounding Box Facial y Retícula de Oculometría ──
+    // ── 2. HUD Superior Derecho: Panel Oculomotor & Atención Visual ──
+    const oculoCardW = 280;
+    const oculoCardH = 72;
+    const oculoCardX = canvas.width - oculoCardW - 14;
+    const oculoCardY = 14;
+
     ctx.save();
-    ctx.strokeStyle = isGazeDiverted ? '#EF4444' : (isBlinkingNow ? '#F59E0B' : '#06B6D4');
-    ctx.lineWidth = 2;
-    const cornerLen = 16;
-    // Corners de la cámara
-    ctx.beginPath(); ctx.moveTo(camX, camY + cornerLen); ctx.lineTo(camX, camY); ctx.lineTo(camX + cornerLen, camY); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(camX + camW - cornerLen, camY); ctx.lineTo(camX + camW, camY); ctx.lineTo(camX + camW, camY + cornerLen); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(camX, camY + camH - cornerLen); ctx.lineTo(camX, camY + camH); ctx.lineTo(camX + cornerLen, camY + camH); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(camX + camW - cornerLen, camY + camH); ctx.lineTo(camX + camW, camY + camH); ctx.lineTo(camX + camW, camY + cornerLen); ctx.stroke();
-
-    // Status pill dentro de la cámara
-    ctx.fillStyle = isGazeDiverted ? 'rgba(239, 68, 68, 0.90)' : (isBlinkingNow ? 'rgba(245, 158, 11, 0.90)' : 'rgba(16, 185, 129, 0.90)');
-    if (ctx.roundRect) ctx.roundRect(camX + 6, camY + 6, camW - 12, 22, 4);
-    else ctx.rect(camX + 6, camY + 6, camW - 12, 22);
-    ctx.fill();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 10px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    let statusText = '🟢 FOCO EN PANTALLA';
-    if (isGazeDiverted) statusText = '🔴 DESVÍO DE MIRADA';
-    else if (isBlinkingNow) statusText = '👁️✨ PARPADEO REGISTRADO';
-    ctx.fillText(statusText, camX + camW / 2, camY + 21);
-    ctx.textAlign = 'left';
-
-    // ── 3. Overlay Ocular: Bounding Boxes en Ojos y Rastreo de Iris ──
-    const eyeY = camY + (camH * 0.40);
-    const eyeBoxW = camW * 0.17;
-    const eyeBoxH = camH * 0.13;
-    const eyeLX = camX + (camW * 0.32);
-    const eyeRX = camX + (camW * 0.53);
-
-    // Ojo Izquierdo Box
-    ctx.strokeStyle = isBlinkingNow ? 'rgba(245, 158, 11, 0.85)' : 'rgba(56, 189, 248, 0.85)';
-    ctx.lineWidth = 1.2;
-    ctx.strokeRect(eyeLX, eyeY, eyeBoxW, eyeBoxH);
-    // Ojo Derecho Box
-    ctx.strokeRect(eyeRX, eyeY, eyeBoxW, eyeBoxH);
-
-    // Puntos de Iris / Pupila
-    const irisScanProgress = (lineSeconds / 20.0);
-    const irisOffsetX = isGazeDiverted ? (camW * 0.05) : ((irisScanProgress - 0.5) * eyeBoxW * 0.4);
-    const pupilLX = eyeLX + (eyeBoxW / 2) + irisOffsetX;
-    const pupilRX = eyeRX + (eyeBoxW / 2) + irisOffsetX;
-    const pupilY = eyeY + (eyeBoxH / 2);
-
-    if (isBlinkingNow) {
-      ctx.strokeStyle = '#F59E0B';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(eyeLX + 2, pupilY); ctx.lineTo(eyeLX + eyeBoxW - 2, pupilY);
-      ctx.moveTo(eyeRX + 2, pupilY); ctx.lineTo(eyeRX + eyeBoxW - 2, pupilY);
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = '#06B6D4';
-      ctx.beginPath();
-      ctx.arc(pupilLX, pupilY, 3, 0, Math.PI * 2);
-      ctx.arc(pupilRX, pupilY, 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // ── 4. Rayo de Rastreo Ocular (Gaze Focus Ray) ──
-    const midEyeX = (pupilLX + pupilRX) / 2;
-    const midEyeY = pupilY;
-    ctx.save();
-    if (isGazeDiverted) {
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)';
-      ctx.setLineDash([5, 4]);
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(midEyeX, midEyeY);
-      ctx.lineTo(midEyeX - (camW * 0.45), midEyeY - (camH * 0.35));
-      ctx.stroke();
-      ctx.setLineDash([]);
-    } else {
-      const gradient = ctx.createLinearGradient(midEyeX, midEyeY, midEyeX - 60, midEyeY + 70);
-      gradient.addColorStop(0, 'rgba(56, 189, 248, 0.85)');
-      gradient.addColorStop(1, 'rgba(16, 185, 129, 0.20)');
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(midEyeX, midEyeY);
-      ctx.lineTo(midEyeX - (45 * scaleX), midEyeY + (50 * scaleY));
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    // ── 5. Vectores Tridimensionales Cefálicos (Head Pose Pitch/Yaw/Roll) ──
-    const faceCenterX = camX + (camW * 0.50);
-    const faceCenterY = camY + (camH * 0.54);
-    const vectorLen = 22 * scaleX;
-
-    const pitchRad = 0.12; 
-    const yawRad = isGazeDiverted ? 0.38 : ((irisScanProgress - 0.5) * 0.18);
-
-    // Eje X (Pitch - Inclinación Vertical): Rojo
-    ctx.strokeStyle = '#EF4444';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(faceCenterX, faceCenterY);
-    ctx.lineTo(faceCenterX, faceCenterY + vectorLen * Math.cos(pitchRad));
-    ctx.stroke();
-
-    // Eje Y (Yaw - Giro Lateral): Verde
-    ctx.strokeStyle = '#10B981';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(faceCenterX, faceCenterY);
-    ctx.lineTo(faceCenterX + (vectorLen * 1.2 * Math.sin(yawRad + 1.57)), faceCenterY);
-    ctx.stroke();
-
-    // Eje Z (Roll / Normal Frontal): Azul
-    ctx.strokeStyle = '#38BDF8';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(faceCenterX, faceCenterY);
-    ctx.lineTo(faceCenterX - (vectorLen * 0.7), faceCenterY - (vectorLen * 0.5));
-    ctx.stroke();
-
-    // Punto central de referencia nasal
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.arc(faceCenterX, faceCenterY, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Wireframe de estabilidad corporal / clavícula
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    ctx.moveTo(camX + (camW * 0.22), camY + (camH * 0.88));
-    ctx.lineTo(camX + (camW * 0.78), camY + (camH * 0.88));
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Metadata inferior de la cámara (EAR, Lentes y FER)
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    ctx.fillRect(camX, camY + camH - 22, camW, 22);
+    ctx.strokeStyle = isGazeDiverted ? '#EF4444' : (isBlinkingNow ? '#F59E0B' : '#0284C7');
+    ctx.lineWidth = 1.5;
+    if (ctx.roundRect) ctx.roundRect(oculoCardX, oculoCardY, oculoCardW, oculoCardH, 8);
+    else ctx.rect(oculoCardX, oculoCardY, oculoCardW, oculoCardH);
+    ctx.fill();
+    ctx.stroke();
+
     ctx.fillStyle = '#38BDF8';
-    ctx.font = '9px monospace';
-    const earVal = (metrics.ear_mean || (isBlinkingNow ? 0.22 : 0.34)).toFixed(2);
-    const ferExpr = metrics.predominant_expression || 'Foco Sereno';
-    const glassesLabel = metrics.glasses_calibrated ? '👓 Lentes: Sí' : '👓 Lentes: No';
-    ctx.fillText(`EAR: ${earVal} | ${glassesLabel} | ${ferExpr}`, camX + 6, camY + camH - 8);
+    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.fillText('🧬 OCULOMETRÍA & ATENCIÓN VISUAL', oculoCardX + 12, oculoCardY + 20);
+
+    const pillW = 205;
+    const pillH = 18;
+    const pillX = oculoCardX + 12;
+    const pillY = oculoCardY + 27;
+    ctx.fillStyle = isGazeDiverted ? 'rgba(239, 68, 68, 0.90)' : (isBlinkingNow ? 'rgba(245, 158, 11, 0.90)' : 'rgba(16, 185, 129, 0.90)');
+    if (ctx.roundRect) ctx.roundRect(pillX, pillY, pillW, pillH, 4);
+    else ctx.rect(pillX, pillY, pillW, pillH);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 9.5px Inter, sans-serif';
+    ctx.fillText(
+      isGazeDiverted ? '🔴 ALERTA: DESVÍO DE MIRADA' : (isBlinkingNow ? '👁️✨ PARPADEO FISIOLÓGICO' : '🟢 FOCO EN PANTALLA CONFIRMADO'),
+      pillX + 8, pillY + 13
+    );
+
+    ctx.fillStyle = '#94A3B8';
+    ctx.font = '9.5px Inter, monospace';
+    const earVal = (metrics.ear_mean ? Number(metrics.ear_mean).toFixed(2) : (isBlinkingNow ? '0.22' : '0.34'));
+    const glassesTxt = metrics.glasses_calibrated ? '👓 Lentes' : '👀 Directo';
+    const blinksTxt = `${metrics.blink_count || 0} parp.`;
+    ctx.fillText(`EAR: ${earVal} | ${glassesTxt} | ${blinksTxt} (${metrics.blink_rate_min || 0}/min)`, oculoCardX + 12, oculoCardY + 60);
     ctx.restore();
+
 
     // ── 6. HUD Inferior Izquierdo: Diagnóstico Multimodal de Temblor (Ratón + Cámara) ──
     ctx.save();
@@ -5577,85 +5601,215 @@ const App = {
     const lines = evalData.lines_data || [];
     const metrics = evalData.metrics || {};
     const participant = evalData.participant || {};
-    const isCorsi = (participant.test_type === 'CORSI');
+    const isCorsi = Boolean(
+      evalData.test_type === 'CORSI' ||
+      String(participant.test_type || '').toUpperCase().includes('CORSI') ||
+      String(metrics.test_type || '').toUpperCase() === 'CORSI' ||
+      String(evalData.session_tag || '').toUpperCase().includes('CORSI')
+    );
 
-    // 1. Hito: Inicio
+    // 1. Hito: Inicio de sesión
     events.push({
       sec: 0,
       badge: '00:00',
       title: '🚩 Inicio de la Sesión',
-      desc: `Comienzo de ejecución clínica (${isCorsi ? 'Test de Corsi' : 'Test d2 de Atención'}).`,
+      desc: `Comienzo de ejecución clínica (${isCorsi ? 'Test de Bloques de Corsi' : 'Test d2 de Atención'}).`,
       color: '#0284C7',
       bg: 'rgba(2, 132, 199, 0.15)',
       border: '#0284C7'
     });
 
-    // 2. Líneas con Temblor vs Cinemática Ágil
-    lines.forEach(l => {
-      const lineNum = Number(l.linea || 1);
-      const startSec = (lineNum - 1) * 20;
-      const score = Number(l.tremor_score || 0);
-      const isConfirmed = l.tremor_flag && (Number(l.camera_head_tremor || 0) > 1.2 || (l.tremor_classification && l.tremor_classification.includes('Multimodal')));
-      const isAgile = (l.tremor_classification && l.tremor_classification.includes('Voluntario')) || (!l.tremor_flag && score >= 35);
+    if (isCorsi) {
+      // ── Eventos y Anomalías Específicas del Test de Corsi ──
+      let cumulativeSec = 0;
+      lines.forEach((t, idx) => {
+        const trialNum = Number(t.linea || (idx + 1));
+        const startSec = cumulativeSec;
+        const durSec = Math.max(Number(t.tiempo_s || t.duration_s || 0), 4);
+        cumulativeSec += durSec;
 
-      if (isConfirmed) {
-        events.push({
-          sec: startSec + 4,
-          badge: this.formatTimeSec(startSec + 4),
-          title: `⚠️ Temblor Motor Multimodal (Línea ${lineNum})`,
-          desc: `Score: ${score.toFixed(0)}/100. Inestabilidad sincrónica detectada en ratón y micro-oscilaciones cefálicas.`,
-          color: '#EF4444',
-          bg: 'rgba(239, 68, 68, 0.15)',
-          border: '#EF4444'
-        });
-      } else if (isAgile) {
-        events.push({
-          sec: startSec + 4,
-          badge: this.formatTimeSec(startSec + 4),
-          title: `🏎️ Cinemática Ágil Voluntaria (Línea ${lineNum})`,
-          desc: `Score: ${score.toFixed(0)}/100. Desplazamiento balístico rápido; cámara confirma postura corporal estable.`,
-          color: '#0284C7',
-          bg: 'rgba(2, 132, 199, 0.15)',
-          border: '#0284C7'
+        const isSuccess = Boolean(t.success ?? (t.aciertos > 0 && t.omisiones === 0));
+        const seqLen = t.sequence_length || t.level || 2;
+        const attempt = t.attempt || 1;
+        const fase = t.fase || (t.test_mode === 'reverse' ? 'Inverso' : 'Directo');
+        const userSeq = Array.isArray(t.sequence_user) ? t.sequence_user : [];
+        const presSeq = Array.isArray(t.sequence_presented) ? t.sequence_presented : [];
+
+        // Anomalía 1: Ensayo fallido (Secuencia incorrecta)
+        if (!isSuccess) {
+          const userStr = userSeq.length ? userSeq.map(x => (Number(x) + 1)).join('→') : 'Sin respuesta / Incompleta';
+          const presStr = presSeq.length ? presSeq.map(x => (Number(x) + 1)).join('→') : `Longitud ${seqLen}`;
+          events.push({
+            sec: Math.round(startSec + Math.min(durSec * 0.6, 5)),
+            badge: this.formatTimeSec(startSec + Math.min(durSec * 0.6, 5)),
+            title: `❌ Secuencia Fallida (Nivel ${seqLen} · Int. ${attempt})`,
+            desc: `Falla de retención visoespacial (${fase}): Usuario pulsó [${userStr}] vs objetivo [${presStr}].`,
+            color: '#EF4444',
+            bg: 'rgba(239, 68, 68, 0.15)',
+            border: '#EF4444'
+          });
+        }
+
+        // Anomalía 2: Vacilación cognitiva prolongada (>2.2s antes del primer clic)
+        const hesitation = Number(t.hesitation_time_ms || 0);
+        if (hesitation > 2200) {
+          events.push({
+            sec: Math.round(startSec + 1),
+            badge: this.formatTimeSec(startSec + 1),
+            title: `⏱️ Vacilación Cognitiva Alta (${(hesitation / 1000).toFixed(1)}s)`,
+            desc: `Ensayo ${trialNum} (Nivel ${seqLen}): Demora pronunciada antes de iniciar la reproducción motriz.`,
+            color: '#F59E0B',
+            bg: 'rgba(245, 158, 11, 0.15)',
+            border: '#F59E0B'
+          });
+        }
+
+        // Anomalía 3: Latencia motora / enlentecimiento (>1.7s promedio por cubo)
+        const meanRt = Number(t.mean_reaction_time_ms || 0);
+        if (meanRt > 1700) {
+          events.push({
+            sec: Math.round(startSec + Math.min(durSec * 0.4, 3)),
+            badge: this.formatTimeSec(startSec + Math.min(durSec * 0.4, 3)),
+            title: `🐢 Latencia Psicomotora Aumentada (${Math.round(meanRt)}ms/cubo)`,
+            desc: `Ensayo ${trialNum} (Nivel ${seqLen}): Dudas o lentitud ejecutiva en la selección de cubos.`,
+            color: '#FB923C',
+            bg: 'rgba(251, 146, 60, 0.15)',
+            border: '#FB923C'
+          });
+        }
+
+        // Anomalía 4: Inestabilidad motora o temblor en el ensayo
+        const tremor = Number(t.tremor_score || 0);
+        if (tremor >= 30) {
+          events.push({
+            sec: Math.round(startSec + 2),
+            badge: this.formatTimeSec(startSec + 2),
+            title: `⚡ Inestabilidad de Cursor (Score: ${tremor.toFixed(0)}/100)`,
+            desc: `Ensayo ${trialNum} (Nivel ${seqLen}): Micro-temblor o correcciones bruscas del mouse.`,
+            color: '#A855F7',
+            bg: 'rgba(168, 85, 247, 0.15)',
+            border: '#A855F7'
+          });
+        }
+      });
+
+      // Anomalía 5: Clics individuales desviados / erróneos
+      const clicks = evalData.clicks_data || [];
+      if (Array.isArray(clicks)) {
+        clicks.filter(c => c.is_correct === false).forEach(c => {
+          const cSec = c.elapsed_ms ? (c.elapsed_ms / 1000) : 0;
+          if (cSec > 0) {
+            events.push({
+              sec: Math.round(cSec),
+              badge: this.formatTimeSec(cSec),
+              title: `⚠️ Clic Erróneo: Cubo ${(c.cube_id || 0) + 1}`,
+              desc: `Ensayo ${c.line || '?'}: Pulsación en Cubo ${(c.cube_id || 0) + 1} cuando el esperado era Cubo ${(c.expected_cube || 0) + 1}.`,
+              color: '#DC2626',
+              bg: 'rgba(220, 38, 38, 0.15)',
+              border: '#DC2626'
+            });
+          }
         });
       }
+    } else {
+      // ── Eventos y Anomalías Específicas del Test d2 ──
+      lines.forEach(l => {
+        const lineNum = Number(l.linea || 1);
+        const startSec = (lineNum - 1) * 20;
 
-      // 3. Saltos erráticos / desorganización de barrido
-      if (l.erratic_jumps && l.erratic_jumps > 1) {
-        events.push({
-          sec: startSec + 10,
-          badge: this.formatTimeSec(startSec + 10),
-          title: `⚡ Desorganización de Barrido (Línea ${lineNum})`,
-          desc: `${l.erratic_jumps} saltos atencionales fuera del orden secuencial.`,
-          color: '#F59E0B',
-          bg: 'rgba(245, 158, 11, 0.15)',
-          border: '#F59E0B'
-        });
-      }
-    });
+        // Omisiones
+        const omis = Number(l.omisiones || 0);
+        if (omis > 0) {
+          events.push({
+            sec: startSec + 6,
+            badge: this.formatTimeSec(startSec + 6),
+            title: `⚠️ Omisión Atencional (${omis} omitidos en Línea ${lineNum})`,
+            desc: `Estímulos objetivos 'd' con 2 rayas pasados por alto sin marcar (atención selectiva).`,
+            color: '#F97316',
+            bg: 'rgba(249, 115, 22, 0.15)',
+            border: '#F97316'
+          });
+        }
 
-    // 4. Parpadeos Fisiológicos Validados
-    if (metrics.blink_count && metrics.blink_count > 0) {
+        // Comisiones
+        const comi = Number(l.comisiones || 0);
+        if (comi > 0) {
+          events.push({
+            sec: startSec + 12,
+            badge: this.formatTimeSec(startSec + 12),
+            title: `❌ Error de Comisión / Impulsividad (${comi} en Línea ${lineNum})`,
+            desc: `Distractores marcados erróneamente (falla en inhibición de respuesta motora).`,
+            color: '#EF4444',
+            bg: 'rgba(239, 68, 68, 0.15)',
+            border: '#EF4444'
+          });
+        }
+
+        // Desorganización de barrido
+        const jumps = Number(l.erratic_jumps || 0);
+        if (jumps > 0) {
+          events.push({
+            sec: startSec + 15,
+            badge: this.formatTimeSec(startSec + 15),
+            title: `⚡ Barrido Desorganizado (Línea ${lineNum})`,
+            desc: `${jumps} saltos atencionales fuera del orden secuencial de izquierda a derecha.`,
+            color: '#F59E0B',
+            bg: 'rgba(245, 158, 11, 0.15)',
+            border: '#F59E0B'
+          });
+        }
+
+        // Temblor motor multimodal vs cinemática ágil
+        const score = Number(l.tremor_score || 0);
+        const isConfirmed = l.tremor_flag && (Number(l.camera_head_tremor || 0) > 1.2 || (l.tremor_classification && l.tremor_classification.includes('Multimodal')));
+        const isAgile = (l.tremor_classification && l.tremor_classification.includes('Voluntario')) || (!l.tremor_flag && score >= 35);
+        if (isConfirmed) {
+          events.push({
+            sec: startSec + 4,
+            badge: this.formatTimeSec(startSec + 4),
+            title: `⚠️ Temblor Motor Multimodal (Línea ${lineNum})`,
+            desc: `Score: ${score.toFixed(0)}/100. Inestabilidad sincrónica detectada en ratón y micro-oscilaciones cefálicas.`,
+            color: '#EF4444',
+            bg: 'rgba(239, 68, 68, 0.15)',
+            border: '#EF4444'
+          });
+        } else if (isAgile) {
+          events.push({
+            sec: startSec + 4,
+            badge: this.formatTimeSec(startSec + 4),
+            title: `🏎️ Cinemática Ágil Voluntaria (Línea ${lineNum})`,
+            desc: `Score: ${score.toFixed(0)}/100. Desplazamiento balístico rápido con postura estable.`,
+            color: '#0284C7',
+            bg: 'rgba(2, 132, 199, 0.15)',
+            border: '#0284C7'
+          });
+        }
+      });
+
+      // Hito mitad d2
       events.push({
-        sec: 30,
-        badge: '00:30',
-        title: '👁️ Parpadeos Fisiológicos Validados',
-        desc: `Total: ${metrics.blink_count} parpadeos (${metrics.blink_rate_min || 0}/min). Calibración adaptativa activa ${metrics.glasses_calibrated ? '(Tolerancia a lentes OK)' : ''}.`,
+        sec: 140,
+        badge: '02:20',
+        title: '🏁 Mitad de Evaluación (Línea 7)',
+        desc: 'Transición al segundo bloque de rendimiento y fatiga atencional.',
         color: '#10B981',
         bg: 'rgba(16, 185, 129, 0.15)',
         border: '#10B981'
       });
     }
 
-    // 5. Desvíos de mirada / pérdida de foco visual
+    // ── Eventos Oculares y Fisiológicos Reales ──
     if (metrics.gaze_events && Array.isArray(metrics.gaze_events)) {
       metrics.gaze_events.forEach(g => {
-        const sec = g.line ? ((g.line - 1) * 20 + 8) : 15;
+        let sec = 0;
+        if (typeof g.start_sec === 'number') sec = g.start_sec;
+        else if (typeof g.t === 'number') sec = g.t / 1000;
+        else if (g.line) sec = isCorsi ? Math.max(0, (g.line - 1) * 12 + 3) : ((g.line - 1) * 20 + 8);
         events.push({
-          sec: sec,
+          sec: Math.round(sec),
           badge: this.formatTimeSec(sec),
           title: '🔴 Desvío de Mirada Ocular',
-          desc: `Duración: ${g.duration_ms || 450}ms. El sujeto apartó los ojos de la prueba fuera del monitor.`,
+          desc: `Duración: ${g.duration_ms || 450}ms. Pérdida de fijación visual fuera del monitor.`,
           color: '#EC4899',
           bg: 'rgba(236, 72, 153, 0.15)',
           border: '#EC4899'
@@ -5666,49 +5820,55 @@ const App = {
         sec: 35,
         badge: '00:35',
         title: '🔴 Pérdida de Fijación Ocular',
-        desc: `Total de desvíos detectados: ${metrics.gaze_diverted_count} eventos sostenidos.`,
+        desc: `Total de desvíos detectados: ${metrics.gaze_diverted_count} eventos sostenidos (${metrics.gaze_diverted_ms || 0}ms total).`,
         color: '#EC4899',
         bg: 'rgba(236, 72, 153, 0.15)',
         border: '#EC4899'
       });
     }
 
-    // 5. Pico de Carga Cognitiva o Frustración (FER)
+    // Parpadeos fisiológicos
+    if (metrics.blink_count && metrics.blink_count > 0) {
+      events.push({
+        sec: isCorsi ? 10 : 30,
+        badge: this.formatTimeSec(isCorsi ? 10 : 30),
+        title: '👁️ Parpadeos Fisiológicos Validados',
+        desc: `Total: ${metrics.blink_count} parpadeos (${metrics.blink_rate_min || 0}/min). Calibración adaptativa activa ${metrics.glasses_calibrated ? '(Tolerancia a lentes OK)' : ''}.`,
+        color: '#10B981',
+        bg: 'rgba(16, 185, 129, 0.15)',
+        border: '#10B981'
+      });
+    }
+
+    // Anti-Cheat: Deserción de foco de ventana o cambio de pestaña
+    const auditEvents = metrics.integrity_audit?.events || metrics.anti_cheat?.events || [];
+    if (Array.isArray(auditEvents) && auditEvents.length > 0) {
+      auditEvents.forEach(ev => {
+        const sec = ev.elapsed_sec || (ev.timestamp_ms ? ev.timestamp_ms / 1000 : 0);
+        events.push({
+          sec: Math.round(sec),
+          badge: this.formatTimeSec(sec),
+          title: '🚨 Alerta Anti-Cheat: Pérdida de Foco',
+          desc: `Deserción de ventana o cambio de pestaña activa (${Math.round((ev.duration_ms || 1000) / 1000)}s).`,
+          color: '#F43F5E',
+          bg: 'rgba(244, 63, 94, 0.15)',
+          border: '#F43F5E'
+        });
+      });
+    }
+
+    // Sobrecarga cognitiva / Frustración facial (FER)
     if (metrics.fer_frustration_peaks > 0 || (metrics.tension_mean && metrics.tension_mean > 0.45)) {
       events.push({
-        sec: 140,
-        badge: '02:20',
+        sec: isCorsi ? 25 : 160,
+        badge: this.formatTimeSec(isCorsi ? 25 : 160),
         title: '⚡ Tensión Facial / Carga Cognitiva',
-        desc: 'Microexpresión facial de sobrecarga o frustración durante la tarea.',
+        desc: 'Microexpresión de sobrecarga ejecutiva o frustración registrada por FER.',
         color: '#8B5CF6',
         bg: 'rgba(139, 92, 246, 0.15)',
         border: '#8B5CF6'
       });
     }
-
-    // 6. Anti-Cheat / Foco de Navegador
-    if (metrics.anti_cheat && (metrics.anti_cheat.focus_lost_count > 0 || metrics.anti_cheat.total_unfocused_ms > 0)) {
-      events.push({
-        sec: 80,
-        badge: '01:20',
-        title: '🚨 Alerta Anti-Cheat: Pérdida de Foco',
-        desc: `Deserción de ventana o cambio de pestaña (${metrics.anti_cheat.focus_lost_count} veces).`,
-        color: '#F43F5E',
-        bg: 'rgba(244, 63, 94, 0.15)',
-        border: '#F43F5E'
-      });
-    }
-
-    // Hito de Mitad de Prueba (Línea 7 = 120s)
-    events.push({
-      sec: 120,
-      badge: '02:00',
-      title: '🏁 Mitad de Evaluación (Línea 7)',
-      desc: 'Transición al segundo bloque de rendimiento y fatiga atencional.',
-      color: '#10B981',
-      bg: 'rgba(16, 185, 129, 0.15)',
-      border: '#10B981'
-    });
 
     // Ordenar cronológicamente por segundo
     events.sort((a, b) => a.sec - b.sec);
