@@ -531,6 +531,13 @@ def history(auth_ctx: dict = Depends(get_supabase)):
             test_type = m.get('test_type', 'PLC')
             session_tag = m.get('session_tag') or compute_session_tag(r)
             corsi_mode = m.get('corsi_mode') or m.get('mode') or m.get('testMode')
+            is_dual = bool(
+                m.get('dual') or 
+                str(corsi_mode).lower() == 'dual' or 
+                (m.get('direct_span') is not None and m.get('reverse_span') is not None)
+            )
+            if is_dual:
+                corsi_mode = 'dual'
             corsi_span = m.get('corsi_span')
             composite_score = m.get('composite_score')
             accuracy_rate = m.get('accuracy_rate') or m.get('accuracy_pct')
@@ -545,6 +552,11 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'test_type': test_type,
                 'session_tag': session_tag,
                 'corsi_mode': corsi_mode,
+                'dual': is_dual,
+                'direct_span': m.get('direct_span'),
+                'reverse_span': m.get('reverse_span'),
+                'direct_block_product': m.get('direct_block_product'),
+                'reverse_block_product': m.get('reverse_block_product'),
                 'corsi_span': corsi_span,
                 'composite_score': composite_score,
                 'accuracy_rate': accuracy_rate,

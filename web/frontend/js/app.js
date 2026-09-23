@@ -2464,8 +2464,11 @@ const App = {
 
     // Calcular métricas neuropsicológicas del Test de Corsi de forma inmediata
     try {
-      this.metrics = computeCorsiMetrics(result);
-      this.metrics._age = this.participant.age || 30;
+      const pAge = this.participant?.age || 30;
+      const pEdu = this.participant?.education || 'Universitario';
+      this.metrics = computeCorsiMetrics(result, pAge, pEdu);
+      this.metrics._age = pAge;
+      this.metrics._education = pEdu;
       this.metrics.test_type = 'CORSI';
       this.metrics.session_uid = timestampStr;
     } catch (mErr) {
@@ -2730,7 +2733,11 @@ const App = {
         };
       }
 
-      const narrative = `Evaluación neuropsicológica del Test de Bloques de Corsi (${this.metrics.corsi_mode === 'reverse' ? 'Modalidad Inversa' : 'Modalidad Directa'}).\n` +
+      const isDualNarr = (this.metrics.corsi_mode === 'dual' || String(this.corsiMode).toLowerCase() === 'dual' || Boolean(this.metrics.dual));
+      const isReverseNarr = (this.metrics.corsi_mode === 'reverse' || String(this.corsiMode).toLowerCase() === 'reverse');
+      const modeNarrText = isDualNarr ? 'Batería Completa (Dual Directo + Inverso)' : isReverseNarr ? 'Modalidad Inversa' : 'Modalidad Directa';
+
+      const narrative = `Evaluación neuropsicológica del Test de Bloques de Corsi (${modeNarrText}).\n` +
         `Span Visoespacial: ${this.metrics.corsi_span} bloques (${this.metrics.clinical_category}).\n` +
         `Puntaje compuesto: ${this.metrics.composite_score} puntos con una precisión del ${this.metrics.accuracy_pct}%.\n` +
         `Latencia media de reacción: ${Math.round(this.metrics.mean_reaction_time_ms)} ms, vacilación promedio: ${Math.round(this.metrics.hesitation_time_avg_ms)} ms.\n` +
@@ -3067,8 +3074,9 @@ const App = {
     // 1. Detener la grabación de video y obtener el Blob
     const videoBlob = await this.stopRecording();
     
-    this.metrics = calcMetrics(this.linesData, this.clickLog, this.participant.age);
+    this.metrics = calcMetrics(this.linesData, this.clickLog, this.participant.age, this.participant.education);
     this.metrics._age = this.participant.age;
+    this.metrics._education = this.participant.education;
     this.metrics._linesDataRef = this.linesData;
 
     // Detener tracking de MediaPipe si estaba activo y cerrar eventos pendientes
@@ -3616,29 +3624,29 @@ const App = {
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-bottom:14px;">
             <!-- Direct Normativo -->
             <div style="background:#FFFFFF;border:1px solid #AED6F1;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
-              <div style="font-size:0.8rem;color:#0284C7;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Directo: Z = ${(m.direct_z_score !== undefined ? (m.direct_z_score >= 0 ? '+' : '') + Number(m.direct_z_score).toFixed(2) : '+1.52')} (P${m.direct_percentile || 94})</div>
-              <div style="font-size:1.35rem;font-weight:800;color:#0284C7;">${m.direct_block_product || ((m.direct_span||7)*(m.direct_correct||6))} <span style="font-size:0.8rem;font-weight:600;color:#64748B;">pts</span></div>
-              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Block-Product: Span Directo (${m.direct_span||7}) × Aciertos (${m.direct_correct||6})</div>
+              <div style="font-size:0.8rem;color:#0284C7;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Directo (Retención): P${m.direct_percentile || 50} (Z = ${(m.direct_z_score !== undefined ? (m.direct_z_score >= 0 ? '+' : '') + Number(m.direct_z_score).toFixed(2) : '0.00')})</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#0284C7;">Span ${m.direct_span || 2} <span style="font-size:0.85rem;font-weight:700;color:#0369A1;">| PE: ${m.direct_scaled_score || 10}</span></div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Block-Product: <strong>${m.direct_block_product || ((m.direct_span||2)*(m.direct_correct||1))}</strong> pts (${m.direct_correct || 0} aciertos) | Ajuste Tabla 4: ${m.direct_demo_adj >= 0 ? '+' : ''}${m.direct_demo_adj || 0}</div>
             </div>
 
             <!-- Inverso Normativo -->
             <div style="background:#FFFFFF;border:1px solid #D7BDE2;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
-              <div style="font-size:0.8rem;color:#7B1FA2;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Inverso: Z = ${(m.reverse_z_score !== undefined ? (m.reverse_z_score >= 0 ? '+' : '') + Number(m.reverse_z_score).toFixed(2) : '-0.86')} (P${m.reverse_percentile || 50})</div>
-              <div style="font-size:1.35rem;font-weight:800;color:#7B1FA2;">${m.reverse_block_product || ((m.reverse_span||4)*(m.reverse_correct||3))} <span style="font-size:0.8rem;font-weight:600;color:#64748B;">pts</span></div>
-              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Block-Product: Span Inverso (${m.reverse_span||4}) × Aciertos (${m.reverse_correct||3})</div>
+              <div style="font-size:0.8rem;color:#7B1FA2;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Inverso (MT Activa): P${m.reverse_percentile || 50} (Z = ${(m.reverse_z_score !== undefined ? (m.reverse_z_score >= 0 ? '+' : '') + Number(m.reverse_z_score).toFixed(2) : '0.00')})</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#7B1FA2;">Span ${m.reverse_span || 2} <span style="font-size:0.85rem;font-weight:700;color:#6A1B9A;">| PE: ${m.reverse_scaled_score || 10}</span></div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Block-Product: <strong>${m.reverse_block_product || ((m.reverse_span||2)*(m.reverse_correct||1))}</strong> pts (${m.reverse_correct || 0} aciertos) | Ajuste Tabla 4: ${m.reverse_demo_adj >= 0 ? '+' : ''}${m.reverse_demo_adj || 0}</div>
             </div>
 
             <!-- Span Esperado Kessels -->
             <div style="background:#FFFFFF;border:1px solid #E0E0E0;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
-              <div style="font-size:0.8rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Media Etaria (Kessels)</div>
-              <div style="font-size:1.35rem;font-weight:800;color:#1A237E;">${m.kessels_norm_mean !== undefined ? Number(m.kessels_norm_mean).toFixed(1) : '5.4'}</div>
-              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Referencia poblacional etaria</div>
+              <div style="font-size:0.8rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Media Etaria (${m.age_norm_stratum || 'Adultos'})</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#1A237E;">Dir: ${m.direct_norm_mean !== undefined ? Number(m.direct_norm_mean).toFixed(1) : '5.4'} | Inv: ${m.reverse_norm_mean !== undefined ? Number(m.reverse_norm_mean).toFixed(1) : '4.8'}</div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Normas Kessels et al. estratificadas</div>
             </div>
 
             <!-- Disociación Clínica -->
             <div style="background:#FFFDE7;border:1px solid #FFE082;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
               <div style="font-size:0.8rem;color:#B45309;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Brecha Disociativa</div>
-              <div style="font-size:1.35rem;font-weight:800;color:#B45309;">${m.span_discrepancy !== undefined ? m.span_discrepancy : 3} bloques</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#B45309;">${m.span_discrepancy !== undefined ? m.span_discrepancy : 0} bloques</div>
               <div style="font-size:0.75rem;color:#78350F;margin-top:2px;">Diferencial Directo vs. Inverso</div>
             </div>
           </div>
@@ -3653,11 +3661,11 @@ const App = {
           </div>
           ` : `
           <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;margin-bottom:16px;">
-            <!-- Kessels Span Esperado -->
-            <div style="background:#FFFFFF;border:1px solid #E0E0E0;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
-              <div style="font-size:0.8rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Span Esperado (Kessels)</div>
-              <div style="font-size:1.4rem;font-weight:800;color:#1A237E;">${m.kessels_norm_mean !== undefined ? Number(m.kessels_norm_mean).toFixed(1) : '5.4'}</div>
-              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Media etaria esperada</div>
+            <!-- Puntuación Escalar Baremada (Tabla 1 y 4) -->
+            <div style="background:#FFFFFF;border:1px solid #AED6F1;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <div style="font-size:0.8rem;color:#0284C7;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Puntuación Escalar (PE)</div>
+              <div style="font-size:1.4rem;font-weight:800;color:#0284C7;">PE: ${m.direct_scaled_score || m.reverse_scaled_score || 10} <span style="font-size:0.8rem;font-weight:600;color:#64748B;">/ 19</span></div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Base PE ${m.direct_base_pe || m.reverse_base_pe || 10} | Ajuste: ${(m.direct_demo_adj !== undefined ? m.direct_demo_adj : (m.reverse_demo_adj || 0)) >= 0 ? '+' : ''}${m.direct_demo_adj !== undefined ? m.direct_demo_adj : (m.reverse_demo_adj || 0)}</div>
             </div>
 
             <!-- Puntuación Z -->
@@ -3666,25 +3674,25 @@ const App = {
               <div style="font-size:1.4rem;font-weight:800;color:${(m.kessels_z_score || 0) < -1.5 ? '#C62828' : (m.kessels_z_score || 0) > 1.0 ? '#2E7D32' : '#1565C0'};">
                 ${(m.kessels_z_score !== undefined ? ((m.kessels_z_score >= 0 ? '+' : '') + Number(m.kessels_z_score).toFixed(2)) : '0.00')}
               </div>
-              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Desviaciones típicas (SD)</div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Desviaciones típicas poblacionales</div>
             </div>
 
             <!-- Percentil Poblacional -->
             <div style="background:#FFFFFF;border:1px solid #E0E0E0;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
               <div style="font-size:0.8rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Percentil Estimado</div>
               <div style="font-size:1.4rem;font-weight:800;color:#6A1B9A;">
-                P${m.kessels_percentile !== undefined ? m.kessels_percentile : 50}
+                P${m.direct_percentile || m.reverse_percentile || m.kessels_percentile || 50}
               </div>
-              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Rango poblacional normalizado</div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Rango poblacional normado</div>
             </div>
 
             <!-- Block-Product Score -->
             <div style="background:#FFFFFF;border:1px solid #E0E0E0;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
               <div style="font-size:0.8rem;color:#78909C;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Block-Product Score</div>
               <div style="font-size:1.4rem;font-weight:800;color:#2E7D32;">
-                ${m.composite_score || (m.corsi_span * (m.correct_trials || 1))}
+                ${m.composite_score || (m.corsi_span * (m.correct_trials || 1))} pts
               </div>
-              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Span × Ensayos Correctos</div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Span (${m.corsi_span}) × Aciertos (${m.correct_trials || 0})</div>
             </div>
           </div>
           `}
@@ -4123,6 +4131,49 @@ const App = {
                 <div class="eval">${val}</div>
                 <div class="elbl">${lbl}</div>
               </div>`).join('')}
+          </div>
+        </div>
+
+        <!-- A.15) Baremos Normativos d2 — Rolf Brickenkamp / TEA Ediciones (Estratificación por Edad) -->
+        <div class="card mb-4" style="border-left: 4px solid #1565C0; background: linear-gradient(to right, #F8FAFC, #FFFFFF);">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+            <div class="section-title" style="margin-bottom:0;color:#0D47A1;">
+              Baremos Normativos d2 — Rolf Brickenkamp / TEA Ediciones (Estratificación por Edad)
+            </div>
+            <span class="badge" style="background:#E3F2FD;color:#1565C0;font-size:0.75rem;padding:4px 8px;border-radius:6px;font-weight:700;">GRUPO NORMATIVO: ${m.d2_norm_stratum || 'Adultos'}</span>
+          </div>
+          <p style="font-size:0.88rem;color:#546E7A;margin-bottom:16px;line-height:1.45;">
+            Transformación psicométrica directa de las puntuaciones crudas contra la distribución poblacional estandarizada (Manual d2, Tabla 5.2 / Baremos A.1 - A.9). Permite categorizar el nivel de concentración y velocidad sin alterar los datos brutos del evaluado.
+          </p>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:14px;">
+            <!-- Concentración Normativa -->
+            <div style="background:#FFFFFF;border:1px solid #BBDEFB;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <div style="font-size:0.8rem;color:#1565C0;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Concentración (CON = TA - C)</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#0D47A1;">CON: ${m.CON} <span style="font-size:0.85rem;font-weight:700;color:#1565C0;">(P${m.percentile_con || 50})</span></div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Z = ${(m.z_con !== undefined ? ((m.z_con >= 0 ? '+' : '') + Number(m.z_con).toFixed(2)) : '0.00')} | Media esperada: ${m.con_norm_mean || 180.4}</div>
+            </div>
+
+            <!-- Puntuación T y Decatipos -->
+            <div style="background:#FFFFFF;border:1px solid #D1C4E9;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <div style="font-size:0.8rem;color:#4527A0;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Puntuación T / Decatipo</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#311B92;">T = ${m.puntuacion_t_con || 50} <span style="font-size:0.85rem;font-weight:700;color:#6A1B9A;">(Decatipo: ${m.decatipo_con || 5.5})</span></div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Escalas estandarizadas (T: μ=50, σ=10 | Sten: μ=5.5, σ=2)</div>
+            </div>
+
+            <!-- Velocidad de Procesamiento (TR) -->
+            <div style="background:#FFFFFF;border:1px solid #C8E6C9;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <div style="font-size:0.8rem;color:#2E7D32;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Velocidad Procesamiento (TR)</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#1B5E20;">TR: ${m.TR || 0} <span style="font-size:0.85rem;font-weight:700;color:#2E7D32;">(P${m.percentile_tr || 50})</span></div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Z = ${(m.z_tr !== undefined ? ((m.z_tr >= 0 ? '+' : '') + Number(m.z_tr).toFixed(2)) : '0.00')} | Caracteres intentados</div>
+            </div>
+
+            <!-- Total Aciertos (TA) -->
+            <div style="background:#FFFFFF;border:1px solid #FFE0B2;border-radius:10px;padding:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <div style="font-size:0.8rem;color:#E65100;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Total Aciertos (TA)</div>
+              <div style="font-size:1.35rem;font-weight:800;color:#BF360C;">TA: ${m.TA || 0} <span style="font-size:0.85rem;font-weight:700;color:#E65100;">(P${m.percentile_ta || 50})</span></div>
+              <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Z = ${(m.z_ta !== undefined ? ((m.z_ta >= 0 ? '+' : '') + Number(m.z_ta).toFixed(2)) : '0.00')} | Dianas marcadas</div>
+            </div>
           </div>
         </div>
 
@@ -4701,11 +4752,18 @@ const App = {
       }
 
       const isCorsi = (r.test_type === 'CORSI');
-      const isCorsiReverse = isCorsi && (String(r.corsi_mode).toLowerCase() === 'reverse' || String(r.corsi_mode).toLowerCase() === 'inverso');
+      const isCorsiDual = isCorsi && (
+        r.dual === true || 
+        String(r.corsi_mode).toLowerCase() === 'dual' || 
+        (r.direct_span !== undefined && r.direct_span !== null && r.reverse_span !== undefined && r.reverse_span !== null)
+      );
+      const isCorsiReverse = isCorsi && !isCorsiDual && (String(r.corsi_mode).toLowerCase() === 'reverse' || String(r.corsi_mode).toLowerCase() === 'inverso');
 
       let testBadgeHtml = '';
       if (isCorsi) {
-        if (isCorsiReverse) {
+        if (isCorsiDual) {
+          testBadgeHtml = `<span class="badge" style="background:linear-gradient(135deg,#0284C7,#7B1FA2);color:#fff;font-weight:700;padding:4px 8px;border-radius:6px;font-size:0.75rem;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);">⚡ Corsi Batería Completa</span>`;
+        } else if (isCorsiReverse) {
           testBadgeHtml = `<span class="badge" style="background:#F3E8FF;color:#7E22CE;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid #E9D5FF;font-size:0.75rem;white-space:nowrap;">🧊 Corsi Inverso</span>`;
         } else {
           testBadgeHtml = `<span class="badge" style="background:#E0F2FE;color:#0369A1;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid #BAE6FD;font-size:0.75rem;white-space:nowrap;">🧊 Corsi Directo</span>`;
@@ -4716,12 +4774,23 @@ const App = {
 
       let scoreHtml = '';
       if (isCorsi) {
-        scoreHtml = `
-          <div style="display:flex;flex-direction:column;gap:1px;">
-            <div style="font-size:0.95rem;">Span: <strong style="color:#0284C7;">${(r.corsi_span !== undefined && r.corsi_span !== null) ? r.corsi_span : '-'}</strong></div>
-            <div style="font-size:0.72rem;color:#64748B;">Compuesto: <strong>${r.composite_score || 0}</strong> pts</div>
-          </div>
-        `;
+        if (isCorsiDual) {
+          const dirSpan = (r.direct_span !== undefined && r.direct_span !== null) ? r.direct_span : '-';
+          const invSpan = (r.reverse_span !== undefined && r.reverse_span !== null) ? r.reverse_span : '-';
+          scoreHtml = `
+            <div style="display:flex;flex-direction:column;gap:1px;">
+              <div style="font-size:0.85rem;">Dir: <strong style="color:#0284C7;">${dirSpan}</strong> | Inv: <strong style="color:#7E22CE;">${invSpan}</strong></div>
+              <div style="font-size:0.72rem;color:#64748B;">Compuesto: <strong>${r.composite_score || 0}</strong> pts</div>
+            </div>
+          `;
+        } else {
+          scoreHtml = `
+            <div style="display:flex;flex-direction:column;gap:1px;">
+              <div style="font-size:0.95rem;">Span: <strong style="color:#0284C7;">${(r.corsi_span !== undefined && r.corsi_span !== null) ? r.corsi_span : '-'}</strong></div>
+              <div style="font-size:0.72rem;color:#64748B;">Compuesto: <strong>${r.composite_score || 0}</strong> pts</div>
+            </div>
+          `;
+        }
       } else {
         scoreHtml = `
           <div style="display:flex;flex-direction:column;gap:1px;">
@@ -4844,7 +4913,14 @@ const App = {
       const ml = data.ml_json;
 
       const isCorsi = (metrics.test_type === 'CORSI' || data.test_type === 'CORSI');
-      const isDual = isCorsi && (metrics.corsi_mode === 'dual' || String(data.corsi_mode).toLowerCase() === 'dual' || metrics.dual === true);
+      const isDual = isCorsi && (
+        metrics.corsi_mode === 'dual' || 
+        String(data.corsi_mode).toLowerCase() === 'dual' || 
+        metrics.dual === true ||
+        Boolean(data.dual) ||
+        (metrics.direct_span !== undefined && metrics.direct_span !== null && metrics.reverse_span !== undefined && metrics.reverse_span !== null) ||
+        (data.direct_span !== undefined && data.direct_span !== null && data.reverse_span !== undefined && data.reverse_span !== null)
+      );
       const isReverse = isCorsi && !isDual && (metrics.corsi_mode === 'reverse' || String(data.corsi_mode).toLowerCase() === 'reverse');
 
       this.metrics = metrics;
@@ -4873,7 +4949,7 @@ const App = {
               | Prueba: <span style="color:var(--text);font-weight:400;">${new Date(data.created_at).toLocaleString()}</span>
               | Modalidad: ${
                 isDual 
-                  ? '<span style="background:linear-gradient(135deg,#0284C7,#7B1FA2);color:#fff;font-weight:700;padding:2px 8px;border-radius:6px;">🔷 Corsi Dual (Directo + Inverso)</span>' 
+                  ? '<span style="background:linear-gradient(135deg,#0284C7,#7B1FA2);color:#fff;font-weight:700;padding:2px 8px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.15);">⚡ Corsi Batería Completa (Dual)</span>' 
                   : isReverse 
                   ? '<span style="color:#7B1FA2;font-weight:700;">🧊 Corsi Inverso</span>' 
                   : '<span style="color:#0284C7;font-weight:700;">🧊 Corsi Directo</span>'

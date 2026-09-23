@@ -17,6 +17,17 @@ function probit(p) {
 }
 
 /**
+ * Función de Distribución Acumulada Normal Estándar Φ(z).
+ * Aproximación analítica de Abramowitz & Stegun con error absoluto < 7.5e-8.
+ */
+function normCDF(z) {
+  const t = 1.0 / (1.0 + 0.3275911 * Math.abs(z));
+  const erf = 1.0 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z);
+  const sign = z < 0 ? -1 : 1;
+  return 0.5 * (1.0 + sign * erf);
+}
+
+/**
  * Teoría de Detección de Señales (Signal Detection Theory - SDT)
  * Modela al paciente como un discriminador sensorial frente al ruido visual.
  * Calcula Sensibilidad d' (d-prime) y Criterio de Respuesta c (sesgo conservador vs impulsivo).
@@ -89,7 +100,30 @@ function computeAttentionalLapses(clickLog) {
   return { count, total_ms, mean_ms, max_ms };
 }
 
-function calcMetrics(linesData, clickLog, age) {
+// ── Baremos Normativos Oficiales Test d2 (Rolf Brickenkamp / TEA Ediciones, 2002) ──
+// Manual d2 Atención: Tabla 5.2 (pág. 42) y Baremos A.1 - A.9
+const BAREMOS_D2_EDAD = [
+  { minAge: 8,  maxAge: 10, label: '8-10 años',  tr_m: 285.50, tr_sd: 63.8, ta_m: 102.40, ta_sd: 28.1, con_m: 94.20,  con_sd: 27.5 },
+  { minAge: 11, maxAge: 12, label: '11-12 años', tr_m: 358.20, tr_sd: 68.4, ta_m: 138.60, ta_sd: 31.5, con_m: 132.80, con_sd: 31.0 },
+  { minAge: 13, maxAge: 14, label: '13-14 años', tr_m: 415.70, tr_sd: 72.1, ta_m: 162.80, ta_sd: 35.2, con_m: 158.40, con_sd: 34.6 },
+  { minAge: 15, maxAge: 16, label: '15-16 años', tr_m: 445.10, tr_sd: 76.5, ta_m: 174.50, ta_sd: 37.1, con_m: 171.20, con_sd: 36.8 },
+  { minAge: 17, maxAge: 18, label: '17-18 años', tr_m: 458.00, tr_sd: 78.2, ta_m: 180.20, ta_sd: 37.9, con_m: 178.10, con_sd: 38.5 },
+  { minAge: 19, maxAge: 23, label: '19-23 años', tr_m: 462.20, tr_sd: 79.3, ta_m: 181.90, ta_sd: 38.3, con_m: 180.39, con_sd: 40.5 },
+  { minAge: 24, maxAge: 29, label: '24-29 años', tr_m: 472.45, tr_sd: 91.5, ta_m: 185.40, ta_sd: 43.2, con_m: 183.44, con_sd: 44.9 },
+  { minAge: 30, maxAge: 39, label: '30-39 años', tr_m: 462.67, tr_sd: 83.7, ta_m: 180.09, ta_sd: 40.4, con_m: 178.44, con_sd: 41.2 },
+  { minAge: 40, maxAge: 59, label: '40-59 años', tr_m: 418.50, tr_sd: 95.0, ta_m: 158.20, ta_sd: 46.0, con_m: 154.10, con_sd: 47.0 },
+  { minAge: 60, maxAge: 99, label: '60+ años',   tr_m: 310.20, tr_sd: 110.5, ta_m: 108.40, ta_sd: 48.0, con_m: 102.10, con_sd: 50.2 }
+];
+
+function getD2AgeNorm(age) {
+  const a = Math.max(8, Math.min(99, parseInt(age) || 25));
+  for (const b of BAREMOS_D2_EDAD) {
+    if (a >= b.minAge && a <= b.maxAge) return b;
+  }
+  return BAREMOS_D2_EDAD[5]; // fallback 19-23 años
+}
+
+function calcMetrics(linesData, clickLog, age, education = 'Universitario') {
   // Encontrar la última página con actividad real
   let lastAttemptedIndex = -1;
   for (let i = 0; i < linesData.length; i++) {
@@ -280,6 +314,19 @@ function calcMetrics(linesData, clickLog, age) {
   const lastLine = lastAttemptedIndex >= 0 ? linesData[lastAttemptedIndex].linea : 0;
   const lastChar = lastAttemptedIndex >= 0 ? linesData[lastAttemptedIndex].evaluados : 0;
 
+  // ── Baremos Normativos Estratificados d2 (Brickenkamp / TEA Ediciones) ──
+  const ageNorm = getD2AgeNorm(age);
+  const z_con = parseFloat(((CON - ageNorm.con_m) / ageNorm.con_sd).toFixed(2));
+  const percentile_con = Math.max(1, Math.min(99, Math.round(normCDF(z_con) * 100)));
+  const puntuacion_t_con = Math.round(50 + 10 * z_con);
+  const decatipo_con = Math.max(1, Math.min(10, Math.round((5.5 + 2 * z_con) * 10) / 10));
+
+  const z_tr = parseFloat(((TR - ageNorm.tr_m) / ageNorm.tr_sd).toFixed(2));
+  const percentile_tr = Math.max(1, Math.min(99, Math.round(normCDF(z_tr) * 100)));
+
+  const z_ta = parseFloat(((TA - ageNorm.ta_m) / ageNorm.ta_sd).toFixed(2));
+  const percentile_ta = Math.max(1, Math.min(99, Math.round(normCDF(z_ta) * 100)));
+
   return {
     TR, TA, O, COM, TN, TOT, E, TOT_d2, CON, CON_legacy, CP, errorRate,
     totalTime, meanTpl, stdTpl, cvTime,
@@ -297,7 +344,21 @@ function calcMetrics(linesData, clickLog, age) {
     lapsesTotalMs: lapses.total_ms,
     lapsesMeanMs: lapses.mean_ms,
     lapsesMaxMs: lapses.max_ms,
-    fatiga_terciles
+    fatiga_terciles,
+    // Baremos estratificados
+    d2_norm_stratum: ageNorm.label,
+    con_norm_mean: ageNorm.con_m,
+    con_norm_sd: ageNorm.con_sd,
+    tr_norm_mean: ageNorm.tr_m,
+    tr_norm_sd: ageNorm.tr_sd,
+    z_con,
+    percentile_con,
+    puntuacion_t_con,
+    decatipo_con,
+    z_tr,
+    percentile_tr,
+    z_ta,
+    percentile_ta
   };
 }
 
@@ -317,8 +378,9 @@ function generateNarrative(m) {
     `Curva de resistencia rítmica cronológica: ${trmTxt} (Medición TRM = ${trmSign}${m.TRM.toFixed(1)} %).`,
     `Tiempo de reacción iterativo (Media base): ${Math.round(m.meanRt)} ms.`,
     `Estado de las redes neuronales implicadas: ${m.focusType}.`,
-    `Patrón predominante de respuesta algorítmica: ${m.attnStyle}.`
-  ].join('  ');
+    `Patrón predominante de respuesta algorítmica: ${m.attnStyle}.`,
+    m.percentile_con !== undefined ? `Baremos Brickenkamp (${m.d2_norm_stratum || 'Adultos'}): Concentración CON=${m.CON} en Percentil P${m.percentile_con} (Z=${m.z_con >= 0 ? '+' : ''}${m.z_con}, Escala T=${m.puntuacion_t_con}, Decatipo=${m.decatipo_con}).` : ''
+  ].filter(Boolean).join('  ');
 
   if (m.isIncomplete) {
     base = `⚠️ EVALUACIÓN INCOMPLETA (Detención anticipada en Página ${m.lastLine}, estímulo ${m.lastChar}). Las métricas se calcularon de forma proporcional sobre las páginas intentadas. ` + base;
@@ -885,10 +947,128 @@ function analyzeCursorKinematics(samples) {
   }
 }
 
+// ── Baremos Normativos Corsi: Tabla 1, Tabla 4 y Kessels (2000, 2008) ────────
+function getEducationYears(education) {
+  if (typeof education === 'number' && !isNaN(education)) return Math.max(8, Math.min(20, education));
+  const str = String(education || '').toLowerCase();
+  if (str.includes('posgrado') || str.includes('master') || str.includes('doctorado')) return 18;
+  if (str.includes('universitario') || str.includes('licenciatura') || str.includes('ingenier')) return 16;
+  if (str.includes('secundaria') || str.includes('bachiller')) return 12;
+  if (str.includes('primaria')) return 8;
+  const num = parseInt(str);
+  if (!isNaN(num) && num >= 1 && num <= 30) return Math.max(8, Math.min(20, num));
+  return 16; // default universitario
+}
+
+/**
+ * Tabla 1: Puntuaciones brutas de Corsi transformadas a Puntuación Escalar Base (PE 2-18, Media=10, DE=3).
+ */
+function getCorsiBaseScaledScore(val, type = 'direct_span') {
+  const v = Math.max(0, parseInt(val) || 0);
+  switch (type) {
+    case 'direct_span':
+      if (v <= 3) return { pe: 2, pctRange: '<1' };
+      if (v === 4) return { pe: 5, pctRange: '3-5' };
+      if (v === 5) return { pe: 8, pctRange: '19-28' };
+      if (v === 6) return { pe: 11, pctRange: '60-71' };
+      if (v === 7) return { pe: 13, pctRange: '82-89' };
+      return { pe: 18, pctRange: '>99' }; // v >= 8
+
+    case 'direct_total':
+      if (v <= 3) return { pe: 2, pctRange: '<1' };
+      if (v === 4) return { pe: 3, pctRange: '1' };
+      if (v === 5) return { pe: 5, pctRange: '3-5' };
+      if (v === 6) return { pe: 6, pctRange: '6-10' };
+      if (v === 7) return { pe: 7, pctRange: '11-18' };
+      if (v === 8) return { pe: 9, pctRange: '29-40' };
+      if (v === 9) return { pe: 11, pctRange: '60-71' };
+      if (v === 10) return { pe: 12, pctRange: '72-81' };
+      if (v === 11) return { pe: 13, pctRange: '82-89' };
+      if (v === 12) return { pe: 14, pctRange: '90-94' };
+      if (v === 13) return { pe: 17, pctRange: '99' };
+      return { pe: 18, pctRange: '>99' }; // v >= 14
+
+    case 'reverse_span':
+      if (v <= 3) return { pe: 2, pctRange: '<1' };
+      if (v === 4) return { pe: 6, pctRange: '6-10' };
+      if (v === 5) return { pe: 8, pctRange: '19-28' };
+      if (v === 6) return { pe: 12, pctRange: '72-81' };
+      if (v === 7) return { pe: 15, pctRange: '95-97' };
+      if (v === 8) return { pe: 17, pctRange: '99' };
+      return { pe: 18, pctRange: '>99' }; // v >= 9
+
+    case 'reverse_total':
+      if (v <= 3) return { pe: 2, pctRange: '<1' };
+      if (v === 4) return { pe: 3, pctRange: '1' };
+      if (v === 5) return { pe: 5, pctRange: '3-5' };
+      if (v === 6) return { pe: 7, pctRange: '11-18' };
+      if (v === 7) return { pe: 8, pctRange: '19-28' };
+      if (v === 8) return { pe: 9, pctRange: '29-40' };
+      if (v === 9) return { pe: 11, pctRange: '60-71' };
+      if (v === 10) return { pe: 13, pctRange: '82-89' };
+      if (v === 11) return { pe: 14, pctRange: '90-94' };
+      if (v === 12) return { pe: 16, pctRange: '98' };
+      return { pe: 18, pctRange: '>99' }; // v >= 13
+
+    default:
+      return { pe: 10, pctRange: '41-59' };
+  }
+}
+
+/**
+ * Tabla 4: Tabla de ajustes demográficos por edad y escolaridad para Cubos de Corsi.
+ * Filas: Escolaridad (8-20 años). Columnas: Edad (18-49 años).
+ */
+const CORSI_TABLA_4_AJUSTES = {
+  8:  [[18, 30, 0], [31, 39, 1], [40, 48, 2], [49, 49, 3]],
+  9:  [[18, 31, 0], [32, 41, 1], [42, 49, 2]],
+  10: [[18, 34, 0], [35, 43, 1], [44, 49, 2]],
+  11: [[18, 20, -1], [21, 38, 0], [39, 47, 1], [48, 49, 2]],
+  12: [[18, 23, -1], [24, 41, 0], [42, 49, 1]],
+  13: [[18, 25, -1], [26, 44, 0], [45, 49, 1]],
+  14: [[18, 19, -2], [20, 27, -1], [28, 46, 0], [47, 49, 1]],
+  15: [[18, 21, -2], [22, 30, -1], [31, 49, 0]],
+  16: [[18, 24, -2], [25, 34, -1], [35, 49, 0]],
+  17: [[18, 18, -3], [19, 26, -2], [27, 37, -1], [38, 49, 0]],
+  18: [[18, 20, -3], [21, 29, -2], [30, 40, -1], [41, 49, 0]],
+  19: [[18, 22, -3], [23, 31, -2], [32, 42, -1], [43, 49, 0]],
+  20: [[18, 24, -3], [25, 33, -2], [34, 44, -1], [45, 49, 0]]
+};
+
+function getCorsiDemographicAdjustment(age, schoolingYears) {
+  const a = Math.max(18, Math.min(49, parseInt(age) || 25));
+  const s = Math.max(8, Math.min(20, parseInt(schoolingYears) || 16));
+  const ranges = CORSI_TABLA_4_AJUSTES[s] || [];
+  for (const [rmin, rmax, adj] of ranges) {
+    if (a >= rmin && a <= rmax) return adj;
+  }
+  return 0;
+}
+
+// Baremos Kessels et al. (2000, 2008) y Berch para estratificación por grupos etarios
+const BAREMOS_CORSI_KESSELS = [
+  { minAge: 5,  maxAge: 9,  label: '5-9 años',   dir_m: 4.0, dir_sd: 1.0, inv_m: 3.5, inv_sd: 0.9 },
+  { minAge: 10, maxAge: 14, label: '10-14 años', dir_m: 4.7, dir_sd: 1.0, inv_m: 4.2, inv_sd: 0.9 },
+  { minAge: 15, maxAge: 17, label: '15-17 años', dir_m: 5.1, dir_sd: 1.1, inv_m: 4.5, inv_sd: 1.0 },
+  { minAge: 18, maxAge: 30, label: '18-30 años', dir_m: 5.4, dir_sd: 1.1, inv_m: 4.8, inv_sd: 1.0 },
+  { minAge: 31, maxAge: 45, label: '31-45 años', dir_m: 5.3, dir_sd: 1.0, inv_m: 4.7, inv_sd: 1.0 },
+  { minAge: 46, maxAge: 60, label: '46-60 años', dir_m: 5.1, dir_sd: 1.0, inv_m: 4.5, inv_sd: 1.0 },
+  { minAge: 61, maxAge: 75, label: '61-75 años', dir_m: 4.7, dir_sd: 0.9, inv_m: 4.1, inv_sd: 0.9 },
+  { minAge: 76, maxAge: 99, label: '76+ años',   dir_m: 4.3, dir_sd: 0.8, inv_m: 3.7, inv_sd: 0.8 }
+];
+
+function getCorsiAgeNorm(age) {
+  const a = Math.max(5, Math.min(99, parseInt(age) || 25));
+  for (const b of BAREMOS_CORSI_KESSELS) {
+    if (a >= b.minAge && a <= b.maxAge) return b;
+  }
+  return BAREMOS_CORSI_KESSELS[3]; // fallback 18-30
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════════
    MÉTRICAS PSICOMÉTRICAS Y NORMATIVAS DEL TEST DE CORSI
    ──────────────────────────────────────────────────────────────────────────── */
-function computeCorsiMetrics(corsiResult, age = 30) {
+function computeCorsiMetrics(corsiResult, age = 30, education = 'Universitario') {
   const summaries = (corsiResult && (corsiResult.levelSummaries || corsiResult.trialsData)) 
     ? (corsiResult.levelSummaries || corsiResult.trialsData) 
     : [];
@@ -921,9 +1101,6 @@ function computeCorsiMetrics(corsiResult, age = 30) {
 
   const totalTimeMs = summaries.reduce((acc, s) => acc + (s.total_time_ms || 0), 0);
   const totalTimeSec = parseFloat((totalTimeMs / 1000).toFixed(1));
-
-  // Puntuación Compuesta (Corsi Block-Product Score: Span * Total Aciertos)
-  const compositeScore = corsiSpan * correctTrials;
 
   // Tipología de Errores y Distancia Euclidiana de Desviación
   const cubeCoords = [
@@ -964,14 +1141,46 @@ function computeCorsiMetrics(corsiResult, age = 30) {
   const transpositionRate = totalErrorClicks > 0 ? parseFloat(((transpositionCount / totalErrorClicks) * 100).toFixed(1)) : 0.0;
   const intrusionRate = totalErrorClicks > 0 ? parseFloat(((intrusionCount / totalErrorClicks) * 100).toFixed(1)) : 0.0;
 
-  // Baremos Normativos de Kessels (2000)
-  const normMean = age < 30 ? (isReverse ? 5.3 : 5.8)
-                 : age < 50 ? (isReverse ? 4.9 : 5.4)
-                 : age < 70 ? (isReverse ? 4.5 : 5.1)
-                 : (isReverse ? 4.0 : 4.6);
-  const normSd = 1.05;
+  // Baremos Normativos de Kessels y Neuropsicología Clínica
+  const eduYears = getEducationYears(education);
+  const ageNorm = getCorsiAgeNorm(age);
+
+  const directSpan = corsiResult?.directSpan ?? (summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct') && (s.success ?? s.isCorrect)).map(s => s.sequence_length || s.level || 2).reduce((max, v) => Math.max(max, v), 0) || 2);
+  const reverseSpan = corsiResult?.reverseSpan ?? (summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse') && (s.success ?? s.isCorrect)).map(s => s.sequence_length || s.level || 2).reduce((max, v) => Math.max(max, v), 0) || 2);
+
+  const directCorrect = summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct') && (s.success ?? s.isCorrect)).length;
+  const reverseCorrect = summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse') && (s.success ?? s.isCorrect)).length;
+  const directTrialsCount = summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct')).length;
+  const reverseTrialsCount = summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse')).length;
+
+  // Block-Product Scores (Kessels et al., 2000, 2008) por separado para no deformar distribución
+  const directBlockProduct = directSpan * directCorrect;
+  const reverseBlockProduct = reverseSpan * reverseCorrect;
+  const compositeScore = isDual ? (directBlockProduct + reverseBlockProduct) : (corsiSpan * correctTrials);
+
+  // Tabla 1 & Tabla 4: Puntuaciones Escalares Normativas Estandarizadas
+  const directSpanBase = getCorsiBaseScaledScore(directSpan, 'direct_span');
+  const directDemoAdj = getCorsiDemographicAdjustment(age, eduYears);
+  const directScaledScoreAdj = Math.max(1, Math.min(19, directSpanBase.pe + directDemoAdj));
+  const directZ = parseFloat(((directScaledScoreAdj - 10) / 3).toFixed(2));
+  const directP = Math.min(99, Math.max(1, Math.round(normCDF(directZ) * 100)));
+
+  const reverseSpanBase = getCorsiBaseScaledScore(reverseSpan, 'reverse_span');
+  const reverseDemoAdj = getCorsiDemographicAdjustment(age, eduYears);
+  const reverseScaledScoreAdj = Math.max(1, Math.min(19, reverseSpanBase.pe + reverseDemoAdj));
+  const reverseZ = parseFloat(((reverseScaledScoreAdj - 10) / 3).toFixed(2));
+  const reverseP = Math.min(99, Math.max(1, Math.round(normCDF(reverseZ) * 100)));
+
+  // Baremos Kessels según edad
+  const directNormMean = ageNorm.dir_m;
+  const directNormSd = ageNorm.dir_sd;
+  const reverseNormMean = ageNorm.inv_m;
+  const reverseNormSd = ageNorm.inv_sd;
+
+  const normMean = isReverse ? reverseNormMean : directNormMean;
+  const normSd = isReverse ? reverseNormSd : directNormSd;
   const zScore = parseFloat(((corsiSpan - normMean) / normSd).toFixed(2));
-  const normPercentile = Math.round(Math.min(99, Math.max(1, (0.5 * (1.0 + Math.sign(zScore) * Math.sqrt(1.0 - Math.exp(-2.0 * zScore * zScore / Math.PI)))) * 100)));
+  const normPercentile = Math.round(Math.min(99, Math.max(1, normCDF(zScore) * 100)));
 
   // Calificación normativa clínica cualitativa
   let clinicalCategory = "Promedio";
@@ -993,26 +1202,6 @@ function computeCorsiMetrics(corsiResult, age = 30) {
     clinicalCategory = "No Determinable";
     clinicalDesc = "La prueba finalizó sin alcanzar el umbral mínimo de aciertos.";
   }
-
-  const directSpan = corsiResult?.directSpan ?? (summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct') && (s.success ?? s.isCorrect)).map(s => s.sequence_length || s.level || 2).reduce((max, v) => Math.max(max, v), 0) || 2);
-  const reverseSpan = corsiResult?.reverseSpan ?? (summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse') && (s.success ?? s.isCorrect)).map(s => s.sequence_length || s.level || 2).reduce((max, v) => Math.max(max, v), 0) || 2);
-
-  const directCorrect = summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct') && (s.success ?? s.isCorrect)).length;
-  const reverseCorrect = summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse') && (s.success ?? s.isCorrect)).length;
-  const directTrialsCount = summaries.filter(s => (s.fase === 'Directa' || s.test_mode === 'direct')).length;
-  const reverseTrialsCount = summaries.filter(s => (s.fase === 'Inversa' || s.test_mode === 'reverse')).length;
-
-  const directBlockProduct = directSpan * directCorrect;
-  const reverseBlockProduct = reverseSpan * reverseCorrect;
-
-  // Baremos normativos desagregados según Kessels (2000, 2008)
-  const directNormMean = age < 30 ? 5.8 : age < 50 ? 5.4 : age < 70 ? 5.1 : 4.6;
-  const directZ = parseFloat(((directSpan - directNormMean) / normSd).toFixed(2));
-  const directP = Math.round(Math.min(99, Math.max(1, (0.5 * (1.0 + Math.sign(directZ) * Math.sqrt(1.0 - Math.exp(-2.0 * directZ * directZ / Math.PI)))) * 100)));
-
-  const reverseNormMean = age < 30 ? 5.3 : age < 50 ? 4.9 : age < 70 ? 4.5 : 4.0;
-  const reverseZ = parseFloat(((reverseSpan - reverseNormMean) / normSd).toFixed(2));
-  const reverseP = Math.round(Math.min(99, Math.max(1, (0.5 * (1.0 + Math.sign(reverseZ) * Math.sqrt(1.0 - Math.exp(-2.0 * reverseZ * reverseZ / Math.PI)))) * 100)));
 
   const spanDiscrepancy = isDual ? (directSpan - reverseSpan) : 0;
   let spanDiscrepancyNote = "";
@@ -1040,10 +1229,19 @@ function computeCorsiMetrics(corsiResult, age = 30) {
     reverse_block_product: reverseBlockProduct,
     span_discrepancy: spanDiscrepancy,
     span_discrepancy_note: spanDiscrepancyNote,
+    // Puntuaciones escalares normativas (Tabla 1 y 4)
+    direct_base_pe: directSpanBase.pe,
+    direct_demo_adj: directDemoAdj,
+    direct_scaled_score: directScaledScoreAdj,
     direct_z_score: directZ,
     direct_percentile: directP,
+    reverse_base_pe: reverseSpanBase.pe,
+    reverse_demo_adj: reverseDemoAdj,
+    reverse_scaled_score: reverseScaledScoreAdj,
     reverse_z_score: reverseZ,
     reverse_percentile: reverseP,
+    education_years: eduYears,
+    age_norm_stratum: ageNorm.label,
     dual: isDual,
     corsi_mode: mode,
     max_level: maxLevel,
@@ -1065,8 +1263,13 @@ function computeCorsiMetrics(corsiResult, age = 30) {
     intrusion_rate: intrusionRate,
     euclidean_error_dist: meanEuclideanDist,
     kessels_norm_mean: normMean,
+    kessels_norm_sd: normSd,
     kessels_z_score: zScore,
-    kessels_percentile: normPercentile
+    kessels_percentile: normPercentile,
+    direct_norm_mean: directNormMean,
+    direct_norm_sd: directNormSd,
+    reverse_norm_mean: reverseNormMean,
+    reverse_norm_sd: reverseNormSd
   };
 }
 

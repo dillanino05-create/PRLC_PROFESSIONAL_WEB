@@ -102,34 +102,32 @@ function renderResultCharts(linesData, metrics, mlPred) {
   {
     const ctx = document.getElementById('chart-normal').getContext('2d');
     const age = metrics._age || 25;
-    let mu, sigma;
-    if      (age <= 18) { mu=68; sigma=14; }
-    else if (age <= 35) { mu=75; sigma=12; }
-    else if (age <= 50) { mu=70; sigma=13; }
-    else                { mu=62; sigma=15; }
+    const mu = metrics.con_norm_mean || 180.39;
+    const sigma = metrics.con_norm_sd || 40.5;
+    const score = metrics.CON !== undefined ? metrics.CON : (metrics.adjScore || 133);
 
-    const score = metrics.adjScore;
-    const xMin  = mu - 4*sigma, xMax = mu + 4*sigma;
+    const xMin  = Math.max(0, mu - 3.5 * sigma), xMax = mu + 3.5 * sigma;
     const xPts  = Array.from({length:120}, (_,i) => xMin + (xMax-xMin)*i/119);
     const gaussian = x => (1/(sigma*Math.sqrt(2*Math.PI)))*Math.exp(-0.5*((x-mu)/sigma)**2);
     const yPts  = xPts.map(gaussian);
 
-    // percentile
+    const zScore = parseFloat(((score - mu) / sigma).toFixed(2));
     const erf = z => {
       const t=1/(1+0.3275911*Math.abs(z));
       const p=1-t*(0.254829592+t*(-0.284496736+t*(1.421413741+t*(-1.453152027+t*1.061405429))))*Math.exp(-z*z);
       return z<0 ? -p : p;
     };
-    const pct = Math.round((1+erf((score-mu)/(sigma*Math.sqrt(2))))/2*100);
+    const pct = Math.min(99, Math.max(1, Math.round((1+erf(zScore/Math.sqrt(2)))/2*100)));
+    const zSign = zScore >= 0 ? '+' : '';
 
     chartInstances.normal = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: xPts.map(x=>x.toFixed(1)),
+        labels: xPts.map(x=>Math.round(x)),
         datasets: [
-          { label:'Distribución normativa', data: yPts, borderColor:'#1565C0',
+          { label:`Norma ${metrics.d2_norm_stratum || 'Adultos'} (μ=${mu.toFixed(1)}, σ=${sigma.toFixed(1)})`, data: yPts, borderColor:'#1565C0',
             backgroundColor:'rgba(21,101,192,.1)', fill:true, tension:.4, pointRadius:0, borderWidth:2.2 },
-          { label:`Evaluado (CP=${score.toFixed(1)})`,
+          { label:`Evaluado (CON=${score}, Z=${zSign}${zScore})`,
             data: xPts.map((x,i) => x <= score ? yPts[i] : null),
             borderColor:'transparent', backgroundColor:'rgba(229,57,53,.28)', fill:true,
             pointRadius:0, tension:.4 }
@@ -139,14 +137,10 @@ function renderResultCharts(linesData, metrics, mlPred) {
         responsive:true, maintainAspectRatio:false,
         plugins:{
           legend:{position:'bottom', labels:{boxWidth:12,font:{size:10}}},
-          title:{display:true, text:`Curva Normativa  (Percentil ≈ ${pct})`, font:{size:12,weight:'bold'}, color:'#1A237E'},
-          annotation: { annotations: {
-            line1: { type:'line', xMin: xPts.findIndex(x=>x>=score), xMax: xPts.findIndex(x=>x>=score),
-                     borderColor:'#E53935', borderWidth:2, borderDash:[4,4] }
-          }}
+          title:{display:true, text:`Curva Normativa d2 — CON: ${score} (Percentil ≈ P${pct}, Z = ${zSign}${zScore})`, font:{size:12,weight:'bold'}, color:'#1A237E'}
         },
         scales:{
-          x:{ display:false },
+          x:{ title:{display:true, text:'Puntuación de Concentración (CON = TA - C)'}, ticks:{maxTicksLimit:8} },
           y:{ display:false, beginAtZero:true }
         }
       }
@@ -301,12 +295,13 @@ function renderCorsiResultCharts(trialsData, metrics, mlPred) {
   // ── Chart 4: Curva Normativa de Span Visoespacial (Gauss) ───────────────
   const ctxNorm = document.getElementById('chart-normal');
   if (ctxNorm) {
+    const isDual = metrics.corsi_mode === 'dual' || metrics.dual === true;
     const isReverse = metrics.corsi_mode === 'reverse';
-    const mu = isReverse ? 4.8 : 5.4; // Normas estandarizadas Milner / Kessels
-    const sigma = isReverse ? 1.0 : 1.1;
+    const mu = metrics.kessels_norm_mean || (isReverse ? 4.8 : 5.4);
+    const sigma = metrics.kessels_norm_sd || (isReverse ? 1.0 : 1.1);
     const score = Number(metrics.corsi_span) || 4;
 
-    const xMin = 1.0, xMax = 9.0;
+    const xMin = Math.max(1.0, mu - 3.5 * sigma), xMax = Math.min(10.0, mu + 3.5 * sigma);
     const xPts = Array.from({ length: 80 }, (_, i) => xMin + (xMax - xMin) * i / 79);
     const gaussian = x => (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * ((x - mu) / sigma) ** 2);
     const yPts = xPts.map(gaussian);
@@ -316,8 +311,10 @@ function renderCorsiResultCharts(trialsData, metrics, mlPred) {
       const p = 1 - t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429)))) * Math.exp(-z * z);
       return z < 0 ? -p : p;
     };
-    const zScore = (score - mu) / sigma;
+    const zScore = parseFloat(((score - mu) / sigma).toFixed(2));
     const pct = Math.min(99, Math.max(1, Math.round((1 + erf(zScore / Math.sqrt(2))) / 2 * 100)));
+    const zSign = zScore >= 0 ? '+' : '';
+    const stratumLabel = metrics.age_norm_stratum || 'Adultos';
 
     chartInstances.normal = new Chart(ctxNorm.getContext('2d'), {
       type: 'line',
@@ -325,7 +322,7 @@ function renderCorsiResultCharts(trialsData, metrics, mlPred) {
         labels: xPts.map(x => x.toFixed(1)),
         datasets: [
           {
-            label: `Distribución Normativa (μ=${mu}, σ=${sigma})`,
+            label: `Baremos Kessels — ${stratumLabel} (μ=${mu.toFixed(1)}, σ=${sigma.toFixed(1)})`,
             data: yPts,
             borderColor: '#5C6BC0',
             backgroundColor: 'rgba(92, 107, 192, 0.15)',
@@ -335,7 +332,7 @@ function renderCorsiResultCharts(trialsData, metrics, mlPred) {
             borderWidth: 2
           },
           {
-            label: `Evaluado (Span=${score} bloques)`,
+            label: `Evaluado (Span=${score} bloques, Z=${zSign}${zScore})`,
             data: xPts.map((x, i) => x <= score ? yPts[i] : null),
             borderColor: 'transparent',
             backgroundColor: 'rgba(239, 108, 0, 0.35)',
@@ -350,10 +347,10 @@ function renderCorsiResultCharts(trialsData, metrics, mlPred) {
         maintainAspectRatio: false,
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
-          title: { display: true, text: `Campana Normativa Corsi (Percentil ≈ ${pct})`, font: { size: 12, weight: 'bold' }, color: '#1A237E' }
+          title: { display: true, text: `Campana Normativa Corsi — Span: ${score} (Percentil ≈ P${pct}, Z = ${zSign}${zScore})`, font: { size: 12, weight: 'bold' }, color: '#1A237E' }
         },
         scales: {
-          x: { title: { display: true, text: 'Span de Bloques' }, ticks: { maxTicksLimit: 9 } },
+          x: { title: { display: true, text: 'Span de Bloques Visoespacial' }, ticks: { maxTicksLimit: 9 } },
           y: { display: false, beginAtZero: true }
         }
       }

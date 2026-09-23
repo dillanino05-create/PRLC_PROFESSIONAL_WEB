@@ -312,10 +312,20 @@ def save_excel_corsi(participant: Dict, lines_data: List[Dict], click_log: List[
         metricas_rows = []
         if is_dual:
             metricas_rows.append({"Indicador Cuantitativo": "Span Visoespacial Directo", "Valor Calculado": f"{metrics.get('direct_span', 0)} bloques"})
+            metricas_rows.append({"Indicador Cuantitativo": "Block-Product Directo (Kessels)", "Valor Calculado": f"{metrics.get('direct_block_product', 0)} pts"})
+            metricas_rows.append({"Indicador Cuantitativo": "Puntuación Escalar Directa (Tabla 1 y 4)", "Valor Calculado": f"PE {metrics.get('direct_scaled_score', 10)} (P{metrics.get('direct_percentile', 50)}, Z={_safe_f(metrics.get('direct_z_score'), 2):+.2f})"})
             metricas_rows.append({"Indicador Cuantitativo": "Span Visoespacial Inverso", "Valor Calculado": f"{metrics.get('reverse_span', 0)} bloques"})
+            metricas_rows.append({"Indicador Cuantitativo": "Block-Product Inverso (Kessels)", "Valor Calculado": f"{metrics.get('reverse_block_product', 0)} pts"})
+            metricas_rows.append({"Indicador Cuantitativo": "Puntuación Escalar Inversa (Tabla 1 y 4)", "Valor Calculado": f"PE {metrics.get('reverse_scaled_score', 10)} (P{metrics.get('reverse_percentile', 50)}, Z={_safe_f(metrics.get('reverse_z_score'), 2):+.2f})"})
+            metricas_rows.append({"Indicador Cuantitativo": "Brecha Disociativa (Dir - Inv)", "Valor Calculado": f"{metrics.get('span_discrepancy', 0)} bloques"})
             metricas_rows.append({"Indicador Cuantitativo": "Span Global (Máximo Alcanzado)", "Valor Calculado": f"{metrics.get('corsi_span', 0)} bloques"})
         else:
             metricas_rows.append({"Indicador Cuantitativo": "Span de Memoria Visoespacial", "Valor Calculado": f"{metrics.get('corsi_span', 0)} bloques"})
+            scaled_pe = metrics.get('direct_scaled_score') or metrics.get('reverse_scaled_score')
+            if scaled_pe:
+                pct = metrics.get('direct_percentile') or metrics.get('reverse_percentile') or 50
+                z_sc = metrics.get('direct_z_score') if metrics.get('direct_z_score') is not None else metrics.get('reverse_z_score')
+                metricas_rows.append({"Indicador Cuantitativo": "Puntuación Escalar (PE / Tabla 1 y 4)", "Valor Calculado": f"PE {scaled_pe} (P{pct}, Z={_safe_f(z_sc, 2):+.2f})"})
 
         metricas_rows.extend([
             {"Indicador Cuantitativo": "Puntaje Compuesto (Span × Aciertos)", "Valor Calculado": f"{metrics.get('composite_score', 0)} pts"},
@@ -602,10 +612,14 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
         lapses_mean = int(metrics.get('lapsesMeanMs') or 0)
 
         df_metricas = pd.DataFrame([
+            {"Indicador Cuantitativo": "Grupo Normativo Etario (Brickenkamp)", "Valor Calculado": str(metrics.get('d2_norm_stratum') or 'Adultos')},
             {"Indicador Cuantitativo": "Acumulado de Aciertos (TA)", "Valor Calculado": _safe_round(metrics.get('TA'), 1)},
             {"Indicador Cuantitativo": "Acumulado de Omisiones (O)", "Valor Calculado": _safe_round(metrics.get('O'), 1)},
             {"Indicador Cuantitativo": "Acumulado de Comisiones (COM)", "Valor Calculado": _safe_round(metrics.get('COM'), 1)},
             {"Indicador Cuantitativo": "Capacidad de Concentración (CON = TA - COM)", "Valor Calculado": _safe_round(metrics.get('CON'), 1)},
+            {"Indicador Cuantitativo": "Percentil Concentración Baremado (P_CON)", "Valor Calculado": f"P{metrics.get('percentile_con', 50)} (Z={_safe_round(metrics.get('z_con'), 2):+.2f})"},
+            {"Indicador Cuantitativo": "Puntuación T de Concentración (Escala T)", "Valor Calculado": metrics.get('puntuacion_t_con', 50)},
+            {"Indicador Cuantitativo": "Decatipo de Concentración (Sten 1-10)", "Valor Calculado": metrics.get('decatipo_con', 5.5)},
             {"Indicador Cuantitativo": "Efectividad Total (TOT = TR - Errores)", "Valor Calculado": tot_d2_val},
             {"Indicador Cuantitativo": "Tasa Proporcional de Concentración (CP %)", "Valor Calculado": f"{cp_val:.2f} %"},
             {"Indicador Cuantitativo": "Tasa Global de Error (E %)", "Valor Calculado": f"{err_rate_val:.2f} %"},
@@ -614,6 +628,7 @@ def save_excel(participant: Dict, lines_data: List[Dict], click_log: List[Dict],
             {"Indicador Cuantitativo": "Estilo de Respuesta Cognitiva (SDT)", "Valor Calculado": crit_desc},
             {"Indicador Cuantitativo": "Lapsos Atencionales (>1.5s)", "Valor Calculado": f"{lapses_cnt} pausas ({lapses_mean} ms prom.)" if lapses_cnt > 0 else "0 (Flujo Continuo)"},
             {"Indicador Cuantitativo": "Velocidad Latente Promedio (Estímulos/min)", "Valor Calculado": _safe_round(metrics.get('procSpeed'), 1)},
+            {"Indicador Cuantitativo": "Velocidad de Procesamiento (TR)", "Valor Calculado": f"TR: {metrics.get('TR', 0)} (P{metrics.get('percentile_tr', 50)})"},
             {"Indicador Cuantitativo": "Discrepancia Temporal entre Bloques (TRM %)", "Valor Calculado": _safe_round(metrics.get('TRM'), 2)},
             {"Indicador Cuantitativo": "Tiempos Medios de Clic (Reacción ms)", "Valor Calculado": _safe_round(metrics.get('meanRt'), 1)}
         ])
