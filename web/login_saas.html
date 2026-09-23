@@ -1104,7 +1104,7 @@
 <script>
   // ── Supabase init ──
   const SUPABASE_URL = 'https://lfyaiwbtfgoiczyyzlwh.supabase.co';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYxNDg5NTMsImV4cCI6MjA2MTcyNDk1M30.7GYwJ_OFvOuMXPAhHVUJLjuVj8C2-OV4DXTMfwuqhCw';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmeWFpd2J0ZmdvaWN6eXl6bHdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjc1MTEsImV4cCI6MjA5MDY0MzUxMX0.ZfVceXuYWQKEZimgRLt9kGkSGpq8FO7kRgKbL-Ta-3M';
   let supabaseClient = null;
 
   try {
@@ -1176,7 +1176,8 @@
         if (error) throw error;
         showToast('✅', '¡Bienvenido! Redirigiendo al sistema...');
         setTimeout(() => {
-          window.location.href = 'index.html';
+          const isAtWebRoot = window.location.pathname.includes('web/') && !window.location.pathname.includes('frontend');
+          window.location.href = isAtWebRoot ? 'frontend/app.html' : 'app.html';
         }, 1200);
       } else {
         // Offline: simulate delay

@@ -34,6 +34,8 @@
     { "source": "/css/(.*)", "destination": "/web/frontend/css/$1" },
     { "source": "/assets/(.*)", "destination": "/web/frontend/assets/$1" },
     { "source": "/vendor/(.*)", "destination": "/web/frontend/vendor/$1" },
+    { "source": "/app", "destination": "/web/frontend/app.html" },
+    { "source": "/app.html", "destination": "/web/frontend/app.html" },
     { "source": "/", "destination": "/web/frontend/index.html" },
     { "source": "/index.html", "destination": "/web/frontend/index.html" }
   ]
