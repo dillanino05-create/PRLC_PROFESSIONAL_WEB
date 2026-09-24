@@ -177,11 +177,9 @@ const App = {
     if (msg.tabId === this.tabId) return; // Ignorar mensajes propios
 
     if (msg.type === 'EXAM_STARTED') {
-      this.isExamBlockedByOtherTab = true;
-      this.blockingTabInfo = msg;
-      if (this.screen === 'test' || this.screen === 'practice' || this.screen === 'pretest') {
-        this.renderExamBlockedScreen();
-      }
+      // Modo pruebas y concurrencia: permitir múltiples evaluaciones simultáneas
+      this.isExamBlockedByOtherTab = false;
+      this.blockingTabInfo = null;
     } else if (msg.type === 'EXAM_ENDED') {
       this.isExamBlockedByOtherTab = false;
       this.blockingTabInfo = null;
@@ -280,9 +278,8 @@ const App = {
   },
 
   async registerActiveSession() {
+    // Modo de pruebas concurrentes: permitir múltiples sesiones activas simultáneas en varios PCs/dispositivos
     if (!this.user || !this.supabase) return;
-    const isSuperAdmin = (this.user.user_metadata && this.user.user_metadata.role === 'superadmin');
-    if (isSuperAdmin) return;
     try {
       await this.supabase.from('active_sessions').upsert({
         user_id: this.user.id,
@@ -290,20 +287,12 @@ const App = {
         last_heartbeat: new Date().toISOString(),
         updated_at: new Date().toISOString()
       });
-    } catch (e) {
-      console.warn("[SECURITY] Advertencia en active_sessions:", e);
-    }
+    } catch (e) {}
   },
 
   startSessionHeartbeat() {
+    // Desactivado en modo de pruebas multi-sesión para no expulsar sesiones en otros PCs
     this.stopSessionHeartbeat();
-    if (!this.user) return;
-    const isSuperAdmin = (this.user.user_metadata && this.user.user_metadata.role === 'superadmin');
-    if (isSuperAdmin) return;
-
-    this.sessionHeartbeatTimer = setInterval(() => {
-      this.checkActiveSession();
-    }, 25000);
   },
 
   stopSessionHeartbeat() {
@@ -314,24 +303,8 @@ const App = {
   },
 
   async checkActiveSession() {
-    if (!this.user || !this.supabase || this.screen === 'login') return;
-    const isSuperAdmin = (this.user.user_metadata && this.user.user_metadata.role === 'superadmin');
-    if (isSuperAdmin) return;
-
-    try {
-      const { data, error } = await this.supabase.from('active_sessions')
-        .select('current_session_id')
-        .eq('user_id', this.user.id)
-        .maybeSingle();
-
-      if (data && data.current_session_id && data.current_session_id !== this.clientSessionId) {
-        this.handleSessionExpelled();
-      } else {
-        await this.supabase.from('active_sessions').update({
-          last_heartbeat: new Date().toISOString()
-        }).eq('user_id', this.user.id);
-      }
-    } catch (e) {}
+    // Permitir sesiones concurrentes ilimitadas en múltiples computadores/cuentas sin expulsar a nadie
+    return;
   },
 
   handleSessionExpelled() {
@@ -396,11 +369,11 @@ const App = {
       return;
     }
 
-    // Comprobar bloqueo de concurrencia entre pestañas
-    if ((screen === 'practice' || screen === 'test' || screen === 'pretest') && this.isExamBlockedByOtherTab) {
-      this.renderExamBlockedScreen();
-      return;
-    }
+    // Modo de pruebas concurrentes: permitir evaluaciones simultáneas sin bloqueo de pestañas
+    // if ((screen === 'practice' || screen === 'test' || screen === 'pretest') && this.isExamBlockedByOtherTab) {
+    //   this.renderExamBlockedScreen();
+    //   return;
+    // }
 
     // Notificar inicio/fin de prueba a otras pestañas
     if (screen === 'practice' || screen === 'test') {

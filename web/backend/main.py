@@ -238,18 +238,8 @@ def status():
 
 @app.get('/api/session/verify')
 async def verify_session(user_id: str, session_id: str, auth_ctx: dict = Depends(get_supabase)):
-    """Verifica si la sesión del cliente sigue siendo la sesión activa registrada (Single Active Session)."""
-    if auth_ctx["user_id"] != user_id:
-        raise HTTPException(status_code=403, detail="No autorizado para verificar esta sesión")
-    sb = auth_ctx["client"]
-    try:
-        res = sb.table("active_sessions").select("current_session_id").eq("user_id", user_id).maybe_single().execute()
-        if res and res.data:
-            is_valid = (res.data.get("current_session_id") == session_id)
-            return {"valid": is_valid}
-        return {"valid": True}
-    except Exception:
-        return {"valid": True}
+    """Verifica si la sesión del cliente sigue siendo válida (Permite múltiples sesiones concurrentes en pruebas)."""
+    return {"valid": True}
 
 @app.get('/api/exam-token/verify/{token}')
 async def verify_exam_token(token: str):
@@ -273,8 +263,8 @@ async def verify_exam_token(token: str):
 @app.post('/api/predict')
 async def predict(req: PredictRequest, request: Request):
     client_ip = request.client.host if request.client else "127.0.0.1"
-    if not await limiter.check(f"predict:{client_ip}", max_calls=25, window_seconds=60.0):
-        raise HTTPException(status_code=429, detail="Límite de predicciones excedido (Rate limit: 25/min). Por favor espere un momento.")
+    if not await limiter.check(f"predict:{client_ip}", max_calls=300, window_seconds=60.0):
+        raise HTTPException(status_code=429, detail="Límite de predicciones excedido. Por favor espere un momento.")
     req_dict = req.model_dump()
     if req_dict.get("test_type") == "CORSI":
         return corsi_predictor.predict(req_dict)
@@ -335,9 +325,9 @@ async def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: di
     client_ip = auth_ctx.get("ip", "unknown")
     token = authorization.split(" ")[1] if authorization else ""
 
-    # Rate limiting: Máximo 12 guardados por minuto por usuario
-    if not await limiter.check(f"save:{uid}", max_calls=12, window_seconds=60.0):
-        raise HTTPException(status_code=429, detail="Límite de guardado excedido (Rate limit: 12/min). Por favor espere un momento.")
+    # Rate limiting relajado para pruebas concurrentes masivas en múltiples PCs
+    if not await limiter.check(f"save:{uid}", max_calls=120, window_seconds=60.0):
+        raise HTTPException(status_code=429, detail="Límite de guardado excedido. Por favor espere un momento.")
 
     try:
         part      = req.participant.model_dump()
