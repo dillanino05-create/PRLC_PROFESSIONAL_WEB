@@ -310,17 +310,23 @@ class CorsiMLPredictor:
 
     def extract_features(self, data: dict) -> list:
         """Extrae el Vector Estandarizado de 32 Características de Corsi."""
-        age = float(data.get('age', 30))
-        span = float(data.get('corsi_span', 5))
-        max_lvl = float(data.get('max_level', span))
-        tot_trials = float(data.get('total_trials', 6))
-        corr_trials = float(data.get('correct_trials', 5))
-        err_trials = float(data.get('error_trials', max(0, tot_trials - corr_trials)))
-        acc_pct = float(data.get('accuracy_pct', (corr_trials / max(tot_trials, 1)) * 100))
-        composite = float(data.get('composite_score', span * corr_trials))
-        mean_rt = float(data.get('mean_reaction_time_ms', 1200))
-        hesitation = float(data.get('hesitation_time_avg_ms', 800))
-        tot_time = float(data.get('total_time_sec', 60))
+        def _sf(k, d=0.0):
+            v = data.get(k)
+            if v is None: return float(d)
+            try: return float(v)
+            except (ValueError, TypeError): return float(d)
+
+        age = _sf('age', 30)
+        span = _sf('corsi_span', 5)
+        max_lvl = _sf('max_level', span)
+        tot_trials = _sf('total_trials', 6)
+        corr_trials = _sf('correct_trials', 5)
+        err_trials = _sf('error_trials', max(0, tot_trials - corr_trials))
+        acc_pct = _sf('accuracy_pct', (corr_trials / max(tot_trials, 1)) * 100)
+        composite = _sf('composite_score', span * corr_trials)
+        mean_rt = _sf('mean_reaction_time_ms', 1200)
+        hesitation = _sf('hesitation_time_avg_ms', 800)
+        tot_time = _sf('total_time_sec', 60)
         is_reverse = 1.0 if str(data.get('corsi_mode', 'direct')).lower() == 'reverse' else 0.0
 
         # Esperanza normativa de Kessels por edad
@@ -330,24 +336,24 @@ class CorsiMLPredictor:
         span_dev = span - expected_span
         block_product = span * corr_trials
 
-        transp_rate = float(data.get('transposition_rate', 0.0))
-        intrusion_rate = float(data.get('intrusion_rate', 0.0))
-        euclidean_err = float(data.get('euclidean_error_dist', 0.0))
-        perseveration = float(data.get('perseveration_rate', 0.0))
-        first_err_lvl = float(data.get('first_error_level', span + 1))
-        first_pass_rate = float(data.get('first_attempt_pass_rate', 75.0))
-        mean_iti = float(data.get('mean_iti_ms', mean_rt))
-        iti_cv = float(data.get('iti_cv', 18.0))
-        lat_slope = float(data.get('latency_slope', 45.0))
+        transp_rate = _sf('transposition_rate', 0.0)
+        intrusion_rate = _sf('intrusion_rate', 0.0)
+        euclidean_err = _sf('euclidean_error_dist', 0.0)
+        perseveration = _sf('perseveration_rate', 0.0)
+        first_err_lvl = _sf('first_error_level', span + 1)
+        first_pass_rate = _sf('first_attempt_pass_rate', 75.0)
+        mean_iti = _sf('mean_iti_ms', mean_rt)
+        iti_cv = _sf('iti_cv', 18.0)
+        lat_slope = _sf('latency_slope', 45.0)
 
-        tremor = float(data.get('microtremor_avg', 0.0))
-        sweep_reg = float(data.get('sweep_regularity_avg', 100.0))
-        pupil = float(data.get('pupil_dilation_avg', 1.0))
-        load_peaks = float(data.get('cognitive_load_peaks', 0))
-        blink_rate = float(data.get('blink_rate_min', 15.0))
-        fer_tens = float(data.get('fer_tension_score', 0.0))
-        fer_frust = float(data.get('fer_frustration_events', 0))
-        focus_lost = float(data.get('focus_lost_count', 0))
+        tremor = _sf('microtremor_avg', 0.0)
+        sweep_reg = _sf('sweep_regularity_avg', 100.0)
+        pupil = _sf('pupil_dilation_avg', 1.0)
+        load_peaks = _sf('cognitive_load_peaks', 0)
+        blink_rate = _sf('blink_rate_min', 15.0)
+        fer_tens = _sf('fer_tension_score', 0.0)
+        fer_frust = _sf('fer_frustration_events', 0)
+        focus_lost = _sf('focus_lost_count', 0)
 
         feat = [
             (age - 6.0) / 79.0,  # 1. edad_norm
@@ -417,7 +423,8 @@ class CorsiMLPredictor:
                     logits[1] += 1.5
             else:
                 # Si se aportó discrepancia explícita
-                discrepancy = float(data.get('span_discrepancy', 0))
+                disc_raw = data.get('span_discrepancy')
+                discrepancy = float(disc_raw) if disc_raw is not None else 0.0
                 if discrepancy >= 2:
                     logits[1] += 3.8
 
@@ -465,24 +472,27 @@ class CorsiMLPredictor:
 
             # Biomarcadores paraclínicos
             camera_active = bool(data.get('camera_active', False))
+            blink_raw = data.get('blink_rate_min')
+            sweep_raw = data.get('sweep_regularity_avg')
+            pupil_raw = data.get('pupil_dilation_avg')
             biomarkers_summary = {
                 'camera_active': camera_active,
                 'oculomotor': {
-                    'blink_rate_min': float(data.get('blink_rate_min', 0.0)),
+                    'blink_rate_min': float(blink_raw) if blink_raw is not None else 0.0,
                     'status': 'Fijación Ocular Sostenida'
                 } if camera_active else {'status': 'Cámara Desactivada'},
                 'facial_emotions': {
                     'tension_score': fer_tens,
-                    'frustration_events': int(data.get('fer_frustration_events', 0)),
+                    'frustration_events': int(data.get('fer_frustration_events') or 0),
                     'status': 'Tensión Facial / Sobreesfuerzo' if fer_tens > 40.0 else 'Serenidad Gestual'
                 } if camera_active else {'status': 'Cámara Desactivada'},
                 'motor_kinematics': {
                     'microtremor_avg': tremor,
-                    'sweep_regularity_avg': float(data.get('sweep_regularity_avg', 100.0)),
+                    'sweep_regularity_avg': float(sweep_raw) if sweep_raw is not None else 100.0,
                     'status': 'Estabilidad Normal' if tremor <= 85.0 else 'Tensión / Micro-temblor Elevado'
                 },
                 'pupillometry': {
-                    'pupil_dilation_avg': float(data.get('pupil_dilation_avg', 1.0)),
+                    'pupil_dilation_avg': float(pupil_raw) if pupil_raw is not None else 1.0,
                     'cognitive_load_peaks': int(load_peaks),
                     'status': f'{int(load_peaks)} Picos de Carga Mental' if load_peaks > 0 else 'Carga Pupilar Estable'
                 } if camera_active else {'status': 'Cámara Desactivada'}
