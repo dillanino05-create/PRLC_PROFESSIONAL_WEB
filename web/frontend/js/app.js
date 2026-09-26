@@ -254,6 +254,46 @@ const App = {
     }
   },
 
+  resetBiometricState() {
+    this.earSamples = [];
+    this.gazeEvents = [];
+    this.blinkEvents = [];
+    this.ferSamples = [];
+    this.pupilSamples = [];
+    this.cameraHeadTremorSamples = [];
+    this.currentCameraHeadTremor = 0.0;
+    this._earBaseline = 0.34;
+    this._earHistory = [];
+    this._browRatioBaseline = 0.48;
+    this._browRatioHistory = [];
+    this._browDropBaseline = 0.20;
+    this._browDropHistory = [];
+    this._blinkInProgress = false;
+    this._blinkStartTime = 0;
+    this._blinkMinEar = 1.0;
+    this._lastHeadLandmarks = null;
+    this._lastHeadLandmarkTs = 0;
+    this._lastHeadSpeed = 0;
+    this._lastHeadDx = 0;
+    this._lastHeadDy = 0;
+    this.recentBlinkFlashUntil = 0;
+    this.isWearingGlasses = false;
+    this._gazeDivertedStartTime = null;
+    this._lastFaceMeshTs = 0;
+    this.latestFaceTrackingState = null;
+    this.focusLostCount = 0;
+    this.totalUnfocusedMs = 0;
+    this.integrityLog = [];
+    this._lastBlurTime = null;
+    this.mouseTrackPerLine = [];
+    if (this.cameraStream) {
+      try { this.cameraStream.getTracks().forEach(t => t.stop()); } catch(e) {}
+      this.cameraStream = null;
+    }
+    this._pendingCameraStream = null;
+    this.faceMeshRunning = false;
+  },
+
   renderExamBlockedScreen() {
     const app = document.getElementById('app');
     app.innerHTML = `
@@ -526,6 +566,7 @@ const App = {
   startTestSelection(testType, mode = 'direct') {
     this.testType = testType;
     this.corsiMode = mode;
+    this.resetBiometricState();
     this.nav('form');
   },
 
@@ -1441,6 +1482,10 @@ const App = {
     let cameraStatus = 'declined';
     let cameraError = '';
 
+    if (!wantCamera) {
+      this.resetBiometricState();
+    }
+
     if (wantCamera) {
       try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
@@ -1769,9 +1814,11 @@ const App = {
         try {
           if (this.screenStream) this.screenStream.getTracks().forEach(t => t.stop());
         } catch (e) {}
+        this.screenStream = null;
         try {
           if (this.cameraStream) this.cameraStream.getTracks().forEach(t => t.stop());
         } catch (e) {}
+        this.cameraStream = null;
         if (this.screenVideoElement) {
           try { this.screenVideoElement.remove(); } catch (e) {}
           this.screenVideoElement = null;
@@ -2487,7 +2534,8 @@ const App = {
       const hasCameraStream = Boolean(
         this.cameraStream && 
         (this.cameraStream.active !== false) &&
-        (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0)
+        (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0) &&
+        this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')
       );
       // Duración real de la prueba (con fallback robusto a la suma de ensayos para evitar tasa espuria de parpadeo)
       let calculatedTotalTimeMs = Number(result.totalTimeMs || result.total_time_ms || 0);
@@ -2508,20 +2556,20 @@ const App = {
         : { microtremor_score: 0.0, sweep_regularity: 100.0 };
 
       // Adjuntar biomarcadores paraclínicos IA
-      this.metrics.camera_active = Boolean(oculoMetrics.camera_active);
-      this.metrics.ear_mean = oculoMetrics.ear_mean;
-      this.metrics.blink_count = oculoMetrics.blink_count;
-      this.metrics.blink_rate_min = oculoMetrics.blink_rate_min;
-      this.metrics.gaze_diverted_count = oculoMetrics.gaze_diverted_count;
-      this.metrics.gaze_diverted_ms = oculoMetrics.gaze_diverted_ms;
+      this.metrics.camera_active = Boolean(hasCameraStream && oculoMetrics.camera_active);
+      this.metrics.ear_mean = hasCameraStream ? oculoMetrics.ear_mean : null;
+      this.metrics.blink_count = hasCameraStream ? oculoMetrics.blink_count : 0;
+      this.metrics.blink_rate_min = hasCameraStream ? oculoMetrics.blink_rate_min : 0;
+      this.metrics.gaze_diverted_count = hasCameraStream ? oculoMetrics.gaze_diverted_count : 0;
+      this.metrics.gaze_diverted_ms = hasCameraStream ? oculoMetrics.gaze_diverted_ms : 0;
       this.metrics.microtremor_avg = motorKinematics.microtremor_score || 0.0;
       this.metrics.sweep_regularity_avg = motorKinematics.sweep_regularity || 100.0;
-      this.metrics.fer_dominant = ferMetrics.fer_dominant;
-      this.metrics.fer_tension_score = ferMetrics.fer_tension_score;
-      this.metrics.fer_frustration_events = ferMetrics.fer_frustration_events;
-      this.metrics.pupil_dilation_avg = pupiloMetrics.pupil_dilation_avg;
-      this.metrics.cognitive_load_peaks = pupiloMetrics.cognitive_load_peaks;
-      this.metrics.pupil_baseline = pupiloMetrics.pupil_baseline;
+      this.metrics.fer_dominant = hasCameraStream ? ferMetrics.fer_dominant : 'Sin captura facial';
+      this.metrics.fer_tension_score = hasCameraStream ? ferMetrics.fer_tension_score : 0.0;
+      this.metrics.fer_frustration_events = hasCameraStream ? ferMetrics.fer_frustration_events : 0;
+      this.metrics.pupil_dilation_avg = hasCameraStream ? pupiloMetrics.pupil_dilation_avg : null;
+      this.metrics.cognitive_load_peaks = hasCameraStream ? pupiloMetrics.cognitive_load_peaks : 0;
+      this.metrics.pupil_baseline = hasCameraStream ? pupiloMetrics.pupil_baseline : null;
 
       if (result.testMode === 'dual' || result.dual) {
         this.metrics.corsi_mode = 'dual';
@@ -3065,22 +3113,23 @@ const App = {
     const hasCameraStream = Boolean(
       this.cameraStream && 
       (this.cameraStream.active !== false) &&
-      (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0)
+      (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0) &&
+      this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')
     );
     const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, this.metrics.totalTime, hasCameraStream);
-    if (this.blinkEvents && this.blinkEvents.length > 0) {
+    if (hasCameraStream && this.blinkEvents && this.blinkEvents.length > 0) {
       oculoMetrics.blink_count = Math.max(oculoMetrics.blink_count || 0, this.blinkEvents.length);
       oculoMetrics.blink_rate_min = parseFloat(((oculoMetrics.blink_count / Math.max(this.metrics.totalTime || 1, 1)) * 60).toFixed(1));
     }
-    oculoMetrics.blink_events = this.blinkEvents || [];
-    oculoMetrics.glasses_calibrated = Boolean(oculoMetrics.glasses_calibrated || this.isWearingGlasses);
+    oculoMetrics.blink_events = hasCameraStream ? (this.blinkEvents || []) : [];
+    oculoMetrics.glasses_calibrated = hasCameraStream ? Boolean(oculoMetrics.glasses_calibrated || this.isWearingGlasses) : false;
 
     const ferMetrics = computeFERMetrics(this.ferSamples, hasCameraStream);
     const pupiloMetrics = analyzePupillometry(this.pupilSamples, hasCameraStream, 8.0);
 
     // Asignación de pupilometría normalizada por línea
     this.linesData.forEach(l => {
-      l.pupil_dilation_avg = pupiloMetrics.pupil_by_line[l.linea] !== undefined ? pupiloMetrics.pupil_by_line[l.linea] : null;
+      l.pupil_dilation_avg = hasCameraStream && pupiloMetrics.pupil_by_line[l.linea] !== undefined ? pupiloMetrics.pupil_by_line[l.linea] : null;
     });
 
     // Promedios motores globales
@@ -3094,23 +3143,23 @@ const App = {
       : 100.0;
 
     // Consolidar en this.metrics
-    this.metrics.camera_active = Boolean(oculoMetrics.camera_active);
-    this.metrics.ear_mean = (oculoMetrics.ear_mean !== null && oculoMetrics.ear_mean !== undefined) ? Number(oculoMetrics.ear_mean) : null;
-    this.metrics.blink_count = Number(oculoMetrics.blink_count || 0);
-    this.metrics.blink_rate_min = Number(oculoMetrics.blink_rate_min || 0);
-    this.metrics.blink_events = oculoMetrics.blink_events || [];
-    this.metrics.glasses_calibrated = Boolean(oculoMetrics.glasses_calibrated);
-    this.metrics.gaze_diverted_count = Number(oculoMetrics.gaze_diverted_count || 0);
-    this.metrics.gaze_diverted_ms = Number(oculoMetrics.gaze_diverted_ms || 0);
-    this.metrics.gaze_events = oculoMetrics.gaze_events || this.gazeEvents || [];
+    this.metrics.camera_active = Boolean(hasCameraStream && oculoMetrics.camera_active);
+    this.metrics.ear_mean = hasCameraStream && (oculoMetrics.ear_mean !== null && oculoMetrics.ear_mean !== undefined) ? Number(oculoMetrics.ear_mean) : null;
+    this.metrics.blink_count = hasCameraStream ? Number(oculoMetrics.blink_count || 0) : 0;
+    this.metrics.blink_rate_min = hasCameraStream ? Number(oculoMetrics.blink_rate_min || 0) : 0;
+    this.metrics.blink_events = hasCameraStream ? (oculoMetrics.blink_events || []) : [];
+    this.metrics.glasses_calibrated = hasCameraStream ? Boolean(oculoMetrics.glasses_calibrated) : false;
+    this.metrics.gaze_diverted_count = hasCameraStream ? Number(oculoMetrics.gaze_diverted_count || 0) : 0;
+    this.metrics.gaze_diverted_ms = hasCameraStream ? Number(oculoMetrics.gaze_diverted_ms || 0) : 0;
+    this.metrics.gaze_events = hasCameraStream ? (oculoMetrics.gaze_events || this.gazeEvents || []) : [];
     this.metrics.microtremor_avg = microtremor_avg;
     this.metrics.sweep_regularity_avg = sweep_regularity_avg;
-    this.metrics.fer_dominant = ferMetrics.fer_dominant;
-    this.metrics.fer_tension_score = ferMetrics.fer_tension_score;
-    this.metrics.fer_frustration_events = ferMetrics.fer_frustration_events;
-    this.metrics.pupil_dilation_avg = pupiloMetrics.pupil_dilation_avg;
-    this.metrics.cognitive_load_peaks = pupiloMetrics.cognitive_load_peaks;
-    this.metrics.pupil_baseline = pupiloMetrics.pupil_baseline;
+    this.metrics.fer_dominant = hasCameraStream ? ferMetrics.fer_dominant : 'Sin captura facial';
+    this.metrics.fer_tension_score = hasCameraStream ? ferMetrics.fer_tension_score : 0.0;
+    this.metrics.fer_frustration_events = hasCameraStream ? ferMetrics.fer_frustration_events : 0;
+    this.metrics.pupil_dilation_avg = hasCameraStream ? pupiloMetrics.pupil_dilation_avg : null;
+    this.metrics.cognitive_load_peaks = hasCameraStream ? pupiloMetrics.cognitive_load_peaks : 0;
+    this.metrics.pupil_baseline = hasCameraStream ? pupiloMetrics.pupil_baseline : null;
 
     // Auditoría Paraclínica de Integridad y Detección de Foco (Anti-Cheat)
     const isIntegrityFlagged = (this.focusLostCount > 3 || this.totalUnfocusedMs > 5000);
@@ -6567,6 +6616,7 @@ const App = {
     }
 
     this.testType = testType;
+    this.resetBiometricState();
     if (testType === 'CORSI') {
       this.corsiMode = (mode === 'reverse') ? 'reverse' : (mode === 'dual' ? 'dual' : 'direct');
     }

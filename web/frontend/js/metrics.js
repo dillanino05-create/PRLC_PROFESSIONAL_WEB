@@ -570,7 +570,7 @@ function computeSweepMetrics(samples) {
    tasa de parpadeo por minuto y eventos de desvío real fuera del monitor.
 ═══════════════════════════════════════════════════════════════════════════════ */
 function computeOculomotorMetrics(earSamples, gazeEvents, durationSec, cameraWasActive = false) {
-  const cameraActive = Boolean(cameraWasActive || (earSamples && earSamples.length > 0));
+  const cameraActive = Boolean(cameraWasActive);
   if (!cameraActive) {
     return {
       camera_active: false,
@@ -681,7 +681,7 @@ function computeOculomotorMetrics(earSamples, gazeEvents, durationSec, cameraWas
    correlacionado con el desempeño durante el test.
 ═══════════════════════════════════════════════════════════════════════════════ */
 function computeFERMetrics(ferSamples, cameraWasActive = false) {
-  const cameraActive = Boolean(cameraWasActive || (ferSamples && ferSamples.length > 0));
+  const cameraActive = Boolean(cameraWasActive);
   if (!cameraActive) {
     return {
       fer_dominant: 'Sin captura facial',
@@ -793,7 +793,7 @@ function computePupilSample(landmarks, ear, timestamp, lineNum) {
 }
 
 function analyzePupillometry(pupilSamples, cameraWasActive = false, baselineSec = 8.0) {
-  const cameraActive = Boolean(cameraWasActive || (pupilSamples && pupilSamples.length > 0));
+  const cameraActive = Boolean(cameraWasActive);
   if (!cameraActive || !pupilSamples || pupilSamples.length === 0) {
     return {
       pupil_dilation_avg: null,
