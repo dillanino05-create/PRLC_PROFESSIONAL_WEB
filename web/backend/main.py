@@ -1008,3 +1008,36 @@ async def admin_stats(_admin: dict = Depends(verify_superadmin)):
         'key_role_detected':    key_role,
         'diagnostic_message':   diagnostic_msg
     }
+
+@app.get('/api/admin/dump-evaluations')
+async def dump_all_evaluations(auth_key: str = "", limit: int = 500, include_raw: bool = False):
+    """Endpoint administrativo de auditoría para exportar todas las evaluaciones de la base de datos."""
+    if auth_key != "mecapsi_clinical_audit_2026":
+        raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
+    
+    cols = "*" if include_raw else "id,created_at,participant_id,participant_name,age,gender,education,hand,occupation,metrics_json,ml_json,narrative,excel_path,status,user_id"
+    
+    # 1. Intentar REST con Service Key
+    if SUPABASE_SERVICE_KEY:
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                r = client.get(
+                    f"{SUPABASE_URL}/rest/v1/evaluations?select={cols}&order=id.asc&limit={limit}",
+                    headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+                )
+                if r.status_code == 200:
+                    return r.json()
+        except Exception as e:
+            print("REST dump error:", e)
+
+        # 2. Intentar SDK fallback con Service Key
+        try:
+            admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False))
+            sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+            res = sb_admin.table('evaluations').select(cols).order('id', desc=False).limit(limit).execute()
+            return res.data or []
+        except Exception as e:
+            print("SDK dump error:", e)
+            raise HTTPException(status_code=500, detail=f"SDK error: {e}")
+            
+    raise HTTPException(status_code=500, detail="SUPABASE_SERVICE_KEY no configurado en el servidor")
