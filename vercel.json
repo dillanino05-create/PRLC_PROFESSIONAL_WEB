@@ -36,6 +36,8 @@
     { "source": "/vendor/(.*)", "destination": "/web/frontend/vendor/$1" },
     { "source": "/app", "destination": "/web/frontend/app.html" },
     { "source": "/app.html", "destination": "/web/frontend/app.html" },
+    { "source": "/documentacion", "destination": "/web/frontend/documentacion.html" },
+    { "source": "/documentacion.html", "destination": "/web/frontend/documentacion.html" },
     { "source": "/", "destination": "/web/frontend/index.html" },
     { "source": "/index.html", "destination": "/web/frontend/index.html" }
   ]

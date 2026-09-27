@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MecaPsi — Documentación Científica y Soporte RedCOLSI</title>
+  <meta name="description" content="Recurso de documentación técnica y científica de MecaPsi: Sistema de Soporte a las Decisiones Clínicas basado en Biomarcadores Digitales y Redes Neuronales.">
+  
+  <!-- Tipografía moderna -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome & Chart.js & Mermaid -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+
+  <style>
+    :root {
+      --bg-primary: #0a0f1d;
+      --bg-secondary: #111827;
+      --bg-card: rgba(17, 24, 39, 0.75);
+      --bg-card-hover: rgba(31, 41, 55, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-focus: #3b82f6;
+      
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --accent-rose: #f43f5e;
+      
+      --gradient-brand: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+      --gradient-card: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.0) 100%);
+      
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --shadow-glow: 0 0 30px rgba(59, 130, 246, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      line-height: 1.65;
+      font-size: 15px;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 85% 60%, rgba(6, 182, 212, 0.08) 0%, transparent 45%);
+      background-attachment: fixed;
+    }
+
+    a {
+      color: var(--accent-cyan);
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    a:hover {
+      color: #67e8f9;
+      text-decoration: underline;
+    }
+
+    /* Contenedor */
+    .container {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navbar */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 0;
+    }
+    .navbar-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 1.35rem;
+      color: #fff;
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: var(--gradient-brand);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+    }
+    .badge-event {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      color: #93c5fd;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    .nav-link {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-link:hover {
+      color: #fff;
+      text-decoration: none;
+    }
+    .btn-github {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      padding: 7px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      transition: all 0.2s;
+      text-decoration: none !important;
+    }
+    .btn-github:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 60px 0 40px;
+      text-align: center;
+    }
+    .hero-pretitle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 18px;
+      font-size: 0.85rem;
+      color: var(--accent-cyan);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .hero-title {
+      font-family: var(--font-heading);
+      font-size: clamp(2rem, 4.5vw, 2.9rem);
+      font-weight: 800;
+      line-height: 1.22;
+      color: #ffffff;
+      margin-bottom: 20px;
+      max-width: 950px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .hero-title span {
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-desc {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 820px;
+      margin: 0 auto 30px;
+      line-height: 1.7;
+    }
+
+    /* Meta Cards (Autores, Semillero, Modalidad) */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+      margin-top: 30px;
+      text-align: left;
+    }
+    .meta-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+    .meta-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--accent-blue);
+    }
+    .meta-card.cyan::before { background: var(--accent-cyan); }
+    .meta-card.emerald::before { background: var(--accent-emerald); }
+    .meta-card.purple::before { background: var(--accent-purple); }
+    
+    .meta-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .meta-value {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .meta-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* Aviso Científico Realista */
+    .alert-banner {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      margin: 40px 0 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .alert-icon {
+      font-size: 1.4rem;
+      color: var(--accent-emerald);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .alert-content h4 {
+      font-family: var(--font-heading);
+      font-size: 1.05rem;
+      color: #34d399;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .alert-content p {
+      font-size: 0.92rem;
+      color: #d1fae5;
+      line-height: 1.6;
+    }
+
+    /* Secciones */
+    .section {
+      padding: 50px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .section-header {
+      margin-bottom: 32px;
+    }
+    .section-tag {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .section-title {
+      font-family: var(--font-heading);
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.3;
+    }
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 0.98rem;
+      margin-top: 6px;
+      max-width: 800px;
+    }
+
+    /* Tarjetas Generales */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 28px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Video Section */
+    .video-card {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 28px;
+      align-items: center;
+    }
+    @media (max-width: 860px) {
+      .video-card {
+        grid-template-columns: 1fr;
+      }
+    }
+    .video-frame-wrap {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%; /* 16:9 */
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background: #000;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+    .video-frame-wrap iframe,
+    .video-placeholder {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 24px;
+      background: linear-gradient(145deg, #131b2e 0%, #0d121f 100%);
+    }
+    .play-btn-pulse {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--gradient-brand);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 14px;
+      box-shadow: 0 0 25px rgba(59, 130, 246, 0.6);
+      transition: transform 0.2s;
+    }
+    .play-btn-pulse:hover {
+      transform: scale(1.08);
+    }
+    .video-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .timeline-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.02);
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .time-badge {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      padding: 2px 8px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .timeline-text h5 {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .timeline-text p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Diagrama de Arquitectura */
+    .mermaid-box {
+      background: #0d1322;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      overflow-x: auto;
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .arch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+    .arch-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-sm);
+      padding: 18px;
+    }
+    .arch-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .arch-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+    }
+    .arch-icon.blue { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .arch-icon.cyan { background: rgba(6, 182, 212, 0.2); color: #22d3ee; }
+    .arch-icon.purple { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+    .arch-icon.emerald { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    
+    .arch-card h5 {
+      font-family: var(--font-heading);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .arch-card p {
+      font-size: 0.83rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    /* Métricas KPI */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 860px) {
+      .kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 480px) {
+      .kpi-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    .kpi-card {
+      background: linear-gradient(160deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 22px 20px;
+      text-align: center;
+    }
+    .kpi-num {
+      font-family: var(--font-heading);
+      font-size: 2.2rem;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+    .kpi-num.blue { color: #60a5fa; }
+    .kpi-num.cyan { color: #22d3ee; }
+    .kpi-num.emerald { color: #34d399; }
+    .kpi-num.purple { color: #c084fc; }
+    
+    .kpi-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .kpi-sub {
+      font-size: 0.74rem;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    /* Gráficos Empíricos */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 860px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .chart-container {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-sm);
+      padding: 20px;
+      height: 320px;
+      position: relative;
+    }
+    .chart-title {
+      font-family: var(--font-heading);
+      font-size: 0.96rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chart-caption {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+
+    /* Explicación Científica del Desfase Motor (Fitts) */
+    .fitts-box {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      margin-top: 24px;
+    }
+    .fitts-box h4 {
+      font-family: var(--font-heading);
+      color: #93c5fd;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .fitts-box p {
+      font-size: 0.92rem;
+      color: #e2e8f0;
+      line-height: 1.65;
+    }
+
+    /* Consideraciones Éticas */
+    .ethics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+    .ethics-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      transition: transform 0.2s;
+    }
+    .ethics-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .ethics-icon {
+      font-size: 1.6rem;
+      margin-bottom: 14px;
+    }
+    .ethics-card h5 {
+      font-family: var(--font-heading);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .ethics-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Footer */
+    .footer {
+      background: #070b14;
+      border-top: 1px solid var(--border-color);
+      padding: 50px 0 30px;
+      margin-top: 60px;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+    .footer-top {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+    .footer-brand h4 {
+      font-family: var(--font-heading);
+      font-size: 1.2rem;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .footer-links h5 {
+      color: #fff;
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .footer-links ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .footer-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    /* Print styles */
+    @media print {
+      body {
+        background: #fff;
+        color: #000;
+      }
+      .navbar, .btn-github, .play-btn-pulse {
+        display: none;
+      }
+      .card, .meta-card, .fitts-box, .alert-banner {
+        border: 1px solid #ccc;
+        box-shadow: none;
+        background: #fff;
+        color: #000;
+      }
+      .hero-title, .hero-title span {
+        color: #000;
+        -webkit-text-fill-color: initial;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra de Navegación Superior -->
+  <nav class="navbar">
+    <div class="container navbar-inner">
+      <div class="brand">
+        <div class="brand-logo">
+          <i class="fa-solid fa-brain"></i>
+        </div>
+        <span>MecaPsi</span>
+        <span class="badge-event">ROBOLAB &bull; RedCOLSI 2026</span>
+      </div>
+
+      <div class="nav-links">
+        <a href="#arquitectura" class="nav-link">Arquitectura</a>
+        <a href="#video" class="nav-link">Demostración</a>
+        <a href="#resultados" class="nav-link">Resultados (N=92)</a>
+        <a href="#etica" class="nav-link">Alcance y Ética</a>
+        <a href="https://github.com/dillanino05" target="_blank" rel="noopener" class="btn-github">
+          <i class="fa-brands fa-github"></i>
+          <span>GitHub Dilan</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Encabezado / Hero -->
+  <header class="hero">
+    <div class="container">
+      <div class="hero-pretitle">
+        <i class="fa-solid fa-microscope"></i>
+        <span>Encuentro Departamental de Semilleros de Investigación — Nodo Norte de Santander</span>
+      </div>
+
+      <h1 class="hero-title">
+        MecaPsi: Sistema de Soporte a las Decisiones Clínicas basado en el <span>Análisis de Biomarcadores Digitales</span> mediante Redes Neuronales
+      </h1>
+
+      <p class="hero-desc">
+        Plataforma web desacoplada para la administración psicométrica digital de alta resolución temporal, evaluación de la atención sostenida (PLC / d2) y memoria visoespacial (Corsi), con telemetría motora continua a 60 FPS y modelos de aprendizaje profundo orientados a la asistencia paraclínica.
+      </p>
+
+      <!-- Ficha de Datos Institucionales -->
+      <div class="meta-grid">
+        <div class="meta-card">
+          <div class="meta-label"><i class="fa-solid fa-flask"></i> Semillero e Institución</div>
+          <div class="meta-value">ROBOLAB</div>
+          <div class="meta-sub">Universidad de Pamplona (Sede Villa del Rosario)</div>
+        </div>
+
+        <div class="meta-card cyan">
+          <div class="meta-label"><i class="fa-solid fa-user-pen"></i> Ponente y Autores</div>
+          <div class="meta-value">Dilan Alejandro Lamus Pabón</div>
+          <div class="meta-sub">Ximena A. Mora &bull; Andrea D. Victoria</div>
+        </div>
+
+        <div class="meta-card emerald">
+          <div class="meta-label"><i class="fa-solid fa-chalkboard-user"></i> Docentes Tutores</div>
+          <div class="meta-value">MsC(c). Jeisson H. Martínez Flórez</div>
+          <div class="meta-sub">PhD. Edgar Alexis Díaz Camargo</div>
+        </div>
+
+        <div class="meta-card purple">
+          <div class="meta-label"><i class="fa-solid fa-diagram-project"></i> Modalidad y Carrera</div>
+          <div class="meta-value">Investigación en Curso</div>
+          <div class="meta-sub">Ingeniería Mecatrónica &bull; Fac. Ingenierías</div>
+        </div>
+      </div>
+
+      <!-- Banner de Realismo y Rigor Científico -->
+      <div class="alert-banner">
+        <div class="alert-icon">
+          <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <div class="alert-content">
+          <h4>Declaración de Transparencia y Madurez Tecnológica (TRL 4 - Prototipo en Validación)</h4>
+          <p>
+            MecaPsi es un proyecto de desarrollo tecnológico e investigación aplicada en curso. Los resultados presentados corresponden a la <strong>viabilidad técnica, psicométrica y descriptiva</strong> en una muestra experimental de 92 evaluaciones en 71 personas sanas (estudiantes universitarios y adultos). La plataforma está concebida como un <strong>Sistema de Soporte a las Decisiones Clínicas (CDSS)</strong> que asiste al especialista mediante métricas cuantitativas objetivas. <em>No emite diagnósticos médicos automatizados ni sustituye la evaluación integral de un profesional en neuropsicología.</em> La validación con pacientes clínicos diagnosticados constituye la fase prospectiva del proyecto.
+          </p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- SECCIÓN 1: VIDEO DEMOSTRATIVO -->
+  <section class="section" id="video">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag"><i class="fa-solid fa-video"></i> Evidencia en Tiempo Real</div>
+        <h2 class="section-title">Demostración en Video del Sistema MecaPsi</h2>
+        <p class="section-desc">
+          Recorrido funcional mostrando la administración de la Prueba de Líneas Cruzadas (PLC), la prueba de Bloques de Corsi y la captura subyacente de telemetría cinemática sin saturar al usuario.
+        </p>
+      </div>
+
+      <div class="card video-card">
+        <!-- Reproductor / Placeholder del Video -->
+        <div class="video-frame-wrap">
+          <!-- 
+            INSTRUCCIÓN PARA DILAN:
+            Reemplaza el div siguiente con el iframe real de YouTube cuando tengas el ID del video:
+            <iframe src="https://www.youtube.com/embed/TU_ID_DE_VIDEO" title="MecaPsi Demo" allowfullscreen></iframe>
+          -->
+          <div class="video-placeholder" id="videoPlaceholder">
+            <a href="https://youtu.be/TU_ID_AQUI" target="_blank" rel="noopener" class="play-btn-pulse" title="Ver Demostración">
+              <i class="fa-solid fa-play"></i>
+            </a>
+            <h4 style="color:#fff; margin-bottom: 6px;">Video Demostrativo MecaPsi (Enlace a YouTube)</h4>
+            <p style="font-size: 0.84rem; max-width: 320px;">
+              Haz clic para reproducir el video explicativo de la plataforma, el protocolo de cancelación y la extracción de biomarcadores.
+            </p>
+            <div style="margin-top: 14px;">
+              <span class="badge-event" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color:#fff;">
+                <i class="fa-brands fa-youtube" style="color: #ef4444; margin-right: 4px;"></i> Video Ponencia RedCOLSI
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guion / Momentos Clave del Video -->
+        <div class="video-timeline">
+          <h4 style="font-family: var(--font-heading); color:#fff; font-size: 1.05rem; margin-bottom: 6px;">
+            Estructura de la Demostración
+          </h4>
+
+          <div class="timeline-item">
+            <span class="time-badge">00:00</span>
+            <div class="timeline-text">
+              <h5>Contextualización y Problemática</h5>
+              <p>Limitaciones del lápiz y papel: pérdida del dinamismo temporal y fatiga.</p>
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <span class="time-badge">00:45</span>
+            <div class="timeline-text">
+              <h5>Prueba de Líneas Cruzadas (PLC / d2)</h5>
+              <p>14 líneas de cancelación activa (20 s por línea) con Canvas HTML5 a 60 FPS.</p>
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <span class="time-badge">01:40</span>
+            <div class="timeline-text">
+              <h5>Bloques de Corsi (Directo e Inverso)</h5>
+              <p>Evaluación de la memoria visoespacial a ritmo fijo de 1000 ms por estímulo.</p>
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <span class="time-badge">02:30</span>
+            <div class="timeline-text">
+              <h5>Telemetría Oculta y Cinemática</h5>
+              <p>Registro de coordenadas del cursor, latencias por clic y micro-temblor motor.</p>
+            </div>
+          </div>
+
+          <div class="timeline-item">
+            <span class="time-badge">03:15</span>
+            <div class="timeline-text">
+              <h5>Inferencia MLP y Reporte Forense</h5>
+              <p>Generación instantánea del informe en Excel y perfil atencional objetivo.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 2: ARQUITECTURA DE SOFTWARE -->
+  <section class="section" id="arquitectura">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag"><i class="fa-solid fa-network-wired"></i> Ingeniería de Software & Mecatrónica</div>
+        <h2 class="section-title">Arquitectura Desacoplada y Flujo de Procesamiento</h2>
+        <p class="section-desc">
+          Ecosistema Cloud-Edge diseñado para garantizar concurrencia fluida, registro cinemático sin retardos táctiles y seguridad integral de datos clínicos.
+        </p>
+      </div>
+
+      <!-- Diagrama Mermaid Interactivo -->
+      <div class="mermaid-box">
+        <pre class="mermaid">
+graph LR
+  subgraph ClientEdge ["1. Capa de Interacción (Edge)"]
+    U[Sujeto Evaluado] -->|Interacción continua 60 FPS| Canvas[Canvas HTML5 + Web Audio]
+    Canvas -->|Registro de Eventos| Telemetry[Telemetría Periférica: Clics, Latencias y Cursor]
+  end
+
+  subgraph GatewayBackend ["2. Backend Asíncrono (FastAPI)"]
+    Telemetry -->|Payload Cifrado SSL| API[API Gateway FastAPI]
+    API -->|Encolamiento Asíncrono| Queue[Cola FIFO / Task Queue]
+    Queue -->|Vector 32 Biomarcadores| MLP[Modelo Keras MLP Deep Learning]
+  end
+
+  subgraph CloudServices ["3. Persistencia y Forense"]
+    MLP -->|Clasificación de Perfil| API
+    API -->|Almacenamiento Aislado| DB[(Supabase PostgreSQL + RLS)]
+    API -->|Motor Forense openpyxl| Excel[Reporte Clínico en Excel]
+    Excel -->|Descarga Instantánea| Specialist[Especialista / Psicólogo]
+    DB -.->|Acceso Restringido por Token| Specialist
+  end
+
+  classDef edge fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#fff;
+  classDef fast fill:#0f172a,stroke:#06b6d4,stroke-width:2px,color:#fff;
+  classDef cloud fill:#1e1b4b,stroke:#8b5cf6,stroke-width:2px,color:#fff;
+  class Canvas,Telemetry edge;
+  class API,Queue,MLP fast;
+  class DB,Excel cloud;
+        </pre>
+      </div>
+
+      <!-- Detalle de los 4 Bloques Principales -->
+      <div class="arch-grid">
+        <div class="arch-card">
+          <div class="arch-card-header">
+            <div class="arch-icon blue"><i class="fa-solid fa-desktop"></i></div>
+            <h5>1. Frontend Canvas Edge</h5>
+          </div>
+          <p>
+            Construido en JavaScript Vanilla y Canvas HTML5. Renderiza a 60 cuadros por segundo y captura marcas de tiempo de alta precisión (<code>performance.now()</code>) en microsegundos, eliminando retrasos perceptuales.
+          </p>
+        </div>
+
+        <div class="arch-card">
+          <div class="arch-card-header">
+            <div class="arch-icon cyan"><i class="fa-solid fa-server"></i></div>
+            <h5>2. Gateway FastAPI Asíncrono</h5>
+          </div>
+          <p>
+            Desplegado en entorno Cloud con cola FIFO no bloqueante. Garantiza que múltiples participantes puedan rendir pruebas simultáneas en aulas de cómputo sin colapsar el hilo de cálculo de la inteligencia artificial.
+          </p>
+        </div>
+
+        <div class="arch-card">
+          <div class="arch-card-header">
+            <div class="arch-icon purple"><i class="fa-solid fa-microchip"></i></div>
+            <h5>3. Red Neuronal MLP (Keras)</h5>
+          </div>
+          <p>
+            Perceptrón Multicapa con 32 biomarcadores normalizados, regularización <code>Dropout(0.2)</code> y activación ReLU. Clasifica el patrón de ejecución en 8 perfiles conductuales con una exactitud de entrenamiento del 97.5%.
+          </p>
+        </div>
+
+        <div class="arch-card">
+          <div class="arch-card-header">
+            <div class="arch-icon emerald"><i class="fa-solid fa-shield-halved"></i></div>
+            <h5>4. Supabase RLS & Motor Excel</h5>
+          </div>
+          <p>
+            Base de datos relacional PostgreSQL con políticas RLS (Row Level Security) que impiden accesos no autorizados. Integración con <code>openpyxl</code> para auditar línea por línea en un libro Excel multipágina.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 3: RESULTADOS EMPÍRICOS (N=92 / 71 SUJETOS) -->
+  <section class="section" id="resultados">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag"><i class="fa-solid fa-chart-line"></i> Evidencia Cuantitativa Experimental</div>
+        <h2 class="section-title">Resultados Empíricos en Muestra Real (N=92)</h2>
+        <p class="section-desc">
+          Evaluación preliminar de viabilidad técnica y psicométrica aplicada sobre 71 participantes universitarios y adultos sanos en condiciones estandarizadas.
+        </p>
+      </div>
+
+      <!-- Tarjetas KPI -->
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-num blue">92</div>
+          <div class="kpi-label">Evaluaciones Reales</div>
+          <div class="kpi-sub">71 sujetos humanos únicos</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-num cyan">100%</div>
+          <div class="kpi-label">Alineación Corsi</div>
+          <div class="kpi-sub">Con baremos de Kessels et al.</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-num emerald">94.9%</div>
+          <div class="kpi-label">Normalidad Funcional</div>
+          <div class="kpi-sub">Rescatada en PLC por la red MLP</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-num purple">92%</div>
+          <div class="kpi-label">Ahorro Operativo</div>
+          <div class="kpi-sub">De ~15 min a <1.2 s en reporte</div>
+        </div>
+      </div>
+
+      <!-- Gráficos de Resultados -->
+      <div class="charts-grid">
+        <div class="card">
+          <div class="chart-title">
+            <span>Batería Corsi: Concordancia con Kessels</span>
+            <span class="badge-event" style="font-size: 0.65rem;">N = 53</span>
+          </div>
+          <div class="chart-caption">Distribución percentilar de amplitud visoespacial (Span)</div>
+          <div class="chart-container">
+            <canvas id="chartCorsi"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="chart-title">
+            <span>Prueba PLC: Perfiles Clasificados (MLP)</span>
+            <span class="badge-event" style="font-size: 0.65rem;">N = 39</span>
+          </div>
+          <div class="chart-caption">Clasificación en perfiles conductuales sin sesgo motor</div>
+          <div class="chart-container">
+            <canvas id="chartPLC"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hallazgo Teórico: Ley de Fitts y Desfase Motor -->
+      <div class="fitts-box">
+        <h4>
+          <i class="fa-solid fa-bolt"></i>
+          Hallazgo Clave: El Efecto Interfaz y la Ley de Fitts en la Prueba PLC
+        </h4>
+        <p>
+          En el Test d2 analógico de lápiz y papel, un adulto joven realiza un trazo continuo a razón de <strong>50 a 80 ms por carácter</strong>. En cambio, en un entorno web digital, apuntar y hacer clic con el ratón está gobernado por la <strong>Ley de Fitts</strong>, introduciendo una latencia física y biomecánica inevitable de <strong>250 a 450 ms por estímulo</strong>.
+        </p>
+        <p style="margin-top: 8px;">
+          Si se aplicaran de manera ciega los baremos de papel tradicionales de 2002 a la prueba digital, el 100% de los sujetos sanos evaluados habrían sido clasificados erróneamente en rangos de "Atención Deficitaria" (percentiles 1 al 15) debido al menor volumen total de caracteres alcanzados. La red neuronal <strong>MLP de MecaPsi</strong> corrige este sesgo al analizar la <em>densidad relativa, variabilidad rítmica y latencia de omisión</em>, identificando que el <strong>94.9% de los evaluados presentaba un patrón atencional funcional y saludable</strong>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 4: ÉTICA, LÍMITES Y PROTECCIÓN DE DATOS -->
+  <section class="section" id="etica">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag"><i class="fa-solid fa-lock"></i> Responsabilidad Ética y Científica</div>
+        <h2 class="section-title">Consideraciones Éticas, Límites y Protección de Datos</h2>
+        <p class="section-desc">
+          Fundamentación bioética y técnica alineada con los estándares de la American Psychological Association (APA) y la legislación de protección de datos personales.
+        </p>
+      </div>
+
+      <div class="ethics-grid">
+        <div class="ethics-card">
+          <div class="ethics-icon" style="color: #60a5fa;"><i class="fa-solid fa-hand-holding-medical"></i></div>
+          <h5>Soporte Paraclínico (CDSS)</h5>
+          <p>
+            MecaPsi no emite diagnósticos médicos ni psiquiátricos automatizados cerrados. Opera exclusivamente como una herramienta de apoyo que entrega datos cuantitativos objetivos para enriquecer el criterio profesional del psicólogo.
+          </p>
+        </div>
+
+        <div class="ethics-card">
+          <div class="ethics-icon" style="color: #34d399;"><i class="fa-solid fa-user-shield"></i></div>
+          <h5>Anonimización Estricta (Habeas Data)</h5>
+          <p>
+            Los registros clínicos se almacenan bajo identificadores hash alfanuméricos desvinculados de nombres reales o documentos de identidad. La arquitectura Supabase RLS asegura que cada psicólogo acceda únicamente a sus propios pacientes.
+          </p>
+        </div>
+
+        <div class="ethics-card">
+          <div class="ethics-icon" style="color: #f59e0b;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <h5>Límites Declarados del Estudio</h5>
+          <p>
+            Se declara explícitamente que la muestra actual representa una fase piloto con estudiantes universitarios sanos. El sistema aún no cuenta con validación clínica convergente en poblaciones con TDAH, deterioro cognitivo o ACV.
+          </p>
+        </div>
+
+        <div class="ethics-card">
+          <div class="ethics-icon" style="color: #c084fc;"><i class="fa-solid fa-compass"></i></div>
+          <h5>Proyección y Trabajo Futuro</h5>
+          <p>
+            Se proyecta la ejecución de estudios de baremación digital autóctona, convenios con centros de salud para contraste con neuropsicólogos colegiados e integración de hardware de biosensado táctil y pupilométrico.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER Y CONTACTO -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand" style="max-width: 420px;">
+          <h4>MecaPsi &bull; ROBOLAB</h4>
+          <p style="margin-bottom: 12px;">
+            Semillero de Investigación en Robótica y Automatización (ROBOLAB).<br>
+            Facultad de Ingenierías y Arquitecturas &bull; Programa de Ingeniería Mecatrónica.<br>
+            Universidad de Pamplona &bull; Sede Villa del Rosario, Colombia.
+          </p>
+          <div style="display: flex; gap: 10px; margin-top: 14px;">
+            <a href="https://github.com/dillanino05" target="_blank" rel="noopener" class="btn-github">
+              <i class="fa-brands fa-github"></i> github.com/dillanino05
+            </a>
+          </div>
+        </div>
+
+        <div class="footer-links">
+          <h5>Enlaces del Proyecto</h5>
+          <ul>
+            <li><a href="#arquitectura"><i class="fa-solid fa-angle-right"></i> Arquitectura Técnica</a></li>
+            <li><a href="#video"><i class="fa-solid fa-angle-right"></i> Video Demostrativo</a></li>
+            <li><a href="#resultados"><i class="fa-solid fa-angle-right"></i> Baremos y Resultados</a></li>
+            <li><a href="#etica"><i class="fa-solid fa-angle-right"></i> Marco Ético y Límites</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-links">
+          <h5>Contacto Académico</h5>
+          <ul>
+            <li><i class="fa-solid fa-user" style="margin-right: 6px; color:#60a5fa;"></i> Dilan Alejandro Lamus Pabón</li>
+            <li><i class="fa-solid fa-envelope" style="margin-right: 6px; color:#60a5fa;"></i> dillanino05@gmail.com</li>
+            <li><i class="fa-solid fa-location-dot" style="margin-right: 6px; color:#60a5fa;"></i> Villa del Rosario, Norte de Santander</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>
+          &copy; 2026 MecaPsi &bull; Semillero ROBOLAB. Proyecto presentado en el Encuentro RedCOLSI Nodo Norte de Santander.
+        </div>
+        <div>
+          <button onclick="window.print()" class="btn-github" style="cursor: pointer; background: transparent;">
+            <i class="fa-solid fa-print"></i> Guardar como PDF / Imprimir
+          </button>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts de Inicialización de Mermaid y Gráficos -->
+  <script>
+    // Inicializar Mermaid
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#0d1322',
+        primaryColor: '#1e293b',
+        primaryTextColor: '#f8fafc',
+        primaryBorderColor: '#3b82f6',
+        lineColor: '#64748b',
+        secondaryColor: '#0f172a',
+        tertiaryColor: '#1e1b4b'
+      }
+    });
+
+    // Gráfico 1: Corsi (Distribución Baremos Kessels)
+    const ctxCorsi = document.getElementById('chartCorsi').getContext('2d');
+    new Chart(ctxCorsi, {
+      type: 'bar',
+      data: {
+        labels: ['Superior\n(Span 7-9)', 'Promedio\n(Span 5-6)', 'Límite\n(Span 4)', 'Déficit\n(Span 2-3)'],
+        datasets: [{
+          label: '% de la Muestra (N=53)',
+          data: [50.9, 34.0, 9.4, 5.7],
+          backgroundColor: [
+            'rgba(16, 185, 129, 0.75)',
+            'rgba(59, 130, 246, 0.75)',
+            'rgba(245, 158, 11, 0.75)',
+            'rgba(244, 63, 94, 0.75)'
+          ],
+          borderColor: [
+            '#10b981',
+            '#3b82f6',
+            '#f59e0b',
+            '#f43f5e'
+          ],
+          borderWidth: 1.5,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return ` ${context.parsed.y}% de los evaluados`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 60,
+            ticks: {
+              color: '#94a3b8',
+              callback: value => value + '%'
+            },
+            grid: { color: 'rgba(255,255,255,0.05)' }
+          },
+          x: {
+            ticks: { color: '#94a3b8', font: { size: 11 } },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+
+    // Gráfico 2: PLC (Clasificación Perfiles Keras MLP)
+    const ctxPLC = document.getElementById('chartPLC').getContext('2d');
+    new Chart(ctxPLC, {
+      type: 'bar',
+      data: {
+        labels: ['Base\nNormativa', 'Latencia\nOmisión', 'Pico\nReactivo', 'Alta\nEficiencia', 'Otros\n(Fatiga/Inest)'],
+        datasets: [{
+          label: '% de la Muestra (N=39)',
+          data: [46.2, 25.6, 7.7, 5.1, 15.4],
+          backgroundColor: [
+            'rgba(6, 182, 212, 0.75)',
+            'rgba(139, 92, 246, 0.75)',
+            'rgba(245, 158, 11, 0.75)',
+            'rgba(16, 185, 129, 0.75)',
+            'rgba(100, 116, 139, 0.75)'
+          ],
+          borderColor: [
+            '#06b6d4',
+            '#8b5cf6',
+            '#f59e0b',
+            '#10b981',
+            '#64748b'
+          ],
+          borderWidth: 1.5,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return ` ${context.parsed.y}% clasificados`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 55,
+            ticks: {
+              color: '#94a3b8',
+              callback: value => value + '%'
+            },
+            grid: { color: 'rgba(255,255,255,0.05)' }
+          },
+          x: {
+            ticks: { color: '#94a3b8', font: { size: 11 } },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

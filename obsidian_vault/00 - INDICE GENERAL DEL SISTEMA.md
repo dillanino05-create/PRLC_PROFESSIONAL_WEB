@@ -21,6 +21,7 @@ graph TD
     A --> K["[[10 - Investigacion Vision Computacional y Eye Tracking]]"]
     A --> L["[[11 - Test de Corsi y Memoria Visoespacial]]"]
     A --> M["[[12 - Arquitectura Formal de SaaS y Modelo de Negocio]]"]
+    A --> N["[[13 - Documentacion y Soporte Web RedCOLSI]]"]
 
     B --> C
     B --> D
@@ -37,6 +38,8 @@ graph TD
     M --> B
     M --> E
     M --> C
+    N --> C
+    N --> D
 ```
 
 ---
@@ -78,6 +81,9 @@ graph TD
 
 12. ☁️ **[[12 - Arquitectura Formal de SaaS y Modelo de Negocio]]**:
     Fundamentos formales del SaaS: Aislamiento multi-tenant con PostgreSQL RLS, pasarelas de pago (Stripe, PSE, MercadoPago), cómputo distribuido en el cliente a $0 de costo de servidor, cumplimiento HIPAA/GDPR y métricas unit economics.
+
+13. 🎓 **[[13 - Documentacion y Soporte Web RedCOLSI]]**:
+    Recurso de documentación técnica y científica de apoyo para jurados presenciales y remotos en el Encuentro de Semilleros RedCOLSI, vinculado a `web/frontend/documentacion.html` y `DOCUMENTACION_REDCOLSI.md`.
 
 ---
 *Versión de la plataforma: **v3.3 (Corsi + PLC Multi-Battery)** · Actualizado: **Septiembre 2026** · Diseñado para Obsidian Graph View*
