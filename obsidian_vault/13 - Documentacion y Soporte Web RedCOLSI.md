@@ -1,4 +1,4 @@
-# 10 - Documentación y Soporte Web RedCOLSI
+# 13 - Documentación y Soporte Web RedCOLSI
 
 > **Recurso de Consulta Rápida y Soporte Digital para Ponencias y Evaluadores**  
 > Vinculado a: `web/frontend/documentacion.html` y `DOCUMENTACION_REDCOLSI.md`
@@ -10,7 +10,7 @@
 * **Proyecto:** MecaPsi: Sistema de Soporte a las Decisiones Clínicas basado en el Análisis de Biomarcadores Digitales mediante Redes Neuronales
 * **Semillero:** ROBOLAB (Universidad de Pamplona, Sede Villa del Rosario)
 * **Modalidad:** Investigación en Curso
-* **Autor y Ponente:** Dilan Alejandro Lamus Pabón ([github.com/dillanino05](https://github.com/dillanino05))
+* **Autor y Ponente:** Dilan Alejandro Lamus Pabón ([github.com/dillanino05-create](https://github.com/dillanino05-create))
 * **Coautoras:** Ximena Alexandra Mora Navarro, Andrea Daniela Victoria Vivas
 * **Tutores:** MsC(c). Jeisson Harvey Martínez Flórez, PhD. Edgar Alexis Díaz Camargo
 * **Ruta de Acceso Web:** `/documentacion` o `/documentacion.html`

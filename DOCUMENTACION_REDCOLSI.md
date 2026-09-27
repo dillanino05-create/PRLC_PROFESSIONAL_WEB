@@ -12,7 +12,7 @@
 * **Programa Académico:** Ingeniería Mecatrónica
 * **Semillero de Investigación:** ROBOLAB (Robótica y Automatización)
 * **Autores:** 
-  * **Dilan Alejandro Lamus Pabón** (Ponente e Investigador Principal) — [Perfil en GitHub: github.com/dillanino05](https://github.com/dillanino05)
+  * **Dilan Alejandro Lamus Pabón** (Ponente e Investigador Principal) — [Perfil en GitHub: github.com/dillanino05-create](https://github.com/dillanino05-create)
   * **Ximena Alexandra Mora Navarro** (Coautora)
   * **Andrea Daniela Victoria Vivas** (Coautora)
 * **Docentes Tutores:**
@@ -150,8 +150,8 @@ MecaPsi se clasifica como un **Clinical Decision Support System (CDSS)**. El sis
 
 ## 7. Repositorios y Referencias Bibliográficas
 
-* **Repositorio de Código Frontend:** [github.com/dillanino05/PRLC_PROFESSIONAL_WEB](https://github.com/dillanino05)
-* **Perfil del Investigador Principal:** [github.com/dillanino05](https://github.com/dillanino05)
+* **Repositorio de Código del Proyecto:** [github.com/dillanino05-create/PRLC_PROFESSIONAL_WEB](https://github.com/dillanino05-create/PRLC_PROFESSIONAL_WEB)
+* **Perfil del Investigador Principal:** [github.com/dillanino05-create](https://github.com/dillanino05-create)
 
 ### Referencias Principales
 1. **American Psychological Association [APA]. (2017).** *Ethical Principles of Psychologists and Code of Conduct.* Washington, DC.
