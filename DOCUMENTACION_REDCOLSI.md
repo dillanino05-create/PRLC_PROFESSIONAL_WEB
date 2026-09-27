@@ -18,8 +18,7 @@
 * **Docentes Tutores:**
   * **MsC(c). Jeisson Harvey Martínez Flórez**
   * **PhD. Edgar Alexis Díaz Camargo**
-* **Contacto:** `dillanino05@gmail.com` | `robolab@unipamplona.edu.co`
-* **Acceso Web al Sistema:** [mecapsi-seven.vercel.app](https://mecapsi-seven.vercel.app) *(o dominio oficial asignado)*
+* **Acceso Web al Sistema:** [prlc-professional-web.vercel.app](https://prlc-professional-web.vercel.app)
 
 ---
 
