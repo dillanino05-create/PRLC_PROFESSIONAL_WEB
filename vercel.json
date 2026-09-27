@@ -37,9 +37,11 @@
     { "source": "/app", "destination": "/web/frontend/app.html" },
     { "source": "/app.html", "destination": "/web/frontend/app.html" },
     { "source": "/documentacion", "destination": "/web/frontend/documentacion.html" },
+    { "source": "/documentacion/", "destination": "/web/frontend/documentacion/index.html" },
     { "source": "/documentacion.html", "destination": "/web/frontend/documentacion.html" },
-    { "source": "/documentation", "destination": "/web/frontend/documentacion.html" },
-    { "source": "/documentation.html", "destination": "/web/frontend/documentacion.html" },
+    { "source": "/documentation", "destination": "/web/frontend/documentation.html" },
+    { "source": "/documentation/", "destination": "/web/frontend/documentation/index.html" },
+    { "source": "/documentation.html", "destination": "/web/frontend/documentation.html" },
     { "source": "/", "destination": "/web/frontend/index.html" },
     { "source": "/index.html", "destination": "/web/frontend/index.html" }
   ]
