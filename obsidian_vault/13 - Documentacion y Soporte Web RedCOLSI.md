@@ -13,7 +13,7 @@
 * **Autor y Ponente:** Dilan Alejandro Lamus Pabón ([github.com/dillanino05-create](https://github.com/dillanino05-create))
 * **Coautoras:** Ximena Alexandra Mora Navarro, Andrea Daniela Victoria Vivas
 * **Tutores:** MsC(c). Jeisson Harvey Martínez Flórez, PhD. Edgar Alexis Díaz Camargo
-* **Ruta de Acceso Web:** `/documentacion` o `/documentacion.html`
+* **Rutas de Acceso Web:** `/documentacion` o `/documentation` (y `.html`)
 
 ---
 

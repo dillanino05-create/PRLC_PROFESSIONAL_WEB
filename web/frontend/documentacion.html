@@ -785,72 +785,82 @@
       </div>
 
       <div class="card video-card">
-        <!-- Reproductor / Placeholder del Video -->
+        <!-- Reproductor Nativo del Video Grabado -->
         <div class="video-frame-wrap">
-          <!-- 
-            INSTRUCCIÓN PARA DILAN:
-            Reemplaza el div siguiente con el iframe real de YouTube cuando tengas el ID del video:
-            <iframe src="https://www.youtube.com/embed/TU_ID_DE_VIDEO" title="MecaPsi Demo" allowfullscreen></iframe>
-          -->
-          <div class="video-placeholder" id="videoPlaceholder">
-            <a href="https://youtu.be/TU_ID_AQUI" target="_blank" rel="noopener" class="play-btn-pulse" title="Ver Demostración">
-              <i class="fa-solid fa-play"></i>
-            </a>
-            <h4 style="color:#fff; margin-bottom: 6px;">Video Demostrativo MecaPsi (Enlace a YouTube)</h4>
-            <p style="font-size: 0.84rem; max-width: 320px;">
-              Haz clic para reproducir el video explicativo de la plataforma, el protocolo de cancelación y la extracción de biomarcadores.
-            </p>
-            <div style="margin-top: 14px;">
-              <span class="badge-event" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color:#fff;">
-                <i class="fa-brands fa-youtube" style="color: #ef4444; margin-right: 4px;"></i> Video Ponencia RedCOLSI
-              </span>
-            </div>
-          </div>
+          <video id="demoVideo" controls poster="/assets/video_poster.jpg" playsinline preload="metadata" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; background: #000;">
+            <source src="/assets/video_demo.mp4" type="video/mp4">
+            Tu navegador no soporta la reproducción directa de video HTML5.
+          </video>
         </div>
 
-        <!-- Guion / Momentos Clave del Video -->
+        <!-- Guion / Momentos Clave del Video Real -->
         <div class="video-timeline">
-          <h4 style="font-family: var(--font-heading); color:#fff; font-size: 1.05rem; margin-bottom: 6px;">
-            Estructura de la Demostración
+          <h4 style="font-family: var(--font-heading); color:#fff; font-size: 1.05rem; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+            <span>Estructura del Recorrido (2:38 min)</span>
+            <span style="font-size: 0.72rem; color: var(--accent-cyan); font-weight: normal;"><i class="fa-solid fa-hand-pointer"></i> Clic para saltar</span>
           </h4>
 
-          <div class="timeline-item">
+          <div class="timeline-item" onclick="seekVideo(0)" style="cursor: pointer;" title="Saltar a 00:00">
             <span class="time-badge">00:00</span>
             <div class="timeline-text">
-              <h5>Contextualización y Problemática</h5>
-              <p>Limitaciones del lápiz y papel: pérdida del dinamismo temporal y fatiga.</p>
+              <h5>Landing Page y Arquitectura Multi-Tenant</h5>
+              <p>Presentación de neurotecnología, blindaje criptográfico y seguridad SaaS.</p>
             </div>
           </div>
 
-          <div class="timeline-item">
-            <span class="time-badge">00:45</span>
+          <div class="timeline-item" onclick="seekVideo(23)" style="cursor: pointer;" title="Saltar a 00:23">
+            <span class="time-badge">00:23</span>
             <div class="timeline-text">
-              <h5>Prueba de Líneas Cruzadas (PLC / d2)</h5>
-              <p>14 líneas de cancelación activa (20 s por línea) con Canvas HTML5 a 60 FPS.</p>
+              <h5>Formulario Clínico del Evaluado</h5>
+              <p>Diligenciamiento estandarizado del perfil del participante para la prueba PLC.</p>
             </div>
           </div>
 
-          <div class="timeline-item">
-            <span class="time-badge">01:40</span>
+          <div class="timeline-item" onclick="seekVideo(37)" style="cursor: pointer;" title="Saltar a 00:37">
+            <span class="time-badge">00:37</span>
             <div class="timeline-text">
-              <h5>Bloques de Corsi (Directo e Inverso)</h5>
-              <p>Evaluación de la memoria visoespacial a ritmo fijo de 1000 ms por estímulo.</p>
+              <h5>Protocolo de Captura de Pantalla</h5>
+              <p>Validación de compartición para asegurar registro cinemático sin interferencias.</p>
             </div>
           </div>
 
-          <div class="timeline-item">
-            <span class="time-badge">02:30</span>
+          <div class="timeline-item" onclick="seekVideo(49)" style="cursor: pointer;" title="Saltar a 00:49">
+            <span class="time-badge">00:49</span>
             <div class="timeline-text">
-              <h5>Telemetría Oculta y Cinemática</h5>
-              <p>Registro de coordenadas del cursor, latencias por clic y micro-temblor motor.</p>
+              <h5>Prueba PLC en Vivo (Cancelación a 60 FPS)</h5>
+              <p>14 líneas sucesivas de 20 s con selección e inversión de cruces diana.</p>
             </div>
           </div>
 
-          <div class="timeline-item">
-            <span class="time-badge">03:15</span>
+          <div class="timeline-item" onclick="seekVideo(66)" style="cursor: pointer;" title="Saltar a 01:06">
+            <span class="time-badge">01:06</span>
             <div class="timeline-text">
-              <h5>Inferencia MLP y Reporte Forense</h5>
-              <p>Generación instantánea del informe en Excel y perfil atencional objetivo.</p>
+              <h5>Gráficas de Rendimiento Atencional</h5>
+              <p>Curva de decaimiento por línea, métricas TA/CON y campana de Gauss.</p>
+            </div>
+          </div>
+
+          <div class="timeline-item" onclick="seekVideo(83)" style="cursor: pointer;" title="Saltar a 01:23">
+            <span class="time-badge">01:23</span>
+            <div class="timeline-text">
+              <h5>Batería Corsi: Demostración Didáctica</h5>
+              <p>Instrucciones y práctica con secuencia guiada de cubos iluminados.</p>
+            </div>
+          </div>
+
+          <div class="timeline-item" onclick="seekVideo(95)" style="cursor: pointer;" title="Saltar a 01:35">
+            <span class="time-badge">01:35</span>
+            <div class="timeline-text">
+              <h5>Corsi Directo y Amplitud Visoespacial</h5>
+              <p>Evaluación multinivel con registro de span y cadencia fija de 1000 ms.</p>
+            </div>
+          </div>
+
+          <div class="timeline-item" onclick="seekVideo(107)" style="cursor: pointer;" title="Saltar a 01:47">
+            <span class="time-badge">01:47</span>
+            <div class="timeline-text">
+              <h5>Biomarcadores Inteligentes y Jitter</h5>
+              <p>Probabilidad bayesiana de perfiles, jitter motor y control neuromuscular.</p>
             </div>
           </div>
         </div>
@@ -1254,6 +1264,16 @@ graph LR
         }
       }
     });
+
+    // Función para saltar interactivamente a marcas de tiempo del video
+    function seekVideo(seconds) {
+      const v = document.getElementById('demoVideo');
+      if (v) {
+        v.currentTime = seconds;
+        v.play().catch(e => console.log('Autoplay blocked:', e));
+        v.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
   </script>
 </body>
 </html>

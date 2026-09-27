@@ -71,16 +71,19 @@ graph TD
 
 ---
 
-## 3. Video Demostrativo y Explicativo
+## 3. Video Demostrativo y Explicativo (Duración: 2:38 min)
 
-> 🎥 **Enlace al Video de Demostración:** `https://youtu.be/TU_ID_AQUI` *(Pegar enlace final del video de YouTube aquí)*
+> 🎥 **Video Demostrativo del Sistema:** Disponible en el portal web (`/documentacion`) con reproductor integrado.
 
 ### Minutero y Guion del Recorrido Técnico:
-* **00:00 – 00:45 | Introducción y Planteamiento del Problema:** Brecha estructural entre la evaluación clásica con lápiz y papel y las exigencias de la neuropsicología digital contemporánea.
-* **00:45 – 01:40 | Administración de la Prueba de Líneas Cruzadas (PLC):** Demostración de las 14 líneas de cancelación activa (20 segundos por línea), selección e inversión de selección mediante interacción con ratón.
-* **01:40 – 02:30 | Batería de Memoria de Trabajo Visoespacial (Corsi):** Secuencias directa e inversa con cadencia rítmica fija de 1000 ms por bloque.
-* **02:30 – 03:15 | Telemetría Oculta y Cinemática Periférica:** Visualización en consola del registro transparente de coordenadas $(x, y)$, latencias inter-estímulo y estimación de temblor motor.
-* **03:15 – 04:00 | Procesamiento Backend y Reporte Forense:** Inferencia de la red neuronal MLP en tiempo real y descarga instantánea del reporte clínico en formato Excel.
+* **00:00 – 00:22 | Landing Page y Arquitectura Multi-Tenant:** Presentación de la neurotecnología, blindaje criptográfico y seguridad SaaS de grado clínico.
+* **00:23 – 00:36 | Formulario Clínico del Evaluado:** Diligenciamiento estandarizado del perfil participante para la prueba PLC.
+* **00:37 – 00:48 | Protocolo de Captura de Pantalla:** Validación de compartición para asegurar el registro cinemático sin interferencias visuales.
+* **00:49 – 01:05 | Prueba PLC en Vivo (Cancelación a 60 FPS):** Ejecución de las líneas de cancelación de 20 s con selección e inversión de cruces diana.
+* **01:06 – 01:22 | Gráficas de Rendimiento Atencional:** Curva de fatiga por línea, métricas TA/CON y campana de Gauss normativa.
+* **01:23 – 01:34 | Batería Corsi: Demostración Didáctica:** Modo de práctica guiada con secuencia didáctica de 3 cubos iluminados.
+* **01:35 – 01:46 | Corsi Directo y Amplitud Visoespacial:** Evaluación multinivel con registro de span a cadencia fija de 1000 ms.
+* **01:47 – 02:38 | Biomarcadores Inteligentes y Jitter:** Distribución bayesiana de perfiles, métricas cinemáticas ($3.04 \text{ px/s}^2$) y control neuromuscular.
 
 ---
 
