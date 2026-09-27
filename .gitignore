@@ -35,3 +35,9 @@ Thumbs.db
 scratch/
 resultados_plc/
 *.webm
+*.pdf
+*.docx
+*.xlsx
+*.db
+archivo_local_documentos/
+poster_redcolsi_original.png
