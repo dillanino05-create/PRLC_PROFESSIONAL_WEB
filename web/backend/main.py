@@ -1120,7 +1120,7 @@ async def get_users_mapping(auth_key: str = ""):
 
 
 @app.post('/api/admin/migrate-vault')
-async def migrate_vault(auth_key: str = "", purge_supabase: bool = True, limit: int = 500):
+async def migrate_vault(auth_key: str = "", purge_supabase: bool = True, offset: int = 0, limit: int = 10):
     """Descarga todos los archivos pesados de Supabase Storage, los sube a Google Drive Vault y los purga de Supabase."""
     if auth_key != "mecapsi_clinical_audit_2026":
         raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
@@ -1146,8 +1146,8 @@ async def migrate_vault(auth_key: str = "", purge_supabase: bool = True, limit: 
     except Exception as ue:
         print("Error obteniendo usuarios:", ue)
 
-    # 2. Obtener todas las evaluaciones
-    res = sb_admin.table('evaluations').select('id,participant_id,created_at,excel_path,metrics_json,user_id').order('id', desc=False).limit(limit).execute()
+    # 2. Obtener lote de evaluaciones usando rango paginado
+    res = sb_admin.table('evaluations').select('id,participant_id,created_at,excel_path,metrics_json,user_id').order('id', desc=False).range(offset, offset + limit - 1).execute()
     evals = res.data or []
 
     migrated_excels = 0
