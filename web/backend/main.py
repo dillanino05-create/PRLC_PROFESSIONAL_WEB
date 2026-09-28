@@ -1074,3 +1074,166 @@ async def dump_all_evaluations(auth_key: str = "", limit: int = 500, include_raw
             raise HTTPException(status_code=500, detail=f"SDK error: {e}")
             
     raise HTTPException(status_code=500, detail="SUPABASE_SERVICE_KEY no configurado en el servidor")
+
+
+def map_user_to_psychologist(user_email: str, user_name: str = "") -> str:
+    """Mapea un usuario a la carpeta del psicólogo solicitada por Dilan."""
+    s = f"{user_email} {user_name}".lower()
+    if any(k in s for k in ["dillan", "dilan", "lamus"]):
+        return "Ingeniero_Dilan"
+    elif any(k in s for k in ["andrea", "vivas"]):
+        return "Dra_Andrea"
+    elif any(k in s for k in ["edgar", "diaz", "camargo"]):
+        return "Dr_Edgar"
+    elif any(k in s for k in ["jimena", "ximena", "mora"]):
+        return "Dra_Jimena"
+    elif any(k in s for k in ["prueba", "test"]):
+        return "Perfil_de_Prueba"
+    return "Perfil_de_Prueba"
+
+
+@app.get('/api/admin/users-mapping')
+async def get_users_mapping(auth_key: str = ""):
+    """Retorna la lista de usuarios y cómo están mapeados a las carpetas de los psicólogos."""
+    if auth_key != "mecapsi_clinical_audit_2026":
+        raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
+    if not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="SUPABASE_SERVICE_KEY no configurado")
+        
+    with httpx.Client(timeout=15.0) as client:
+        r = client.get(
+            f"{SUPABASE_URL}/auth/v1/admin/users?per_page=100",
+            headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+        )
+        if r.status_code == 200:
+            users = r.json().get("users", [])
+            return [
+                {
+                    "id": u.get("id"),
+                    "email": u.get("email"),
+                    "name": (u.get("user_metadata") or {}).get("full_name") or u.get("email"),
+                    "folder": map_user_to_psychologist(u.get("email", ""), (u.get("user_metadata") or {}).get("full_name", ""))
+                }
+                for u in users
+            ]
+        return {"error": r.text}
+
+
+@app.post('/api/admin/migrate-vault')
+async def migrate_vault(auth_key: str = "", purge_supabase: bool = True, limit: int = 500):
+    """Descarga todos los archivos pesados de Supabase Storage, los sube a Google Drive Vault y los purga de Supabase."""
+    if auth_key != "mecapsi_clinical_audit_2026":
+        raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
+    if not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="SUPABASE_SERVICE_KEY no configurado")
+
+    admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=60.0))
+    sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+
+    # 1. Obtener mapeo de usuarios a nombres de psicólogos
+    users_map = {}
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            r_users = client.get(
+                f"{SUPABASE_URL}/auth/v1/admin/users?per_page=100",
+                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+            )
+            if r_users.status_code == 200:
+                for u in r_users.json().get("users", []):
+                    u_email = u.get("email", "")
+                    u_name = (u.get("user_metadata") or {}).get("full_name", "")
+                    users_map[u.get("id")] = map_user_to_psychologist(u_email, u_name)
+    except Exception as ue:
+        print("Error obteniendo usuarios:", ue)
+
+    # 2. Obtener todas las evaluaciones
+    res = sb_admin.table('evaluations').select('id,participant_id,created_at,excel_path,metrics_json,user_id').order('id', desc=False).limit(limit).execute()
+    evals = res.data or []
+
+    migrated_excels = 0
+    migrated_videos = 0
+    purged_files = []
+    errors = []
+
+    for ev in evals:
+        eval_id = ev.get('id')
+        uid = ev.get('user_id')
+        psych_name = users_map.get(uid, "Perfil_de_Prueba")
+        pat_id = str(ev.get('participant_id') or f'PAC_{eval_id}')
+        metrics = ev.get('metrics_json') or {}
+        test_type = metrics.get('test_type') or ('CORSI' if 'corsi_span' in metrics else 'PLC')
+        
+        # A) Migrar Excel si existe en Supabase Storage
+        excel_path = ev.get('excel_path')
+        if excel_path:
+            try:
+                excel_bytes = sb_admin.storage.from_('exports').download(excel_path)
+                if excel_bytes and len(excel_bytes) > 0:
+                    drive_payload = {
+                        "token": DRIVE_VAULT_TOKEN,
+                        "psychologist": psych_name,
+                        "patient_id": pat_id,
+                        "test_type": test_type,
+                        "file_type": "excel",
+                        "file_name": excel_path,
+                        "file_base64": base64.b64encode(excel_bytes).decode("utf-8"),
+                        "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                    async with httpx.AsyncClient(timeout=45.0, follow_redirects=True) as d_client:
+                        d_resp = await d_client.post(
+                            DRIVE_WEBHOOK_URL,
+                            content=json.dumps(drive_payload),
+                            headers={"Content-Type": "text/plain;charset=utf-8"}
+                        )
+                        d_res = d_resp.json()
+                        if d_res.get("success"):
+                            migrated_excels += 1
+                            if purge_supabase:
+                                sb_admin.storage.from_('exports').remove([excel_path])
+                                purged_files.append(excel_path)
+            except Exception as ex_err:
+                errors.append(f"Eval {eval_id} Excel: {str(ex_err)}")
+
+        # B) Migrar Video si existe en Supabase Storage
+        video_path = metrics.get('video_path')
+        if video_path and not metrics.get('video_expired'):
+            try:
+                video_bytes = sb_admin.storage.from_('exports').download(video_path)
+                if video_bytes and len(video_bytes) > 0:
+                    drive_payload = {
+                        "token": DRIVE_VAULT_TOKEN,
+                        "psychologist": psych_name,
+                        "patient_id": pat_id,
+                        "test_type": test_type,
+                        "file_type": "video",
+                        "file_name": video_path,
+                        "file_base64": base64.b64encode(video_bytes).decode("utf-8"),
+                        "mime_type": "video/mp4"
+                    }
+                    async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as d_client:
+                        d_resp = await d_client.post(
+                            DRIVE_WEBHOOK_URL,
+                            content=json.dumps(drive_payload),
+                            headers={"Content-Type": "text/plain;charset=utf-8"}
+                        )
+                        d_res = d_resp.json()
+                        if d_res.get("success"):
+                            migrated_videos += 1
+                            metrics['drive_video_url'] = d_res.get('file_url')
+                            metrics['drive_folder'] = d_res.get('folder_path')
+                            sb_admin.table('evaluations').update({'metrics_json': metrics}).eq('id', eval_id).execute()
+                            if purge_supabase:
+                                sb_admin.storage.from_('exports').remove([video_path])
+                                purged_files.append(video_path)
+            except Exception as vid_err:
+                errors.append(f"Eval {eval_id} Video: {str(vid_err)}")
+
+    return {
+        "success": True,
+        "total_evaluations_checked": len(evals),
+        "migrated_excels": migrated_excels,
+        "migrated_videos": migrated_videos,
+        "purged_files_from_supabase": len(purged_files),
+        "errors_count": len(errors),
+        "errors_sample": errors[:5]
+    }
