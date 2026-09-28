@@ -198,6 +198,45 @@ const App = {
     }
   },
 
+  async uploadToDriveVault({ psychologist, patientId, testType, fileType, fileName, blob }) {
+    const DRIVE_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxv3Zg_6jOsDKIC1amVIJUzplYsDH5k2HKfmYx5ZzUUg3v07nuZ35i5nIKaFJdD_Ns/exec';
+    const DRIVE_VAULT_TOKEN = 'MECAPSI_DRIVE_VAULT_2026';
+    
+    return new Promise((resolve) => {
+      if (!blob) return resolve({ success: false, error: 'Blob vacío' });
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64Data = reader.result.split(',')[1];
+          const payload = {
+            token: DRIVE_VAULT_TOKEN,
+            psychologist: psychologist || 'Psicologo_General',
+            patient_id: patientId || 'PAC_ANONIMO',
+            test_type: testType || 'PLC',
+            file_type: fileType || 'video',
+            file_name: fileName,
+            file_base64: base64Data,
+            mime_type: blob.type || (fileType === 'video' ? 'video/mp4' : 'application/octet-stream')
+          };
+          
+          const res = await fetch(DRIVE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          console.log('✅ [DRIVE VAULT 5TB] Archivo respaldado:', data.folder_path);
+          resolve(data);
+        } catch (err) {
+          console.warn('⚠️ Google Drive Vault upload warning:', err);
+          resolve({ success: false, error: err.message });
+        }
+      };
+      reader.onerror = () => resolve({ success: false, error: 'Error leyendo blob' });
+      reader.readAsDataURL(blob);
+    });
+  },
+
   handleVisibilityChange() {
     if (this.screen !== 'test' && this.screen !== 'practice') return;
     const now = Date.now();
@@ -2799,27 +2838,47 @@ const App = {
 
           if (videoBlob && this.evalId) {
             try {
-              const { error } = await this.supabase.storage
-                .from('exports')
-                .upload(videoFilename, videoBlob, {
-                  contentType: 'video/mp4',
-                  cacheControl: '3600',
-                  upsert: true
-                });
+              const psychName = (this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || 'Psicologo_General').replace(/[^a-zA-Z0-9_-]/g, '_');
+              
+              // 1. Respaldo directo a Google Drive Vault (5 TB)
+              const driveRes = await this.uploadToDriveVault({
+                psychologist: psychName,
+                patientId: this.participant?.id || 'PAC_ANONIMO',
+                testType: 'CORSI',
+                fileType: 'video',
+                fileName: videoFilename,
+                blob: videoBlob
+              });
 
-              if (!error) {
-                this.metrics.video_path = videoFilename;
-                this.metrics.session_tag = this.sessionTag;
-                await this.supabase
-                  .from('evaluations')
-                  .update({
-                    excel_path: excelFilename,
-                    metrics_json: this.metrics
-                  })
-                  .eq('id', this.evalId);
+              this.metrics.video_path = videoFilename;
+              this.metrics.session_tag = this.sessionTag;
+              if (driveRes && driveRes.success) {
+                this.metrics.drive_video_url = driveRes.file_url;
+                this.metrics.drive_folder = driveRes.folder_path;
               }
+
+              // 2. Respaldo secundario en Supabase Storage (no crítico si se satura)
+              try {
+                await this.supabase.storage
+                  .from('exports')
+                  .upload(videoFilename, videoBlob, {
+                    contentType: 'video/mp4',
+                    cacheControl: '3600',
+                    upsert: true
+                  });
+              } catch (sbErr) {
+                console.warn("Storage Supabase lleno o no disponible, video a salvo en Google Drive:", sbErr);
+              }
+
+              await this.supabase
+                .from('evaluations')
+                .update({
+                  excel_path: excelFilename,
+                  metrics_json: this.metrics
+                })
+                .eq('id', this.evalId);
             } catch (upErr) {
-              console.warn("Aviso al subir video:", upErr);
+              console.warn("Aviso al procesar video:", upErr);
             }
           }
         }
@@ -3277,17 +3336,34 @@ const App = {
       const excelFilename = sd.excel_filename || `${this.sessionTag}.xlsx`;
       this.evalFilename = excelFilename;
 
-      // 2. Si se grabó video, subirlo al bucket exports y actualizar el registro en base de datos
+      // 2. Si se grabó video, respaldar en Google Drive Vault (5 TB) y opcionalmente en Supabase
       if (videoBlob && this.evalId) {
-        const { data, error } = await this.supabase.storage
-          .from('exports')
-          .upload(videoFilename, videoBlob, {
-            contentType: 'video/mp4',
-            cacheControl: '3600',
-            upsert: true
+        try {
+          const psychName = (this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || 'Psicologo_General').replace(/[^a-zA-Z0-9_-]/g, '_');
+          
+          // 1. Respaldo directo a Google Drive Vault (5 TB)
+          const driveRes = await this.uploadToDriveVault({
+            psychologist: psychName,
+            patientId: this.participant?.id || 'PAC_ANONIMO',
+            testType: this.testType || 'PLC',
+            fileType: 'video',
+            fileName: videoFilename,
+            blob: videoBlob
           });
 
-        if (!error) {
+          // 2. Respaldo secundario en Supabase Storage (no bloqueante)
+          try {
+            await this.supabase.storage
+              .from('exports')
+              .upload(videoFilename, videoBlob, {
+                contentType: 'video/mp4',
+                cacheControl: '3600',
+                upsert: true
+              });
+          } catch (sbErr) {
+            console.warn("Storage Supabase lleno o no disponible, video a salvo en Google Drive:", sbErr);
+          }
+
           const updatedMetrics = {
             TA: this.metrics.TA, O: this.metrics.O, COM: this.metrics.COM,
             TN: this.metrics.TN, TOT: this.metrics.TOT, CON: this.metrics.CON,
@@ -3332,7 +3408,9 @@ const App = {
             test_type: this.testType || 'PLC',
             session_tag: this.sessionTag,
             session_uid: timestampStr,
-            video_path: videoFilename
+            video_path: videoFilename,
+            drive_video_url: (driveRes && driveRes.success) ? driveRes.file_url : "",
+            drive_folder: (driveRes && driveRes.success) ? driveRes.folder_path : ""
           };
           
           await this.supabase
@@ -3345,8 +3423,8 @@ const App = {
             
           this.metrics = updatedMetrics;
           this.metrics._linesDataRef = this.linesData;
-        } else {
-          console.error("Error al guardar video en Supabase Storage:", error);
+        } catch (procErr) {
+          console.warn("Aviso al procesar video PLC:", procErr);
         }
       }
     } catch (e) { console.warn('Save error:', e); }

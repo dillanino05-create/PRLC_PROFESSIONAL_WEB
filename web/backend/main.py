@@ -157,6 +157,14 @@ SUPABASE_KEY         = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6Ik
 # Service Role Key: bypass de RLS para consultas de SuperAdmin. Configura en HF Spaces → Settings → Secrets
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
+# ── Google Drive Vault (5 TB) & Cloudflare R2 Redundancy ───────────────────────
+DRIVE_WEBHOOK_URL    = os.getenv("DRIVE_WEBHOOK_URL", "https://script.google.com/macros/s/AKfycbxv3Zg_6jOsDKIC1amVIJUzplYsDH5k2HKfmYx5ZzUUg3v07nuZ35i5nIKaFJdD_Ns/exec")
+DRIVE_VAULT_TOKEN    = os.getenv("DRIVE_VAULT_TOKEN", "MECAPSI_DRIVE_VAULT_2026")
+R2_ACCOUNT_ID        = os.getenv("R2_ACCOUNT_ID", "")
+R2_ACCESS_KEY_ID     = os.getenv("R2_ACCESS_KEY_ID", "")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
+R2_BUCKET_NAME       = os.getenv("R2_BUCKET_NAME", "mecapsi-vault")
+
 async def get_supabase(request: Request, authorization: str = Header(None)) -> dict:
     client_ip = request.client.host if request.client else "unknown"
     if not authorization or not authorization.startswith("Bearer "):
@@ -310,6 +318,31 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
         if uploaded:
             try: os.remove(excel_path)
             except Exception: pass
+
+        # ── Respaldo Automático a Google Drive Vault (5 TB) ───────────────────
+        if DRIVE_WEBHOOK_URL:
+            try:
+                drive_payload = {
+                    "token": DRIVE_VAULT_TOKEN,
+                    "psychologist": "Psicologo_General",
+                    "patient_id": str(part.get("id", "PAC_ANONIMO")),
+                    "test_type": test_type or "PLC",
+                    "file_type": "excel",
+                    "file_name": filename,
+                    "file_base64": base64.b64encode(file_bytes).decode("utf-8"),
+                    "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                }
+                with httpx.Client(timeout=30.0, follow_redirects=True) as d_client:
+                    d_resp = d_client.post(
+                        DRIVE_WEBHOOK_URL,
+                        content=json.dumps(drive_payload),
+                        headers={"Content-Type": "text/plain;charset=utf-8"}
+                    )
+                    drive_data = d_resp.json()
+                    if drive_data.get("success"):
+                        print(f"✅ [DRIVE VAULT 5TB] Excel guardado en: {drive_data.get('folder_path')}")
+            except Exception as de:
+                print(f"⚠️ Aviso subiendo Excel a Drive Vault: {de}")
             
         sb.table("evaluations").update({"status": "completed", "excel_path": filename}).eq("id", eval_id).execute()
         
