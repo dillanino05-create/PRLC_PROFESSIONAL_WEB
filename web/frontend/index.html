@@ -909,7 +909,7 @@
               Evalúa span adaptativo (2 a 9 bloques), micro-temblor del mouse a 60fps, pupilometría con MediaPipe y reporte pericial en Excel (.XLSX).
             </p>
           </div>
-          <button onclick="goToLiveApp()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold transition shrink-0 flex items-center gap-2 shadow-lg shadow-purple-950 cursor-pointer">
+          <button onclick="openAuthModal('login')" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold transition shrink-0 flex items-center gap-2 shadow-lg shadow-purple-950 cursor-pointer">
             <span>Iniciar Evaluación Completa</span>
             <i data-lucide="arrow-right" class="w-4 h-4"></i>
           </button>
@@ -1692,18 +1692,7 @@
         </button>
       </form>
 
-      <!-- Botones de Acción Inmediata: Credenciales Demo + Ir a App Directo -->
-      <div class="pt-3 border-t border-white/10 space-y-2">
-        <button onclick="fillLoginDemo()" class="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs border border-white/10 transition cursor-pointer flex items-center justify-center gap-1.5">
-          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
-          <span>Cargar Credenciales de Prueba</span>
-        </button>
 
-        <button onclick="goToLiveApp()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-600/20 hover:from-cyan-500/30 hover:to-blue-600/30 text-cyan-300 font-bold text-xs border border-cyan-500/30 transition cursor-pointer flex items-center justify-center gap-1.5">
-          <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5 text-cyan-400"></i>
-          <span>Entrar a la Plataforma en Vivo (Vercel / GitHub) →</span>
-        </button>
-      </div>
 
     </div>
   </div>
@@ -2395,20 +2384,7 @@
       return 'app.html';
     }
 
-    function goToLiveApp() {
-      const userObj = {
-        id: 'evaluator_' + Date.now(),
-        email: 'dillanino05@gmail.com',
-        user_metadata: { role: 'superadmin', name: 'Dilan Lamus' },
-        app_metadata: { role: 'superadmin' },
-        is_local_evaluator: true
-      };
-      try {
-        localStorage.setItem('mecapsi_evaluator_session', JSON.stringify(userObj));
-        sessionStorage.setItem('mecapsi_evaluator_session', JSON.stringify(userObj));
-      } catch(e) {}
-      window.location.href = getAppRedirectUrl();
-    }
+
 
     // ── 5.5. CONTROL DE FACTURACIÓN SAAS (MENSUAL / ANUAL) ──
     let currentBillingCycle = 'monthly';
@@ -2513,11 +2489,7 @@
       }
     }
 
-    function fillLoginDemo() {
-      setAuthTab('login');
-      document.getElementById('login-email').value = 'dillanino05@gmail.com';
-      document.getElementById('login-password').value = 'MecaPsi2026!';
-    }
+
 
     function showAuthError(msg) {
       const el = document.getElementById('auth-error');
@@ -2539,106 +2511,76 @@
       const redirectUrl = getAppRedirectUrl();
 
       if (mode === 'login') {
-        let email = document.getElementById('login-email').value.trim();
+        const email = document.getElementById('login-email').value.trim();
         const pass = document.getElementById('login-password').value;
         const btn = document.getElementById('auth-btn-submit');
 
-        if (!pass) {
-          showAuthError('Por favor ingresa tu contraseña.');
+        if (!email || !pass) {
+          showAuthError('Por favor ingresa tu correo y contraseña.');
           return;
-        }
-
-        // Si no se coloca correo, se asume la cuenta de evaluador
-        if (!email) {
-          email = 'dillanino05@gmail.com';
-          document.getElementById('login-email').value = email;
         }
 
         btn.disabled = true;
         btn.textContent = 'Autenticando en MecaPsi...';
 
         try {
-          let authSuccess = false;
-
-          // 1. Intentar validar con Supabase Auth Cloud
-          if (supabaseClient) {
-            try {
-              const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
-              if (!error && data && data.user) {
-                authSuccess = true;
-              }
-            } catch (sbErr) {
-              console.warn('Aviso Supabase Auth:', sbErr);
-            }
+          if (!supabaseClient) {
+            showAuthError('Error conectando con el servicio de autenticación.');
+            return;
           }
 
-          // 2. Fallback de evaluación clínica continua (evita bloqueos en pruebas)
-          if (!authSuccess && (pass === 'MecaPsi2026!' || pass === 'MecaPsi2025!' || pass === 'admin' || pass === 'd2_2026' || pass.length >= 4)) {
-            authSuccess = true;
-            const userObj = {
-              id: 'evaluator_' + Date.now(),
-              email: email,
-              user_metadata: {
-                role: (email === 'dillanino05@gmail.com' || pass === 'admin') ? 'superadmin' : 'psicologo_clinico',
-                name: (email === 'dillanino05@gmail.com') ? 'Dilan Lamus (SuperAdmin)' : 'Evaluador Clínico'
-              },
-              app_metadata: {
-                role: (email === 'dillanino05@gmail.com' || pass === 'admin') ? 'superadmin' : 'psicologo_clinico'
-              },
-              is_local_evaluator: true
-            };
-            try {
-              localStorage.setItem('mecapsi_evaluator_session', JSON.stringify(userObj));
-              sessionStorage.setItem('mecapsi_evaluator_session', JSON.stringify(userObj));
-            } catch(stErr) {}
-          }
-
-          if (authSuccess) {
+          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+          if (!error && data && data.user) {
             closeAuthModal();
             window.location.href = redirectUrl;
             return;
           }
 
-          showAuthError('Contraseña o correo incorrectos. Puedes usar la clave demo MecaPsi2026!');
+          showAuthError('Credenciales incorrectas o acceso no autorizado.');
         } catch(err) {
-          console.error('Auth error fallback:', err);
-          const userObj = {
-            id: 'evaluator_' + Date.now(),
-            email: email,
-            user_metadata: { role: 'psicologo_clinico', name: 'Evaluador Clínico' },
-            app_metadata: { role: 'psicologo_clinico' },
-            is_local_evaluator: true
-          };
-          try {
-            localStorage.setItem('mecapsi_evaluator_session', JSON.stringify(userObj));
-            sessionStorage.setItem('mecapsi_evaluator_session', JSON.stringify(userObj));
-          } catch(stErr) {}
-          closeAuthModal();
-          window.location.href = redirectUrl;
+          console.error('Auth error:', err);
+          showAuthError('Error al autenticar. Verifique sus credenciales.');
         } finally {
           btn.disabled = false;
           btn.textContent = 'Entrar a la Plataforma';
         }
       } else {
-        const name = document.getElementById('reg-name').value;
+        const name = document.getElementById('reg-name').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
+        const pass = document.getElementById('reg-password').value;
+        const specialty = document.getElementById('reg-specialty').value;
         const planEl = document.getElementById('reg-plan');
         const planName = planEl ? planEl.options[planEl.selectedIndex].text : 'Plan Pro';
 
-        const userObj = {
-          id: 'evaluator_' + Date.now(),
-          email: 'dillanino05@gmail.com',
-          user_metadata: { role: 'psicologo_clinico', name: name || 'Evaluador Clínico' },
-          app_metadata: { role: 'psicologo_clinico' },
-          is_local_evaluator: true
-        };
-        try {
-          localStorage.setItem('mecapsi_evaluator_session', JSON.stringify(userObj));
-          sessionStorage.setItem('mecapsi_evaluator_session', JSON.stringify(userObj));
-        } catch(stErr) {}
+        if (!email || !pass || pass.length < 6) {
+          alert('Por favor ingresa un correo válido y una contraseña de al menos 6 caracteres.');
+          return;
+        }
 
-        alert(`¡Pre-registro Exitoso para ${planName}!\n\nEstimado/a ${name}, tu cuenta ha sido reservada en el programa de Acceso Temprano MecaPsi.\n\nPronto estará habilitada la pasarela de suscripción directa. Mientras tanto, hemos habilitado tus credenciales para que pruebes las baterías clínicas completas (PLC y Corsi) de inmediato.\n\nRedirigiendo a la plataforma operativa...`);
+        if (supabaseClient) {
+          try {
+            const { data, error } = await supabaseClient.auth.signUp({
+              email,
+              password: pass,
+              options: {
+                data: {
+                  full_name: name,
+                  specialty: specialty,
+                  plan: planName
+                }
+              }
+            });
+            if (error) {
+              alert('Aviso de registro: ' + error.message);
+              return;
+            }
+          } catch(sbErr) {
+            console.warn('Error registrando:', sbErr);
+          }
+        }
+
+        alert(`Solicitud de cuenta enviada para ${name}.\n\nTu pre-registro para ${planName} ha sido recibido. El administrador verificará tus credenciales profesionales para autorizar el acceso.`);
         closeAuthModal();
-        window.location.href = redirectUrl;
       }
     }
 
@@ -2651,7 +2593,6 @@
     window.closeAuthModal = closeAuthModal;
     window.closeAuthModalOnBg = closeAuthModalOnBg;
     window.setAuthTab = setAuthTab;
-    window.fillLoginDemo = fillLoginDemo;
     window.handleAuthSubmit = handleAuthSubmit;
     window.resetFullSimulator = resetFullSimulator;
     window.toggleSimTimer = toggleSimTimer;
@@ -2661,7 +2602,6 @@
     window.resetCorsiSimulator = resetCorsiSimulator;
     window.handleCorsiCubeClick = handleCorsiCubeClick;
     window.switchExcelSheet = switchExcelSheet;
-    window.goToLiveApp = goToLiveApp;
     window.getAppRedirectUrl = getAppRedirectUrl;
     window.setBillingCycle = setBillingCycle;
 
