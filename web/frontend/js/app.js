@@ -230,6 +230,21 @@ const App = {
     });
   },
 
+  getPsychologistFolderName() {
+    const uEmail = (this.user?.email || '').toLowerCase();
+    const uName = (this.user?.user_metadata?.full_name || '').toLowerCase();
+    if (uEmail.includes('ximena') || uName.includes('ximena') || uEmail.includes('jimena') || uName.includes('jimena')) {
+      return 'Dra_Ximena';
+    } else if (uEmail.includes('andrea') || uName.includes('andrea')) {
+      return 'Dra_Andrea';
+    } else if (uEmail.includes('edgar') || uName.includes('edgar')) {
+      return 'Dr_Edgar';
+    } else if (uEmail.includes('dillan') || uEmail.includes('dilan') || uName.includes('dillan') || uName.includes('dilan')) {
+      return 'Ingeniero_Dilan';
+    }
+    return (this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || 'Perfil_de_Prueba').replace(/[^a-zA-Z0-9_-]/g, '_');
+  },
+
   handleVisibilityChange() {
     if (this.screen !== 'test' && this.screen !== 'practice') return;
     const now = Date.now();
@@ -2809,7 +2824,7 @@ const App = {
 
           if (videoBlob && this.evalId) {
             try {
-              const psychName = (this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || 'Psicologo_General').replace(/[^a-zA-Z0-9_-]/g, '_');
+              const psychName = this.getPsychologistFolderName();
               
               // 1. Respaldo directo a Google Drive Vault (5 TB)
               const driveRes = await this.uploadToDriveVault({
@@ -2826,19 +2841,7 @@ const App = {
               if (driveRes && driveRes.success) {
                 this.metrics.drive_video_url = driveRes.file_url;
                 this.metrics.drive_folder = driveRes.folder_path;
-              }
-
-              // 2. Respaldo secundario en Supabase Storage (no crítico si se satura)
-              try {
-                await this.supabase.storage
-                  .from('exports')
-                  .upload(videoFilename, videoBlob, {
-                    contentType: 'video/mp4',
-                    cacheControl: '3600',
-                    upsert: true
-                  });
-              } catch (sbErr) {
-                console.warn("Storage Supabase lleno o no disponible, video a salvo en Google Drive:", sbErr);
+                this.metrics.drive_file_id = driveRes.file_id;
               }
 
               await this.supabase
@@ -3310,7 +3313,7 @@ const App = {
       // 2. Si se grabó video, respaldar en Google Drive Vault (5 TB) y opcionalmente en Supabase
       if (videoBlob && this.evalId) {
         try {
-          const psychName = (this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || 'Psicologo_General').replace(/[^a-zA-Z0-9_-]/g, '_');
+          const psychName = this.getPsychologistFolderName();
           
           // 1. Respaldo directo a Google Drive Vault (5 TB)
           const driveRes = await this.uploadToDriveVault({
@@ -3321,19 +3324,6 @@ const App = {
             fileName: videoFilename,
             blob: videoBlob
           });
-
-          // 2. Respaldo secundario en Supabase Storage (no bloqueante)
-          try {
-            await this.supabase.storage
-              .from('exports')
-              .upload(videoFilename, videoBlob, {
-                contentType: 'video/mp4',
-                cacheControl: '3600',
-                upsert: true
-              });
-          } catch (sbErr) {
-            console.warn("Storage Supabase lleno o no disponible, video a salvo en Google Drive:", sbErr);
-          }
 
           const updatedMetrics = {
             TA: this.metrics.TA, O: this.metrics.O, COM: this.metrics.COM,
@@ -3381,7 +3371,8 @@ const App = {
             session_uid: timestampStr,
             video_path: videoFilename,
             drive_video_url: (driveRes && driveRes.success) ? driveRes.file_url : "",
-            drive_folder: (driveRes && driveRes.success) ? driveRes.folder_path : ""
+            drive_folder: (driveRes && driveRes.success) ? driveRes.folder_path : "",
+            drive_file_id: (driveRes && driveRes.success) ? driveRes.file_id : ""
           };
           
           await this.supabase
@@ -5534,7 +5525,27 @@ const App = {
           dlBtn.disabled = false;
         }
 
-        player.src = d.url;
+        if (d.url.includes('drive.google.com')) {
+          player.style.display = 'none';
+          let driveFrame = document.getElementById('player-drive-frame');
+          if (!driveFrame) {
+            driveFrame = document.createElement('iframe');
+            driveFrame.id = 'player-drive-frame';
+            driveFrame.style.width = '100%';
+            driveFrame.style.height = isSuperAdmin ? '64vh' : '65vh';
+            driveFrame.style.border = 'none';
+            driveFrame.style.borderRadius = '10px';
+            driveFrame.setAttribute('allow', 'autoplay; fullscreen');
+            player.parentElement.appendChild(driveFrame);
+          }
+          driveFrame.style.display = 'block';
+          driveFrame.src = d.url;
+        } else {
+          const driveFrame = document.getElementById('player-drive-frame');
+          if (driveFrame) driveFrame.style.display = 'none';
+          player.style.display = 'block';
+          player.src = d.url;
+        }
         modal.classList.add('active');
 
         if (isSuperAdmin) {
@@ -6357,9 +6368,15 @@ const App = {
     this.stopAIHUDLoop();
     const modal = document.getElementById('video-modal');
     const player = document.getElementById('player-video');
+    const driveFrame = document.getElementById('player-drive-frame');
+    if (driveFrame) {
+      driveFrame.src = "";
+      driveFrame.remove();
+    }
     if (player) {
       player.pause();
       player.src = "";
+      player.style.display = 'block';
     }
     if (modal) {
       modal.classList.remove('active');
