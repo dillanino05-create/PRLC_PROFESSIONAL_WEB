@@ -299,26 +299,6 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
         with open(excel_path, "rb") as f:
             file_bytes = f.read()
             
-        uploaded = False
-        last_err = None
-        for attempt in range(3):
-            try:
-                sb.storage.from_("exports").upload(
-                    path=filename, 
-                    file=file_bytes, 
-                    file_options={"content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "upsert": "true"}
-                )
-                uploaded = True
-                break
-            except Exception as up_e:
-                last_err = up_e
-                print(f"⚠️ Intento {attempt + 1}/3 subida Excel falló: {up_e}")
-                time.sleep(1.0)
-                
-        if uploaded:
-            try: os.remove(excel_path)
-            except Exception: pass
-
         # ── Respaldo Automático a Google Drive Vault (5 TB) ───────────────────
         if DRIVE_WEBHOOK_URL:
             try:
@@ -343,6 +323,10 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
                         print(f"✅ [DRIVE VAULT 5TB] Excel guardado en: {drive_data.get('folder_path')}")
             except Exception as de:
                 print(f"⚠️ Aviso subiendo Excel a Drive Vault: {de}")
+
+        # Limpiar archivo temporal local
+        try: os.remove(excel_path)
+        except Exception: pass
             
         sb.table("evaluations").update({"status": "completed", "excel_path": filename}).eq("id", eval_id).execute()
         
