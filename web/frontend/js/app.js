@@ -212,14 +212,56 @@ const App = {
             mime_type: blob.type || (fileType === 'video' ? 'video/mp4' : 'application/octet-stream')
           };
           
-          const res = await fetch(DRIVE_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
-          });
-          const data = await res.json();
-          console.log('✅ [DRIVE VAULT 5TB] Archivo respaldado:', data.folder_path);
-          resolve(data);
+          let data = null;
+          // Estrategia 1: Envío directo al webhook de Google Apps Script con timeout de seguridad
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 65000);
+            const res = await fetch(DRIVE_WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload),
+              signal: ctrl.signal
+            });
+            clearTimeout(tid);
+            if (res.ok) {
+              data = await res.json();
+            }
+          } catch (directErr) {
+            console.warn('⚠️ Intento directo a Drive Vault falló o dio timeout, intentando vía backend proxy:', directErr);
+          }
+
+          // Estrategia 2: Fallback resiliente vía backend proxy /api/vault/upload-video
+          if (!data || !data.success) {
+            try {
+              const sess = await this.supabase?.auth?.getSession();
+              const token = sess?.data?.session?.access_token || '';
+              const bRes = await fetch(`${API_BASE}/api/vault/upload-video`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                  patient_id: payload.patient_id,
+                  test_type: payload.test_type,
+                  filename: payload.file_name,
+                  video_base64: base64Data,
+                  mime_type: payload.mime_type
+                })
+              });
+              if (bRes.ok) {
+                data = await bRes.json();
+              }
+            } catch (proxyErr) {
+              console.warn('⚠️ Fallo en backend proxy para Drive Vault:', proxyErr);
+            }
+          }
+
+          if (data && data.success) {
+            console.log('✅ [DRIVE VAULT 5TB] Archivo respaldado con éxito:', data.file_url || data.folder_path);
+            resolve(data);
+          } else {
+            console.warn('⚠️ No se pudo sincronizar el archivo con Drive Vault:', data);
+            resolve(data || { success: false, error: 'No se pudo sincronizar a Drive Vault' });
+          }
         } catch (err) {
           console.warn('⚠️ Google Drive Vault upload warning:', err);
           resolve({ success: false, error: err.message });
@@ -1810,7 +1852,7 @@ const App = {
       };
     }
 
-    this.startRecording();
+    // Navegar a la pantalla de práctica previa; la grabación forense se iniciará al arrancar el test real
     this.nav('practice');
   },
 
@@ -1819,10 +1861,16 @@ const App = {
     this.linesData = [];
     this.clickLog = [];
     this.testLines = Array.from({ length: this.TOTAL_LINES }, () => generateTestLine(this.CHARS_PER_LINE));
+    
+    // Iniciar grabación sincronizada con el segundo 0:00 del test real para máxima precisión HUD y video ultraligero
+    this.startRecording();
     this.nav('test');
   },
 
   startRecording() {
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      try { this.mediaRecorder.stop(); } catch (e) {}
+    }
     this.recordedChunks = [];
     
     // Priorizar codificadores MP4 nativos (H.264 / AVC1) si el navegador lo soporta, con fallback elegante a WebM
@@ -1847,11 +1895,18 @@ const App = {
     // Si NO hay stream de cámara, grabamos el stream de pantalla directamente para máximo rendimiento y latencia cero (0% CPU)
     if (!this.cameraStream) {
       const stream = this.screenStream;
-      let options = chosenMime ? { mimeType: chosenMime } : {};
+      let options = {
+        videoBitsPerSecond: 350000 // 350 kbps: ultraligero (~12MB por sesión de 4.6 min) y compatible con límite Google Apps Script (50MB)
+      };
+      if (chosenMime) options.mimeType = chosenMime;
       try {
         this.mediaRecorder = new MediaRecorder(stream, options);
       } catch (e) {
-        this.mediaRecorder = new MediaRecorder(stream);
+        try {
+          this.mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: 350000 });
+        } catch (e2) {
+          this.mediaRecorder = new MediaRecorder(stream);
+        }
       }
       this.mediaRecorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
@@ -1990,12 +2045,19 @@ const App = {
     // Capturar stream del canvas a 15 fps estables
     const stream = canvas.captureStream(15);
     
-    let options = chosenMime ? { mimeType: chosenMime } : {};
+    let options = {
+      videoBitsPerSecond: 350000 // 350 kbps: ultraligero (~12MB por sesión) para subida inmediata a Google Drive
+    };
+    if (chosenMime) options.mimeType = chosenMime;
 
     try {
       this.mediaRecorder = new MediaRecorder(stream, options);
     } catch (e) {
-      this.mediaRecorder = new MediaRecorder(stream);
+      try {
+        this.mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: 350000 });
+      } catch (e2) {
+        this.mediaRecorder = new MediaRecorder(stream);
+      }
     }
 
     this.mediaRecorder.ondataavailable = (e) => {
@@ -5000,9 +5062,14 @@ const App = {
           <button class="modal-close" onclick="App.closeVideoModal()">×</button>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
             <div class="section-title" id="video-modal-title" style="margin:0;font-size:1.25rem;">🎥 Grabación de la Sesión</div>
-            <button id="modal-btn-download-video" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:7px 16px;background:#1565C0;color:#FFF;border-radius:8px;box-shadow:0 2px 8px rgba(21,101,192,0.3);cursor:pointer;" onclick="App.downloadCurrentVideo(this)">
-              ⬇️ Descargar Video (.mp4)
-            </button>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button id="modal-btn-open-drive" class="btn btn-sm" style="display:none;background:#065F46;color:#A7F3D0;border:1px solid #059669;font-weight:700;padding:7px 16px;border-radius:8px;cursor:pointer;align-items:center;gap:6px;" onclick="App.openCurrentDriveVideo()">
+                ↗️ Abrir en Drive
+              </button>
+              <button id="modal-btn-download-video" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:7px 16px;background:#1565C0;color:#FFF;border-radius:8px;box-shadow:0 2px 8px rgba(21,101,192,0.3);cursor:pointer;" onclick="App.downloadCurrentVideo(this)">
+                ⬇️ Descargar Video (.mp4)
+              </button>
+            </div>
           </div>
           <div class="video-container" style="background:#000;border-radius:12px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.25);">
             <video id="player-video" controls playsinline style="width:100%;max-height:65vh;display:block;outline:none;"></video>
@@ -5688,6 +5755,9 @@ const App = {
               <button id="btn-fullscreen-hud" class="btn btn-sm" onclick="App.toggleVideoFullscreen()" style="background:#1E293B;color:#F8FAFC;border:1px solid #475569;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
                 ⛶ Pantalla Completa
               </button>
+              <button id="modal-btn-open-drive" class="btn btn-sm" style="display:none;background:#065F46;color:#A7F3D0;border:1px solid #059669;font-weight:700;padding:6px 14px;border-radius:8px;cursor:pointer;align-items:center;gap:6px;" onclick="App.openCurrentDriveVideo()">
+                ↗️ Abrir en Drive
+              </button>
               <button id="modal-btn-download-video" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:6px 16px;background:linear-gradient(135deg,#0284C7,#2563EB);color:#FFF;border-radius:8px;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(2,132,199,0.4);" onclick="App.downloadCurrentVideo(this)">
                 ⬇️ Descargar Video (.mp4)
               </button>
@@ -5735,9 +5805,14 @@ const App = {
           <button class="modal-close" onclick="App.closeVideoModal()">×</button>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
             <div class="section-title" id="video-modal-title" style="margin:0;font-size:1.25rem;">🎥 Grabación de la Sesión</div>
-            <button id="modal-btn-download-video" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:7px 16px;background:#1565C0;color:#FFF;border-radius:8px;box-shadow:0 2px 8px rgba(21,101,192,0.3);cursor:pointer;" onclick="App.downloadCurrentVideo(this)">
-              ⬇️ Descargar Video (.mp4)
-            </button>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button id="modal-btn-open-drive" class="btn btn-sm" style="display:none;background:#065F46;color:#A7F3D0;border:1px solid #059669;font-weight:700;padding:7px 16px;border-radius:8px;cursor:pointer;align-items:center;gap:6px;" onclick="App.openCurrentDriveVideo()">
+                ↗️ Abrir en Drive
+              </button>
+              <button id="modal-btn-download-video" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:7px 16px;background:#1565C0;color:#FFF;border-radius:8px;box-shadow:0 2px 8px rgba(21,101,192,0.3);cursor:pointer;" onclick="App.downloadCurrentVideo(this)">
+                ⬇️ Descargar Video (.mp4)
+              </button>
+            </div>
           </div>
           <div class="video-container" style="background:#000;border-radius:12px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,0.25);">
             <video id="player-video" controls playsinline style="width:100%;max-height:65vh;display:block;outline:none;"></video>
@@ -5821,6 +5896,18 @@ const App = {
           dlBtn.disabled = false;
         }
 
+        // Configurar botón directo a Google Drive Vault
+        const driveBtn = document.getElementById('modal-btn-open-drive');
+        const driveUrl = d.drive_url || (d.url && d.url.includes('drive.google.com') ? d.url : '');
+        if (driveBtn) {
+          if (driveUrl) {
+            driveBtn.style.display = 'inline-flex';
+            driveBtn.dataset.driveUrl = driveUrl;
+          } else {
+            driveBtn.style.display = 'none';
+          }
+        }
+
         if (d.url.includes('drive.google.com')) {
           player.style.display = 'none';
           let driveFrame = document.getElementById('player-drive-frame');
@@ -5835,7 +5922,14 @@ const App = {
             player.parentElement.appendChild(driveFrame);
           }
           driveFrame.style.display = 'block';
-          driveFrame.src = d.url;
+
+          let previewUrl = d.url;
+          if (previewUrl.includes('/view')) {
+            previewUrl = previewUrl.replace(/\/view(\?usp=drivesdk|\?usp=sharing)?/g, '/preview');
+          } else if (!previewUrl.includes('/preview') && d.drive_id) {
+            previewUrl = `https://drive.google.com/file/d/${d.drive_id}/preview`;
+          }
+          driveFrame.src = previewUrl;
         } else {
           const driveFrame = document.getElementById('player-drive-frame');
           if (driveFrame) driveFrame.style.display = 'none';
@@ -5861,6 +5955,16 @@ const App = {
         btn.textContent = "🎥 Ver";
         btn.disabled = false;
       }
+    }
+  },
+
+  openCurrentDriveVideo() {
+    const driveBtn = document.getElementById('modal-btn-open-drive');
+    const url = driveBtn?.dataset?.driveUrl || this.activeVideoEvalData?.drive_url || (this.currentVideoUrl?.includes('drive.google.com') ? this.currentVideoUrl : '');
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } else {
+      alert("No hay enlace de Google Drive disponible para esta sesión.");
     }
   },
 

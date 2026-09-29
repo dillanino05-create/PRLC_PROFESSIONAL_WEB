@@ -257,3 +257,12 @@ class UploadPdfRequest(BaseModel):
     filename: str
     pdf_base64: str
 
+
+class UploadVideoRequest(BaseModel):
+    patient_id: Optional[str] = "PAC_ANONIMO"
+    test_type: Optional[str] = "PLC"
+    filename: str
+    video_base64: str
+    mime_type: Optional[str] = "video/mp4"
+
+

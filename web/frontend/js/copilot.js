@@ -16,6 +16,7 @@
     : 'https://dalamus2405-plc-backend.hf.space';
 
   const STORAGE_KEY_CUSTOM_GEMINI = 'mecapsi_custom_gemini_key';
+  const DEFAULT_GEMINI_KEY = '';
 
   class MecaPsiCopilot {
     constructor() {

@@ -332,33 +332,82 @@
     /**
      * Respalda en segundo plano el PDF generado a Google Drive Vault (5 TB)
      */
-    async backupToDrive(pdfBase64, filename, participant, testType) {
+    backupToDrive(pdfData, filename, participant, testType) {
       if (!DRIVE_WEBHOOK_URL) return;
 
-      try {
-        const payload = {
-          token: DRIVE_VAULT_TOKEN,
-          psychologist: "Psicologo_General",
-          patient_id: String(participant.id || 'PAC_ANONIMO'),
-          test_type: testType || 'PLC',
-          file_type: 'pdf',
-          file_name: filename,
-          file_base64: pdfBase64,
-          mime_type: 'application/pdf'
-        };
+      setTimeout(async () => {
+        try {
+          let base64 = '';
+          if (pdfData instanceof Blob) {
+            base64 = await new Promise((res) => {
+              const r = new FileReader();
+              r.onloadend = () => res(r.result ? r.result.split(',')[1] : '');
+              r.onerror = () => res('');
+              r.readAsDataURL(pdfData);
+            });
+          } else if (typeof pdfData === 'string') {
+            base64 = pdfData.includes(',') ? pdfData.split(',')[1] : pdfData;
+          }
 
-        // Enviar con keepalive para no bloquear el navegador
-        fetch(DRIVE_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload),
-          mode: 'no-cors',
-          keepalive: true
-        }).catch(err => console.warn('Aviso sincronizando PDF a Drive en segundo plano:', err));
+          if (!base64) return;
 
-      } catch (err) {
-        console.warn('Error enviando PDF a Drive Vault:', err);
-      }
+          const app = window.App || {};
+          const psychName = (typeof app.getPsychologistFolderName === 'function') 
+            ? app.getPsychologistFolderName() 
+            : 'Psicologo_General';
+
+          const payload = {
+            token: DRIVE_VAULT_TOKEN,
+            psychologist: psychName,
+            patient_id: String(participant.id || 'PAC_ANONIMO'),
+            test_type: testType || 'PLC',
+            file_type: 'pdf',
+            file_name: filename,
+            file_base64: base64,
+            mime_type: 'application/pdf'
+          };
+
+          // Prioridad 1: Subir vía backend proxy /api/vault/upload-pdf si hay sesión Supabase activa
+          let uploaded = false;
+          try {
+            if (app.supabase) {
+              const sess = await app.supabase.auth.getSession();
+              const token = sess?.data?.session?.access_token;
+              if (token) {
+                const apiBase = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                  ? 'http://127.0.0.1:7860'
+                  : 'https://dalamus2405-plc-backend.hf.space';
+                const bRes = await fetch(`${apiBase}/api/vault/upload-pdf`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                  body: JSON.stringify({
+                    patient_id: payload.patient_id,
+                    test_type: payload.test_type,
+                    filename: payload.file_name,
+                    pdf_base64: base64
+                  })
+                });
+                if (bRes.ok) uploaded = true;
+              }
+            }
+          } catch (be) {
+            console.warn('Aviso enviando PDF a través de backend vault:', be);
+          }
+
+          // Prioridad 2: Enlace directo a Google Drive webhook si no se subió por backend
+          if (!uploaded) {
+            await fetch(DRIVE_WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload),
+              mode: 'no-cors'
+            });
+          }
+          console.log('✅ [DRIVE VAULT 5TB] PDF respaldado con éxito en Drive Vault:', filename);
+        } catch (err) {
+          console.warn('Aviso sincronizando PDF a Drive en segundo plano:', err);
+        }
+      }, 60);
     },
 
     isGenerating: false,
@@ -380,10 +429,36 @@
       const testPrefix = (type === 'corsi' || app.corsiMode) ? 'CORSI' : 'PLC';
       const filename = `Informe_Clinico_${testPrefix}_${cleanName}_${cleanDate}.pdf`;
 
-      // Notificación visual de generación
-      if (typeof app.showNotification === 'function') {
-        app.showNotification('📄 Generando informe clínico en PDF...', 'info');
+      // 1. Mostrar de inmediato un overlay de carga ultra-rápido y elegante
+      let loadingOverlay = document.getElementById('mecapsi-pdf-loading-overlay');
+      if (!loadingOverlay) {
+        loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'mecapsi-pdf-loading-overlay';
+        loadingOverlay.style.cssText = `
+          position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75);
+          backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          z-index: 999999; color: #FFFFFF; font-family: 'Inter', system-ui, sans-serif;
+          animation: pdfFadeIn 0.2s ease-out;
+        `;
+        loadingOverlay.innerHTML = `
+          <div style="background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 16px; padding: 32px 40px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); max-width: 420px;">
+            <div style="width: 46px; height: 46px; border: 3px solid rgba(56, 189, 248, 0.2); border-top-color: #38BDF8; border-radius: 50%; animation: pdfSpin 0.8s linear infinite; margin: 0 auto 16px auto;"></div>
+            <div style="font-size: 1.15rem; font-weight: 700; color: #F8FAFC; margin-bottom: 6px;">Generando Informe Clínico...</div>
+            <div style="font-size: 0.82rem; color: #94A3B8; line-height: 1.45;">Compilando métricas psicométricas, biomarcadores y gráficas vectoriales en formato PDF ejecutivo.</div>
+          </div>
+          <style>
+            @keyframes pdfSpin { to { transform: rotate(360deg); } }
+            @keyframes pdfFadeIn { from { opacity: 0; } to { opacity: 1; } }
+          </style>
+        `;
+        document.body.appendChild(loadingOverlay);
+      } else {
+        loadingOverlay.style.display = 'flex';
       }
+
+      // Permitir al navegador pintar el loading overlay antes de iniciar el trabajo pesado
+      await new Promise(r => setTimeout(r, 60));
 
       const htmlContent = this.buildHTML(type);
 
@@ -401,50 +476,45 @@
 
       const targetEl = container.firstElementChild;
 
-      // Si html2pdf está disponible en el navegador
-      if (window.html2pdf) {
-        const opt = {
-          margin: [10, 10, 10, 10],
-          filename: filename,
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 1.5, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
+      try {
+        if (window.html2pdf) {
+          const opt = {
+            margin: [8, 8, 8, 8],
+            filename: filename,
+            image: { type: 'jpeg', quality: 0.95 },
+            html2canvas: { scale: 1.25, useCORS: true, logging: false, letterRendering: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          };
 
-        try {
-          // Generar el PDF y descargarlo en una única pasada (single-pass)
-          await window.html2pdf()
-            .from(targetEl)
-            .set(opt)
-            .toPdf()
-            .get('pdf')
-            .then((pdf) => {
-              try {
-                const dataUri = pdf.output('datauristring');
-                const base64 = dataUri ? (dataUri.split(',')[1] || '') : '';
-                if (base64) {
-                  ReportPDF.backupToDrive(base64, filename, part, testPrefix);
-                }
-              } catch (bErr) {
-                console.warn('Aviso sincronizando PDF a Drive en segundo plano:', bErr);
-              }
-            })
-            .save();
+          // Generar el PDF directamente y guardarlo sin concatenaciones gigantes de strings
+          const worker = window.html2pdf().from(targetEl).set(opt);
+          const pdfBlob = await worker.output('blob');
+
+          // Descarga directa e instantánea ("tin tin") usando blob nativo de alta velocidad
+          const blobUrl = window.URL.createObjectURL(pdfBlob);
+          const downloadLink = document.createElement('a');
+          downloadLink.href = blobUrl;
+          downloadLink.download = filename;
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          downloadLink.remove();
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 30000);
+
+          // Respaldo en segundo plano a Google Drive Vault sin bloquear la interacción del usuario
+          this.backupToDrive(pdfBlob, filename, part, testPrefix);
 
           if (typeof app.showNotification === 'function') {
             app.showNotification('✅ Informe PDF descargado y respaldado en Google Drive Vault (5 TB)', 'success');
           }
-        } catch (pdfErr) {
-          console.error('Error generando PDF con html2pdf, recurriendo a diálogo de impresión:', pdfErr);
+        } else {
           this.fallbackPrint(htmlContent, filename);
-        } finally {
-          try { container.remove(); } catch (e) {}
-          this.isGenerating = false;
         }
-      } else {
-        // Fallback robusto sin bibliotecas externas (usando print dialog con CSS A4)
+      } catch (pdfErr) {
+        console.error('Error generando PDF con html2pdf, recurriendo a diálogo de impresión:', pdfErr);
         this.fallbackPrint(htmlContent, filename);
+      } finally {
         try { container.remove(); } catch (e) {}
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
         this.isGenerating = false;
       }
     },
