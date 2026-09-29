@@ -1299,3 +1299,4 @@ async def storage_purge_files(auth_key: str = "", bucket: str = "exports", file_
         return {"success": True, "bucket": bucket, "deleted_count": len(file_names), "response": del_res}
     except Exception as pe:
         raise HTTPException(status_code=500, detail=f"Error purgando archivos: {str(pe)}")
+
