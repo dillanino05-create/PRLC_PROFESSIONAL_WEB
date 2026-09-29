@@ -661,7 +661,7 @@ const App = {
                 PLC Professional
               </span>
               <span style="background:rgba(79,70,229,0.25);color:#A5B4FC;border:1px solid rgba(165,180,252,0.3);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:12px;letter-spacing:0.5px;">
-                MecaPsi v3.3
+                MecaPsi v3.4 (RedCOLSI)
               </span>
             </div>
             <div style="font-size:0.84rem;color:#9FA8DA;margin-top:2px;">
@@ -823,7 +823,7 @@ const App = {
         <!-- Sleek Bottom Footer Bar -->
         <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.08);padding:10px 4px 4px;font-size:0.78rem;color:rgba(197,202,233,0.7);flex-wrap:wrap;gap:8px;">
           <div>
-            PLC Professional v3.3.4 &nbsp;&middot;&nbsp; MecaPsi SaaS &nbsp;&middot;&nbsp; Protocolo Clínico & Biomarcadores
+            PLC Professional v3.4.0 &nbsp;&middot;&nbsp; MecaPsi SaaS &nbsp;&middot;&nbsp; Protocolo Clínico & Biomarcadores (RedCOLSI)
           </div>
           <div>
             🔒 RLS Cifrado Activo &nbsp;&middot;&nbsp; Sesión Segura
@@ -5947,10 +5947,10 @@ const App = {
           this.stopAIHUDLoop();
         }
       } else {
-        alert(d.detail || "No se pudo recuperar la grabación.");
+        this.showVideoNoticeModal(d.detail || "No se pudo recuperar la grabación de esta sesión.");
       }
     } catch (e) {
-      alert("Error al cargar la grabación: " + e.message);
+      this.showVideoNoticeModal(e.message);
       if (btn) {
         btn.textContent = "🎥 Ver";
         btn.disabled = false;
@@ -5964,8 +5964,48 @@ const App = {
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');
     } else {
-      alert("No hay enlace de Google Drive disponible para esta sesión.");
+      this.showVideoNoticeModal("No se detectó enlace directo a Google Drive para este registro histórico.");
     }
+  },
+
+  showVideoNoticeModal(message) {
+    let modal = document.getElementById('video-notice-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'video-notice-modal';
+      modal.className = 'modal-overlay';
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML = `
+      <div style="background:#0F172A;border:1px solid #334155;border-radius:16px;max-width:540px;width:92%;padding:28px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);color:#F8FAFC;font-family:'Inter',sans-serif;position:relative;">
+        <button onclick="document.getElementById('video-notice-modal').classList.remove('active')" style="position:absolute;top:16px;right:18px;background:none;border:none;color:#94A3B8;font-size:1.5rem;cursor:pointer;line-height:1;">×</button>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">
+            📹
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#F8FAFC;">Estado de Grabación Audiovisual</h3>
+            <span style="font-size:0.75rem;color:#38BDF8;font-weight:700;">Google Drive Vault (5 TB) & Telemetría MecaPsi</span>
+          </div>
+        </div>
+        <p style="font-size:0.88rem;color:#CBD5E1;line-height:1.6;margin-bottom:16px;">
+          ${message || 'La grabación audiovisual de esta sesión no se encuentra disponible.'}
+        </p>
+        <div style="background:#1E293B;border-radius:10px;padding:12px 14px;border-left:3px solid #10B981;margin-bottom:20px;">
+          <div style="font-size:0.8rem;font-weight:700;color:#34D399;margin-bottom:3px;">✅ Integridad Psicométrica Garantizada:</div>
+          <div style="font-size:0.76rem;color:#94A3B8;line-height:1.4;">Todos los tiempos de reacción (ms), aciertos, comisiones, omisiones, baremos y curvas de rendimiento están 100% seguros y respaldados en la base de datos y reportes descargables.</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;">
+          <a href="https://drive.google.com" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#1E293B;color:#38BDF8;border:1px solid #0284C7;font-size:0.82rem;font-weight:700;text-decoration:none;">
+            📂 Explorar Drive Vault
+          </a>
+          <button onclick="document.getElementById('video-notice-modal').classList.remove('active')" style="padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#0284C7,#2563EB);color:#FFF;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;">
+            Entendido
+          </button>
+        </div>
+      </div>
+    `;
+    modal.classList.add('active');
   },
 
   toggleAIHUD() {

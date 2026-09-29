@@ -1,5 +1,5 @@
 /**
- * Módulo CorsiRunner — Test de Bloques de Corsi (MecaPsi v3.3.4)
+ * Módulo CorsiRunner — Test de Bloques de Corsi (MecaPsi v3.4 - RedCOLSI)
  * Evaluación Neuropsicológica de Memoria de Trabajo Visoespacial
  * Protocolo Estandarizado de 9 Bloques (Secuencias Directa e Inversa)
  */
