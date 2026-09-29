@@ -110,14 +110,7 @@ const App = {
       }
     } catch (e) { }
 
-    if (!this.user) {
-      try {
-        const localSess = sessionStorage.getItem('mecapsi_evaluator_session') || localStorage.getItem('mecapsi_evaluator_session');
-        if (localSess) {
-          this.user = JSON.parse(localSess);
-        }
-      } catch (e) { }
-    }
+    // Verificación estricta: Únicamente sesiones válidas en Supabase Auth son autorizadas
 
     // Registrador de ondas de clic (Ripples) para la grabación visomotriz
     document.addEventListener('click', (e) => {
@@ -196,6 +189,60 @@ const App = {
         });
       }
     }
+  },
+
+  async uploadToDriveVault({ psychologist, patientId, testType, fileType, fileName, blob }) {
+    const DRIVE_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxv3Zg_6jOsDKIC1amVIJUzplYsDH5k2HKfmYx5ZzUUg3v07nuZ35i5nIKaFJdD_Ns/exec';
+    const DRIVE_VAULT_TOKEN = 'MECAPSI_DRIVE_VAULT_2026';
+    
+    return new Promise((resolve) => {
+      if (!blob) return resolve({ success: false, error: 'Blob vacío' });
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64Data = reader.result.split(',')[1];
+          const payload = {
+            token: DRIVE_VAULT_TOKEN,
+            psychologist: psychologist || 'Psicologo_General',
+            patient_id: patientId || 'PAC_ANONIMO',
+            test_type: testType || 'PLC',
+            file_type: fileType || 'video',
+            file_name: fileName,
+            file_base64: base64Data,
+            mime_type: blob.type || (fileType === 'video' ? 'video/mp4' : 'application/octet-stream')
+          };
+          
+          const res = await fetch(DRIVE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          console.log('✅ [DRIVE VAULT 5TB] Archivo respaldado:', data.folder_path);
+          resolve(data);
+        } catch (err) {
+          console.warn('⚠️ Google Drive Vault upload warning:', err);
+          resolve({ success: false, error: err.message });
+        }
+      };
+      reader.onerror = () => resolve({ success: false, error: 'Error leyendo blob' });
+      reader.readAsDataURL(blob);
+    });
+  },
+
+  getPsychologistFolderName() {
+    const uEmail = (this.user?.email || '').toLowerCase();
+    const uName = (this.user?.user_metadata?.full_name || '').toLowerCase();
+    if (uEmail.includes('ximena') || uName.includes('ximena') || uEmail.includes('jimena') || uName.includes('jimena')) {
+      return 'Dra_Ximena';
+    } else if (uEmail.includes('andrea') || uName.includes('andrea')) {
+      return 'Dra_Andrea';
+    } else if (uEmail.includes('edgar') || uName.includes('edgar')) {
+      return 'Dr_Edgar';
+    } else if (uEmail.includes('dillan') || uEmail.includes('dilan') || uName.includes('dillan') || uName.includes('dilan')) {
+      return 'Ingeniero_Dilan';
+    }
+    return (this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || 'Perfil_de_Prueba').replace(/[^a-zA-Z0-9_-]/g, '_');
   },
 
   handleVisibilityChange() {
@@ -512,32 +559,10 @@ const App = {
     btn.disabled = false;
     btn.textContent = 'Iniciar Sesión';
 
-    if (error) {
-      if (pwd === 'MecaPsi2026!' || pwd === 'MecaPsi2025!' || pwd === 'admin' || pwd === 'd2_2026') {
-        this.user = {
-          id: 'evaluator_' + Date.now(),
-          email: email,
-          user_metadata: {
-            role: (email === 'dillanino05@gmail.com' || pwd === 'admin') ? 'superadmin' : 'psicologo_clinico',
-            name: (email === 'dillanino05@gmail.com') ? 'Dilan Lamus (SuperAdmin)' : 'Evaluador Clínico'
-          },
-          app_metadata: {
-            role: (email === 'dillanino05@gmail.com' || pwd === 'admin') ? 'superadmin' : 'psicologo_clinico'
-          },
-          is_local_evaluator: true
-        };
-        try {
-          sessionStorage.setItem('mecapsi_evaluator_session', JSON.stringify(this.user));
-          localStorage.setItem('mecapsi_evaluator_session', JSON.stringify(this.user));
-        } catch(e) {}
-        this.clientSessionId = 'sess_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
-        sessionStorage.setItem('mecapsi_session_id', this.clientSessionId);
-        this.nav('menu');
-        return;
-      }
-      console.warn("Login failed:", error.message);
+    if (error || !data || !data.user) {
+      console.warn("Login failed:", error ? error.message : "Usuario no encontrado");
       this.logAudit('LOGIN_FAILED', { email: email });
-      errEl.textContent = 'Credenciales inválidas. (Prueba con MecaPsi2026!)';
+      errEl.textContent = 'Credenciales inválidas. Verifique su correo y contraseña.';
     } else {
       this.user = data.user;
       // Generar y registrar sesión única para este dispositivo (Single Active Session)
@@ -767,6 +792,7 @@ const App = {
      PANTALLA 2: FORMULARIO
   ══════════════════════════════════════════════════════════════════════ */
   renderForm(app) {
+    const todayStr = new Date().toISOString().split('T')[0];
     app.innerHTML = `
       <div class="plc-header">
         <div><h1>Datos del Evaluado</h1><div class="sub">Complete la información antes de iniciar · ${this.testType === 'CORSI' ? `Test de Bloques de Corsi (${this.corsiMode === 'dual' ? 'Batería Dual Completa' : this.corsiMode === 'reverse' ? 'Inverso' : 'Directo'})` : 'Prueba PLC (Líneas Cruzadas)'}</div></div>
@@ -793,12 +819,38 @@ const App = {
               <input type="text" id="f-name" placeholder="Nombre y apellido" />
             </div>
             <div class="form-group">
-              <label>Edad * (años)</label>
-              <input type="number" id="f-age" min="5" max="100" value="25" />
+              <label style="display:flex;align-items:center;justify-content:space-between;">
+                <span>📅 Fecha de Nacimiento *</span>
+                <span style="font-size:0.75rem;color:#0284C7;font-weight:600;">(Tipo Calendario)</span>
+              </label>
+              <input type="date" id="f-birthdate" max="${todayStr}" onchange="App.onBirthdateChange()" oninput="App.onBirthdateChange()" style="cursor:pointer;" />
+              <div style="font-size:0.75rem;color:#64748B;margin-top:4px;">Define la edad cronológica exacta (años, meses y días) para baremos normativos.</div>
             </div>
             <div class="form-group">
-              <label>Ocupación / Cargo</label>
-              <input type="text" id="f-occ" placeholder="Opcional" />
+              <label>Edad Calculada * (años)</label>
+              <input type="number" id="f-age" min="5" max="100" value="25" oninput="App.onManualAgeChange()" />
+              <div style="font-size:0.75rem;color:#64748B;margin-top:4px;">Se autocompleta con el calendario o se puede ajustar manualmente.</div>
+            </div>
+
+            <!-- Badge dinámico de Edad Cronológica Exacta y Baremos -->
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <div id="f-chrono-badge" style="display:none;background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:12px 16px;color:#166534;font-size:0.88rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:1.4rem;">🎂</span>
+                  <div>
+                    <div style="font-size:0.75rem;color:#15803D;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Edad Cronológica Psicométrica</div>
+                    <div id="f-chrono-text" style="font-weight:700;color:#14532D;font-size:0.95rem;">--</div>
+                  </div>
+                </div>
+                <div id="f-chrono-stratum" style="background:#DCFCE7;border:1px solid #BBF7D0;padding:6px 12px;border-radius:20px;font-weight:700;color:#15803D;font-size:0.8rem;">
+                  ⚖️ Baremos: Calculando...
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label>Ocupación / Cargo / Escolaridad Detallada</label>
+              <input type="text" id="f-occ" placeholder="Ej: Estudiante de Ingeniería, Docente, Administrativo, etc. (Opcional)" />
             </div>
           </div>
 
@@ -838,20 +890,133 @@ const App = {
           </div>
         </div>
       </div>`;
+    // Inicializar el estrato con la edad por defecto
+    setTimeout(() => {
+      this.onManualAgeChange();
+    }, 50);
+  },
+
+  calculateChronologicalAge(birthDateStr, refDate = new Date()) {
+    if (!birthDateStr) return null;
+    const parts = birthDateStr.split('-');
+    if (parts.length !== 3) return null;
+    const birthYear = parseInt(parts[0], 10);
+    const birthMonth = parseInt(parts[1], 10) - 1;
+    const birthDay = parseInt(parts[2], 10);
+    const birth = new Date(birthYear, birthMonth, birthDay);
+    if (isNaN(birth.getTime())) return null;
+
+    const today = refDate instanceof Date ? refDate : new Date();
+    let years = today.getFullYear() - birth.getFullYear();
+    let months = today.getMonth() - birth.getMonth();
+    let days = today.getDate() - birth.getDate();
+
+    if (days < 0) {
+      months--;
+      const prevMonthDays = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+      days += prevMonthDays;
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    if (years < 0) return null;
+
+    const decimalAge = Number((years + (months / 12) + (days / 365.25)).toFixed(2));
+    const formatted = `${years} ${years === 1 ? 'año' : 'años'}, ${months} ${months === 1 ? 'mes' : 'meses'} y ${days} ${days === 1 ? 'día' : 'días'}`;
+
+    let stratum = '';
+    if (this.testType === 'CORSI' && typeof getCorsiAgeNorm === 'function') {
+      stratum = `Corsi Kessels (${getCorsiAgeNorm(years).label})`;
+    } else if (typeof getD2AgeNorm === 'function') {
+      stratum = `d2 Brickenkamp (${getD2AgeNorm(years).label})`;
+    }
+
+    return { years, months, days, decimalAge, formatted, stratum };
+  },
+
+  onBirthdateChange() {
+    const input = document.getElementById('f-birthdate');
+    if (!input || !input.value) return;
+    const chrono = this.calculateChronologicalAge(input.value);
+    const badge = document.getElementById('f-chrono-badge');
+    const textSpan = document.getElementById('f-chrono-text');
+    const stratumSpan = document.getElementById('f-chrono-stratum');
+    const ageInput = document.getElementById('f-age');
+
+    if (chrono) {
+      if (ageInput) ageInput.value = chrono.years;
+      if (badge && textSpan && stratumSpan) {
+        textSpan.innerHTML = `${chrono.formatted} <span style="font-size:0.8rem;color:#15803D;font-weight:normal;">(${chrono.decimalAge} años decimales)</span>`;
+        stratumSpan.innerHTML = `⚖️ ${chrono.stratum}`;
+        badge.style.display = 'flex';
+      }
+    } else {
+      if (badge) badge.style.display = 'none';
+    }
+  },
+
+  onManualAgeChange() {
+    const ageInput = document.getElementById('f-age');
+    const birthInput = document.getElementById('f-birthdate');
+    const badge = document.getElementById('f-chrono-badge');
+    const textSpan = document.getElementById('f-chrono-text');
+    const stratumSpan = document.getElementById('f-chrono-stratum');
+
+    if (!birthInput || !birthInput.value) {
+      const ageVal = parseInt(ageInput?.value || '25', 10);
+      let stratum = '';
+      if (this.testType === 'CORSI' && typeof getCorsiAgeNorm === 'function') {
+        stratum = `Corsi Kessels (${getCorsiAgeNorm(ageVal).label})`;
+      } else if (typeof getD2AgeNorm === 'function') {
+        stratum = `d2 Brickenkamp (${getD2AgeNorm(ageVal).label})`;
+      }
+      if (badge && textSpan && stratumSpan) {
+        textSpan.innerHTML = `${ageVal} años <span style="font-size:0.78rem;color:#0284C7;">(Selecciona fecha en el calendario para cálculo exacto)</span>`;
+        stratumSpan.innerHTML = `⚖️ ${stratum}`;
+        badge.style.display = 'flex';
+      }
+    }
   },
 
   validateForm() {
     const id = document.getElementById('f-id').value.trim();
     const name = document.getElementById('f-name').value.trim();
-    const age = parseInt(document.getElementById('f-age').value);
-    if (!id) { Math.random(); alert('El ID del participante es obligatorio.'); return; }
+    const birthdate = document.getElementById('f-birthdate')?.value || '';
+    let chrono = birthdate ? this.calculateChronologicalAge(birthdate) : null;
+    let age = parseInt(document.getElementById('f-age').value);
+
+    if (!id) { alert('El ID del participante es obligatorio.'); return; }
     if (!name || name.length < 3) { alert('El Nombre debe tener al menos 3 caracteres.'); return; }
+    if (chrono) {
+      age = chrono.years;
+    }
     if (!age || age < 5 || age > 100) { alert('Ingrese una edad válida entre 5 y 100 años.'); return; }
+
     const gender = document.querySelector('input[name="gender"]:checked')?.value || 'No especificado';
     const education = document.querySelector('input[name="education"]:checked')?.value || 'Universitario';
     const hand = document.querySelector('input[name="hand"]:checked')?.value || 'Derecha';
-    const occupation = document.getElementById('f-occ').value.trim();
-    this.participant = { id, name, age, gender, education, hand, occupation };
+    const occupation = document.getElementById('f-occ')?.value.trim() || '';
+
+    this.participant = {
+      id,
+      name,
+      age,
+      birth_date: birthdate,
+      birthdate: birthdate,
+      chronological_age: chrono ? chrono.formatted : `${age} años`,
+      chronological_detail: chrono ? {
+        years: chrono.years,
+        months: chrono.months,
+        days: chrono.days,
+        decimalAge: chrono.decimalAge,
+        stratum: chrono.stratum
+      } : { years: age, months: 0, days: 0, decimalAge: age, stratum: '' },
+      gender,
+      education,
+      hand,
+      occupation
+    };
     this.nav('pretest');
   },
 
@@ -1482,14 +1647,22 @@ const App = {
     let cameraStatus = 'declined';
     let cameraError = '';
 
+    this.cameraRequested = Boolean(wantCamera);
+    this.cameraPermissionGranted = false;
+    this.cameraErrorCode = '';
+
     if (!wantCamera) {
       this.resetBiometricState();
+      this.cameraStatusReason = 'user_declined';
     }
 
     if (wantCamera) {
       try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         cameraStatus = 'ok';
+        this.cameraPermissionGranted = true;
+        this.cameraStatusReason = 'active';
+        this._cameraWasActiveDuringTest = true;
         // Pre-compilación en background diferida de MediaPipe FaceMesh para eliminar cualquier congelamiento
         setTimeout(() => this.warmupFaceMesh(), 50);
       } catch (e) {
@@ -1497,13 +1670,18 @@ const App = {
         cameraStatus = 'error';
         if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
           cameraError = "Permiso bloqueado en el navegador. Revisa el icono de cámara o candado en la barra de direcciones.";
+          this.cameraStatusReason = 'permission_denied';
         } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
           cameraError = "No se detectó ninguna cámara física conectada.";
+          this.cameraStatusReason = 'not_found';
         } else if (e.name === "NotReadableError" || e.name === "TrackStartError") {
-          cameraError = "La cámara está siendo usada por otra aplicación (Zoom, Teams, etc.).";
+          cameraError = "La cámara está siendo usada por otra aplicación (Zoom, Teams, WhatsApp, etc.).";
+          this.cameraStatusReason = 'hardware_error';
         } else {
           cameraError = e.message || e.name;
+          this.cameraStatusReason = 'error';
         }
+        this.cameraErrorCode = cameraError;
         cameraStream = null;
       }
     }
@@ -1518,7 +1696,19 @@ const App = {
 
     let cameraBadge = '';
     if (cameraStatus === 'ok') {
-      cameraBadge = `<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px;margin-bottom:16px;color:#2E7D32;font-weight:600;font-size:0.9rem;">✅ Cámara web activada en segundo plano</div>`;
+      cameraBadge = `
+        <div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;text-align:left;">
+          <video id="camera-live-test-preview" autoplay playsinline muted style="width:72px;height:54px;border-radius:8px;object-fit:cover;background:#000;border:2px solid #22C55E;box-shadow:0 2px 6px rgba(34,197,94,0.3);flex-shrink:0;"></video>
+          <div>
+            <div style="color:#15803D;font-weight:700;font-size:0.92rem;display:flex;align-items:center;gap:6px;">
+              <span style="display:inline-block;width:9px;height:9px;background:#22C55E;border-radius:50%;box-shadow:0 0 6px #22C55E;"></span>
+              Cámara Web Conectada y Operativa
+            </div>
+            <div style="font-size:0.78rem;color:#166534;margin-top:2px;line-height:1.35;">
+              Sensor óptico calibrado. Registrará parpadeo y foco visual en segundo plano durante el test.
+            </div>
+          </div>
+        </div>`;
     } else if (cameraStatus === 'error') {
       cameraBadge = `
         <div style="background:#FFF3E0;border:1px solid #FFCC80;border-radius:10px;padding:12px;margin-bottom:16px;color:#E65100;font-weight:600;font-size:0.85rem;text-align:left;line-height:1.4;">
@@ -1553,7 +1743,18 @@ const App = {
     `;
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = modalHtml;
-    document.body.appendChild(tempDiv.firstElementChild);
+    const modalElement = tempDiv.firstElementChild;
+    document.body.appendChild(modalElement);
+
+    if (cameraStatus === 'ok' && this._pendingCameraStream) {
+      setTimeout(() => {
+        const prevVid = document.getElementById('camera-live-test-preview');
+        if (prevVid && this._pendingCameraStream) {
+          prevVid.srcObject = this._pendingCameraStream;
+          prevVid.play().catch(e => console.warn("Preview play:", e));
+        }
+      }, 50);
+    }
   },
 
   async executeMandatoryScreenShare() {
@@ -2484,7 +2685,7 @@ const App = {
 
     // Calcular métricas neuropsicológicas del Test de Corsi de forma inmediata
     try {
-      const pAge = this.participant?.age || 30;
+      const pAge = this.participant?.chronological_detail || this.participant?.age || 30;
       const pEdu = this.participant?.education || 'Universitario';
       this.metrics = computeCorsiMetrics(result, pAge, pEdu);
       this.metrics._age = pAge;
@@ -2513,6 +2714,16 @@ const App = {
     this.nav('completion');
 
     try {
+      // 0. Determinar si la cámara estuvo activa ANTES de apagar los tracks en stopRecording
+      const hadActiveCamera = Boolean(
+        (this.cameraStream && this.cameraStream.active !== false && this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0 && this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')) ||
+        (this.earSamples && this.earSamples.length > 5) ||
+        (this.pupilSamples && this.pupilSamples.length > 5) ||
+        (this.ferSamples && this.ferSamples.length > 5) ||
+        this._cameraWasActiveDuringTest
+      );
+      const cameraReason = hadActiveCamera ? 'active' : (this.cameraRequested ? (this.cameraStatusReason || this.cameraErrorCode || 'error') : 'user_declined');
+
       // 1. Detener grabación de video de forma segura con timeout
       let videoBlob = null;
       try {
@@ -2531,12 +2742,7 @@ const App = {
         this._gazeDivertedStartTime = null;
       }
 
-      const hasCameraStream = Boolean(
-        this.cameraStream && 
-        (this.cameraStream.active !== false) &&
-        (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0) &&
-        this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')
-      );
+      const hasCameraStream = hadActiveCamera;
       // Duración real de la prueba (con fallback robusto a la suma de ensayos para evitar tasa espuria de parpadeo)
       let calculatedTotalTimeMs = Number(result.totalTimeMs || result.total_time_ms || 0);
       if (calculatedTotalTimeMs <= 1000) {
@@ -2557,6 +2763,8 @@ const App = {
 
       // Adjuntar biomarcadores paraclínicos IA
       this.metrics.camera_active = Boolean(hasCameraStream && oculoMetrics.camera_active);
+      this.metrics.camera_status = cameraReason;
+      this.metrics.camera_error_desc = this.cameraErrorCode || '';
       this.metrics.ear_mean = hasCameraStream ? oculoMetrics.ear_mean : null;
       this.metrics.blink_count = hasCameraStream ? oculoMetrics.blink_count : 0;
       this.metrics.blink_rate_min = hasCameraStream ? oculoMetrics.blink_rate_min : 0;
@@ -2799,27 +3007,35 @@ const App = {
 
           if (videoBlob && this.evalId) {
             try {
-              const { error } = await this.supabase.storage
-                .from('exports')
-                .upload(videoFilename, videoBlob, {
-                  contentType: 'video/mp4',
-                  cacheControl: '3600',
-                  upsert: true
-                });
+              const psychName = this.getPsychologistFolderName();
+              
+              // 1. Respaldo directo a Google Drive Vault (5 TB)
+              const driveRes = await this.uploadToDriveVault({
+                psychologist: psychName,
+                patientId: this.participant?.id || 'PAC_ANONIMO',
+                testType: 'CORSI',
+                fileType: 'video',
+                fileName: videoFilename,
+                blob: videoBlob
+              });
 
-              if (!error) {
-                this.metrics.video_path = videoFilename;
-                this.metrics.session_tag = this.sessionTag;
-                await this.supabase
-                  .from('evaluations')
-                  .update({
-                    excel_path: excelFilename,
-                    metrics_json: this.metrics
-                  })
-                  .eq('id', this.evalId);
+              this.metrics.video_path = videoFilename;
+              this.metrics.session_tag = this.sessionTag;
+              if (driveRes && driveRes.success) {
+                this.metrics.drive_video_url = driveRes.file_url;
+                this.metrics.drive_folder = driveRes.folder_path;
+                this.metrics.drive_file_id = driveRes.file_id;
               }
+
+              await this.supabase
+                .from('evaluations')
+                .update({
+                  excel_path: excelFilename,
+                  metrics_json: this.metrics
+                })
+                .eq('id', this.evalId);
             } catch (upErr) {
-              console.warn("Aviso al subir video:", upErr);
+              console.warn("Aviso al procesar video:", upErr);
             }
           }
         }
@@ -3092,11 +3308,22 @@ const App = {
     this.isSaving = true;
     this.nav('completion'); // show completion/loading state immediately
     
+    // 0. Determinar si la cámara estuvo activa ANTES de apagar los tracks en stopRecording
+    const hadActiveCamera = Boolean(
+      (this.cameraStream && this.cameraStream.active !== false && this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0 && this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')) ||
+      (this.earSamples && this.earSamples.length > 5) ||
+      (this.pupilSamples && this.pupilSamples.length > 5) ||
+      (this.ferSamples && this.ferSamples.length > 5) ||
+      this._cameraWasActiveDuringTest
+    );
+    const cameraReason = hadActiveCamera ? 'active' : (this.cameraRequested ? (this.cameraStatusReason || this.cameraErrorCode || 'error') : 'user_declined');
+
     // 1. Detener la grabación de video y obtener el Blob
     const videoBlob = await this.stopRecording();
     
-    this.metrics = calcMetrics(this.linesData, this.clickLog, this.participant.age, this.participant.education);
-    this.metrics._age = this.participant.age;
+    const pAgeObj = this.participant?.chronological_detail || this.participant?.age || 25;
+    this.metrics = calcMetrics(this.linesData, this.clickLog, pAgeObj, this.participant?.education || 'Universitario');
+    this.metrics._age = this.participant?.age || 25;
     this.metrics._education = this.participant.education;
     this.metrics._linesDataRef = this.linesData;
 
@@ -3110,12 +3337,7 @@ const App = {
       this._gazeDivertedStartTime = null;
     }
 
-    const hasCameraStream = Boolean(
-      this.cameraStream && 
-      (this.cameraStream.active !== false) &&
-      (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0) &&
-      this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')
-    );
+    const hasCameraStream = hadActiveCamera;
     const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, this.metrics.totalTime, hasCameraStream);
     if (hasCameraStream && this.blinkEvents && this.blinkEvents.length > 0) {
       oculoMetrics.blink_count = Math.max(oculoMetrics.blink_count || 0, this.blinkEvents.length);
@@ -3144,6 +3366,8 @@ const App = {
 
     // Consolidar en this.metrics
     this.metrics.camera_active = Boolean(hasCameraStream && oculoMetrics.camera_active);
+    this.metrics.camera_status = cameraReason;
+    this.metrics.camera_error_desc = this.cameraErrorCode || '';
     this.metrics.ear_mean = hasCameraStream && (oculoMetrics.ear_mean !== null && oculoMetrics.ear_mean !== undefined) ? Number(oculoMetrics.ear_mean) : null;
     this.metrics.blink_count = hasCameraStream ? Number(oculoMetrics.blink_count || 0) : 0;
     this.metrics.blink_rate_min = hasCameraStream ? Number(oculoMetrics.blink_rate_min || 0) : 0;
@@ -3277,17 +3501,21 @@ const App = {
       const excelFilename = sd.excel_filename || `${this.sessionTag}.xlsx`;
       this.evalFilename = excelFilename;
 
-      // 2. Si se grabó video, subirlo al bucket exports y actualizar el registro en base de datos
+      // 2. Si se grabó video, respaldar en Google Drive Vault (5 TB) y opcionalmente en Supabase
       if (videoBlob && this.evalId) {
-        const { data, error } = await this.supabase.storage
-          .from('exports')
-          .upload(videoFilename, videoBlob, {
-            contentType: 'video/mp4',
-            cacheControl: '3600',
-            upsert: true
+        try {
+          const psychName = this.getPsychologistFolderName();
+          
+          // 1. Respaldo directo a Google Drive Vault (5 TB)
+          const driveRes = await this.uploadToDriveVault({
+            psychologist: psychName,
+            patientId: this.participant?.id || 'PAC_ANONIMO',
+            testType: this.testType || 'PLC',
+            fileType: 'video',
+            fileName: videoFilename,
+            blob: videoBlob
           });
 
-        if (!error) {
           const updatedMetrics = {
             TA: this.metrics.TA, O: this.metrics.O, COM: this.metrics.COM,
             TN: this.metrics.TN, TOT: this.metrics.TOT, CON: this.metrics.CON,
@@ -3332,7 +3560,10 @@ const App = {
             test_type: this.testType || 'PLC',
             session_tag: this.sessionTag,
             session_uid: timestampStr,
-            video_path: videoFilename
+            video_path: videoFilename,
+            drive_video_url: (driveRes && driveRes.success) ? driveRes.file_url : "",
+            drive_folder: (driveRes && driveRes.success) ? driveRes.folder_path : "",
+            drive_file_id: (driveRes && driveRes.success) ? driveRes.file_id : ""
           };
           
           await this.supabase
@@ -3345,8 +3576,8 @@ const App = {
             
           this.metrics = updatedMetrics;
           this.metrics._linesDataRef = this.linesData;
-        } else {
-          console.error("Error al guardar video en Supabase Storage:", error);
+        } catch (procErr) {
+          console.warn("Aviso al procesar video PLC:", procErr);
         }
       }
     } catch (e) { console.warn('Save error:', e); }
@@ -3433,22 +3664,6 @@ const App = {
         return;
       }
 
-      // Si es evaluador local/emergencia, verificar clave local
-      if (this.user.is_local_evaluator) {
-        if (pwd === 'MecaPsi2026!' || pwd === 'MecaPsi2025!' || pwd === 'admin' || pwd === 'd2_2026' || pwd.length >= 4) {
-          this.logAudit('UNLOCK_RESULTS_SUCCESS', { email: this.user.email, evalId: this.evalId });
-          this.nav('results');
-          return;
-        } else {
-          this.logAudit('UNLOCK_RESULTS_FAILED', { email: this.user.email, reason: 'Invalid password' });
-          errEl.textContent = 'Contraseña incorrecta. Intente de nuevo.';
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = '🔓 Desbloquear Informe';
-          }
-          return;
-        }
-      }
 
       // Re-autenticamos para verificar la contraseña del profesional actual
       const { error } = await this.supabase.auth.signInWithPassword({
@@ -3532,7 +3747,7 @@ const App = {
             </span>
           </h1>
           <div class="sub">
-            ${escapeHTML(this.participant?.name || 'Evaluado')} &nbsp;·&nbsp; ID: ${escapeHTML(this.participant?.id || 'P01')} &nbsp;·&nbsp; ${now}
+            ${escapeHTML(this.participant?.name || 'Evaluado')} &nbsp;·&nbsp; ID: ${escapeHTML(this.participant?.id || 'P01')} &nbsp;·&nbsp; 🎂 ${this.participant?.chronological_age ? `Edad: <strong>${escapeHTML(this.participant.chronological_age)}</strong>` : `Edad: ${this.participant?.age || 25} años`} ${m.age_norm_stratum ? `· <span style="color:#0284C7;font-weight:600;">Estrato: ${m.age_norm_stratum}</span>` : ''} &nbsp;·&nbsp; ${now}
             ${this.sessionTag ? ` &nbsp;·&nbsp; <span style="color:#3949AB;font-weight:600;">Tag: ${this.sessionTag}</span>` : ''}
           </div>
         </div>
@@ -3876,7 +4091,14 @@ const App = {
                 </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ Sesión realizada sin cámara web frontal.
+                  ${m.camera_status === 'permission_denied' 
+                    ? '⚠️ <strong>Permiso de cámara bloqueado en el navegador.</strong> No se pudo acceder al sensor óptico.' 
+                    : m.camera_status === 'hardware_error'
+                    ? '⚠️ <strong>Cámara ocupada por otra aplicación.</strong> (Zoom, Teams, WhatsApp, etc.).'
+                    : m.camera_status === 'not_found'
+                    ? '⚠️ <strong>No se detectó cámara web física.</strong>'
+                    : 'ℹ️ <strong>Sesión realizada sin cámara web frontal.</strong>'}
+                  ${m.camera_error_desc ? `<div style="font-size:0.75rem;color:#94A3B8;margin-top:4px;">Detalle: ${m.camera_error_desc}</div>` : ''}
                 </div>
               `}
             </div>
@@ -4105,7 +4327,7 @@ const App = {
             ${m.isIncomplete ? `<span class="badge" style="background:#C62828;color:#fff;font-size:0.75rem;padding:4px 8px;border-radius:12px;vertical-align:middle;">⚠️ INCOMPLETA</span>` : ''}
           </h1>
           <div class="sub">
-            ${escapeHTML(this.participant.name)} &nbsp;·&nbsp; ID: ${escapeHTML(this.participant.id)} &nbsp;·&nbsp; ${now}
+            ${escapeHTML(this.participant.name)} &nbsp;·&nbsp; ID: ${escapeHTML(this.participant.id)} &nbsp;·&nbsp; 🎂 ${this.participant.chronological_age ? `Edad: <strong>${escapeHTML(this.participant.chronological_age)}</strong>` : `Edad: ${this.participant.age} años`} ${m.d2_norm_stratum ? `· <span style="color:#0284C7;font-weight:600;">Estrato: ${m.d2_norm_stratum}</span>` : ''} &nbsp;·&nbsp; ${now}
             ${m.isIncomplete ? ` &nbsp;·&nbsp; <span style="color:#C62828;font-weight:700;">Detención en Pág. ${m.lastLine}, Estímulo ${m.lastChar}</span>` : ''}
           </div>
         </div>
@@ -4122,19 +4344,27 @@ const App = {
         <div class="card mb-4">
           <div class="section-title">Métricas Objetivas</div>
           <div class="metric-cards" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
-            ${[
-        ['TA  Aciertos', m.TA, '#E8F5E9', '#2E7D32'],
-        ['O  Omisiones', m.O, '#FFF3E0', '#E65100'],
-        ['C  Comisiones', m.COM, '#FFEBEE', '#B71C1C'],
-        ['CON  Concentración', m.CON, '#E8EAF6', '#1A237E'],
-        ['TOT  Efectividad', m.TOT_d2 !== undefined ? m.TOT_d2 : Math.max(0, (m.TR || 0) - (m.O + m.COM)), '#EDE7F6', '#4527A0'],
-        ['CP %  Precisión', m.CP.toFixed(1) + ' %', '#E0F2F1', '#00695C'],
-        ['E %  Tasa Error', (m.errorRate !== undefined ? m.errorRate.toFixed(1) : (((m.O + m.COM) / Math.max(m.TR || 1, 1)) * 100).toFixed(1)) + ' %', '#FBE9E7', '#D84315'],
-      ].map(([lbl, val, bg, fg]) => `
-              <div class="metric-card" style="background:${bg};">
-                <div class="val" style="color:${fg};">${val}</div>
-                <div class="lbl">${lbl}</div>
-              </div>`).join('')}
+            ${(() => {
+              const totalEst = 658;
+              const totNum = m.TOT_d2 !== undefined ? m.TOT_d2 : Math.max(0, (m.TR || 0) - (m.O + m.COM));
+              const totPct = ((totNum / totalEst) * 100).toFixed(1);
+              const conFormula = `Fórmula: TA - C (${m.TA} - ${m.COM || 0})`;
+              const items = [
+                ['TA  Aciertos', m.TA, '#E8F5E9', '#2E7D32', 'Estímulos correctos'],
+                ['O  Omisiones', m.O, '#FFF3E0', '#E65100', 'No detectados'],
+                ['C  Comisiones', m.COM, '#FFEBEE', '#B71C1C', 'Errores impulsivos'],
+                ['CON  Concentración', m.CON, '#E8EAF6', '#1A237E', conFormula],
+                ['TOT  Efectividad', totNum, '#EDE7F6', '#4527A0', `${totNum}/${totalEst} (${totPct}%)`],
+                ['CP %  Precisión', m.CP.toFixed(1) + ' %', '#E0F2F1', '#00695C', 'Calidad atencional'],
+                ['E %  Tasa Error', (m.errorRate !== undefined ? m.errorRate.toFixed(1) : (((m.O + m.COM) / Math.max(m.TR || 1, 1)) * 100).toFixed(1)) + ' %', '#FBE9E7', '#D84315', 'Errores globales']
+              ];
+              return items.map(([lbl, val, bg, fg, sub]) => `
+                <div class="metric-card" style="background:${bg};">
+                  <div class="val" style="color:${fg};">${val}</div>
+                  <div class="lbl">${lbl}</div>
+                  ${sub ? `<div style="font-size:0.68rem;color:${fg};opacity:0.85;margin-top:2px;font-weight:600;">${sub}</div>` : ''}
+                </div>`).join('');
+            })()}
           </div>
 
           <hr class="form-divider"/>
@@ -4153,6 +4383,24 @@ const App = {
                 <div class="eval">${val}</div>
                 <div class="elbl">${lbl}</div>
               </div>`).join('')}
+          </div>
+
+          <!-- Guía Pedagógica: Métricas Objetivas -->
+          <div class="pedagogical-box" style="margin-top:18px;background:#F8FAFC;border:1px solid #E2E8F0;border-left:4px solid #1A237E;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#1A237E;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.92rem;">
+              <span>💡</span> ¿Cómo interpretar estas calificaciones de forma sencilla?
+            </div>
+            <div style="font-size:0.85rem;color:#475569;line-height:1.55;display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;">
+              <div><strong>• TA (Aciertos):</strong> Total de letras 'd' con exactamente 2 rayitas identificadas y marcadas correctamente. Mide la agudeza y precisión atencional del evaluado.</div>
+              <div><strong>• O (Omisiones):</strong> Letras correctas que no se marcaron y quedaron atrás. Mide distracción o lapsos en el rastreo visual.</div>
+              <div><strong>• C (Comisiones):</strong> Letras incorrectas marcadas por error (ej. una 'p' o 'd' con 1 o 3 rayitas). Refleja falta de control inhibitorio o impulsividad motora.</div>
+              <div><strong>• CON (Concentración Neta = TA - C):</strong> Es la métrica reina del test. Resta los errores impulsivos de los aciertos, revelando la concentración pura y real.</div>
+              <div><strong>• TOT (Efectividad Total):</strong> Total de elementos procesados restando todas las equivocaciones. Refleja la productividad global de trabajo bajo presión temporal.</div>
+              <div><strong>• CP % (Precisión):</strong> Porcentaje de aciertos respecto a los estímulos intentados. Mide la calidad y minuciosidad del trabajo.</div>
+            </div>
+            <div style="margin-top:10px;font-size:0.78rem;color:#64748B;font-style:italic;">
+              * Esta información es puramente descriptiva y pedagógica del desempeño observado; no constituye por sí sola un diagnóstico clínico.
+            </div>
           </div>
         </div>
 
@@ -4195,6 +4443,21 @@ const App = {
               <div style="font-size:0.8rem;color:#E65100;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Total Aciertos (TA)</div>
               <div style="font-size:1.35rem;font-weight:800;color:#BF360C;">TA: ${m.TA || 0} <span style="font-size:0.85rem;font-weight:700;color:#E65100;">(P${m.percentile_ta || 50})</span></div>
               <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Z = ${(m.z_ta !== undefined ? ((m.z_ta >= 0 ? '+' : '') + Number(m.z_ta).toFixed(2)) : '0.00')} | Dianas marcadas</div>
+            </div>
+          </div>
+
+          <!-- Guía Pedagógica: Baremos y Percentiles -->
+          <div class="pedagogical-box" style="margin-top:16px;background:#EFF6FF;border:1px solid #BFDBFE;border-left:4px solid #2563EB;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#1E40AF;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.92rem;">
+              <span>📖</span> Guía Pedagógica: ¿Cómo leer los Baremos y Percentiles en Formato Digital?
+            </div>
+            <div style="font-size:0.85rem;color:#334155;line-height:1.55;">
+              <p style="margin-bottom:8px;">
+                <strong>¿Qué significa el Percentil (P)?</strong> Indica la posición del evaluado frente a 100 personas de su mismo grupo de edad. Un <strong>Percentil 50</strong> representa el promedio exacto de la población estándar. Los percentiles entre 25 y 75 corresponden al rango típico esperado.
+              </p>
+              <p style="margin:0;">
+                <strong>⚠️ Diferencia clave entre papel y computador:</strong> Los baremos históricos de Rolf Brickenkamp fueron construidos en formato de lápiz y papel (donde tachar físicamente con la mano toma menos de 100 ms). En esta versión digital con ratón/mouse de escritorio, existe una latencia motora inevitable (desplazar el cursor, apuntar y hacer clic). Por eso, un percentil de velocidad moderado en digital no refleja lentitud mental, sino la biomecánica propia del ratón.
+              </p>
             </div>
           </div>
         </div>
@@ -4342,6 +4605,19 @@ const App = {
             <div class="chart-box"><canvas id="chart-errors"></canvas></div>
             <div class="chart-box"><canvas id="chart-normal"></canvas></div>
           </div>
+
+          <!-- Guía Pedagógica: Lectura Didáctica de las Gráficas -->
+          <div class="pedagogical-box" style="margin-top:16px;background:#FAF5FF;border:1px solid #E9D5FF;border-left:4px solid #7E22CE;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#6B21A8;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.92rem;">
+              <span>📊</span> Guía Didáctica: ¿Qué nos cuenta cada una de las 4 gráficas?
+            </div>
+            <div style="font-size:0.85rem;color:#475569;line-height:1.55;display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;">
+              <div><strong>📈 1. Curva de Comportamiento (Ritmo):</strong> Muestra la cantidad de aciertos a lo largo de las 14 líneas (20 segundos por línea). Permite observar si la persona aceleró por aprendizaje y práctica o si decayó por agotamiento cognitivo.</div>
+              <div><strong>📊 2. Métricas de Atención (Barras):</strong> Compara visualmente el volumen de aciertos contra las fallas cometidas (omisiones y comisiones) y el porcentaje de precisión.</div>
+              <div><strong>📉 3. Errores por Línea:</strong> Muestra en qué líneas específicas ocurrieron las equivocaciones. Errores al inicio indican fase de adaptación; errores al final revelan fatiga ejecutiva.</div>
+              <div><strong>🔔 4. Distribución Normal (Campana de Gauss):</strong> Sitúa estadísticamente el puntaje de concentración del paciente en la campana poblacional estándar de su grupo etario.</div>
+            </div>
+          </div>
         </div>
 
         <!-- B.2) Notas de Comportamiento Visual -->
@@ -4362,6 +4638,9 @@ const App = {
                   '</ul>';
               }
             })()}
+          </div>
+          <div style="margin-top:12px;background:#FEFCE8;border:1px solid #FEF08A;border-radius:6px;padding:10px 14px;font-size:0.84rem;color:#713F12;line-height:1.5;">
+            <strong>🎯 ¿Qué evalúa el rastreo visual?</strong> El protocolo d2 exige revisar cada línea de izquierda a derecha sin saltarse caracteres. Esta gráfica detecta si el evaluado mantuvo esa disciplina secuencial o si realizó saltos erráticos y retrocesos, lo que puede evidenciar desorganización del barrido ocular o búsqueda apresurada.
           </div>
         </div>
 
@@ -4397,6 +4676,21 @@ const App = {
               <br>Las métricas biométricas crudas expuestas arriba son estadísticamente válidas.
             </p>
           `}
+
+          <!-- Guía Pedagógica: Motor de IA MLP -->
+          <div class="pedagogical-box" style="margin-top:14px;background:#F0FDF4;border:1px solid #BBF7D0;border-left:4px solid #16A34A;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#166534;display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:0.92rem;">
+              <span>🧠</span> ¿Cómo clasifica el Motor de Inteligencia Artificial (Red Neuronal Keras)?
+            </div>
+            <div style="font-size:0.85rem;color:#334155;line-height:1.55;">
+              <p style="margin-bottom:6px;">
+                La red neuronal evalúa de forma multivariada la <strong>edad</strong>, la <strong>escolaridad</strong>, la <strong>proporción de aciertos sobre errores</strong>, la <strong>estabilidad temporal</strong> y el <strong>control inhibitorio</strong>. Al ponderar todas las variables juntas, la IA es capaz de reconocer un patrón funcional óptimo incluso si la velocidad física del ratón fue moderada.
+              </p>
+              <p style="margin:0;font-size:0.8rem;color:#475569;">
+                <strong>⚠️ Recordatorio ético:</strong> Esta clasificación algorítmica es un examen complementario de soporte cuantitativo. El dictamen y diagnóstico clínico integral corresponden única y exclusivamente al profesional de la salud mental.
+              </p>
+            </div>
+          </div>
         </div>
 
 
@@ -4438,7 +4732,7 @@ const App = {
                   </div>
                 </div>
 
-                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #00ACC1;color:#334155;">
+                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #00ACC1;color:#334155;margin-bottom:10px;">
                   ${(function(){
                     let notes = [];
                     if ((m.gaze_diverted_count || 0) > 2) {
@@ -4453,9 +4747,19 @@ const App = {
                     return notes.join('<br/>');
                   })()}
                 </div>
+                <div style="font-size:0.78rem;color:#64748B;line-height:1.4;background:#F1F5F9;padding:8px 10px;border-radius:6px;">
+                  <strong>💡 ¿Qué evalúa?</strong> La frecuencia de parpadeo (EAR) y desvíos de fijación. Un parpadeo moderado indica confort visual; desvíos frecuentes reflejan desconexión temporal de la tarea.
+                </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ La persona decidió no activar la cámara web. Los biomarcadores de parpadeo (EAR) y desvío de mirada no aplican para esta sesión.
+                  ${m.camera_status === 'permission_denied' 
+                    ? '⚠️ <strong>Permiso de cámara bloqueado en el navegador.</strong> El evaluado o las políticas del navegador restringieron el acceso al sensor óptico.' 
+                    : m.camera_status === 'hardware_error'
+                    ? '⚠️ <strong>Cámara ocupada por otra aplicación.</strong> (Zoom, Teams, WhatsApp, etc.).'
+                    : m.camera_status === 'not_found'
+                    ? '⚠️ <strong>No se detectó cámara web física en este dispositivo.</strong>'
+                    : 'ℹ️ <strong>El participante decidió no activar la cámara web.</strong> Por respeto a su autonomía y privacidad, la telemetría de parpadeo (EAR) y rastreo de mirada no fue registrada.'}
+                  ${m.camera_error_desc ? `<div style="font-size:0.75rem;color:#94A3B8;margin-top:4px;">Detalle técnico: ${m.camera_error_desc}</div>` : ''}
                 </div>
               `}
             </div>
@@ -4485,7 +4789,7 @@ const App = {
                   </div>
                 </div>
 
-                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #AB47BC;color:#334155;">
+                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #AB47BC;color:#334155;margin-bottom:10px;">
                   ${(function(){
                     let notes = [];
                     const au4Count = (m.fer_frustration_events > 60 ? Math.round(m.fer_frustration_events / 150) : (m.fer_frustration_events || 0));
@@ -4501,9 +4805,12 @@ const App = {
                     return notes.join('<br/>');
                   })()}
                 </div>
+                <div style="font-size:0.78rem;color:#64748B;line-height:1.4;background:#F1F5F9;padding:8px 10px;border-radius:6px;">
+                  <strong>💡 ¿Qué es AU4?</strong> Corresponde a la contracción del entrecejo. En tareas de alta atención no indica frustración, sino concentración visual intensa para discriminar las letras.
+                </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ La cámara no estuvo habilitada. El análisis facial de expresiones y tensión gestual (FER) requiere captura de video frontal.
+                  ℹ️ <strong>Cámara web desactivada.</strong> El análisis facial de expresiones y tensión gestual (FER) requiere captura de video frontal y no se aplicó en esta sesión.
                 </div>
               `}
             </div>
@@ -4532,7 +4839,7 @@ const App = {
                 </div>
               </div>
 
-              <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #7E57C2;color:#334155;">
+              <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #7E57C2;color:#334155;margin-bottom:10px;">
                 ${(function(){
                   let notes = [];
                   const isMicroNormal = (m.microtremor_avg || 0) < 45.0;
@@ -4547,6 +4854,9 @@ const App = {
                   }
                   return notes.join('<br/>');
                 })()}
+              </div>
+              <div style="font-size:0.78rem;color:#64748B;line-height:1.4;background:#F1F5F9;padding:8px 10px;border-radius:6px;">
+                <strong>💡 ¿Qué es el Jitter Motor?</strong> Registra la estabilidad neuromuscular de la mano sobre el ratón a 60 FPS. Menor a 45 px/s² es completamente normal; valores altos indican tensión física o fatiga motora.
               </div>
             </div>
 
@@ -4581,7 +4891,7 @@ const App = {
                   </div>
                 </div>
 
-                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #0284C7;color:#334155;">
+                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #0284C7;color:#334155;margin-bottom:10px;">
                   ${(function(){
                     let notes = [];
                     const peaks = Number(m.cognitive_load_peaks || 0);
@@ -4600,9 +4910,12 @@ const App = {
                     return notes.join('<br/>');
                   })()}
                 </div>
+                <div style="font-size:0.78rem;color:#64748B;line-height:1.4;background:#F1F5F9;padding:8px 10px;border-radius:6px;">
+                  <strong>💡 ¿Qué refleja la pupilometría?</strong> Mide sutiles dilataciones involuntarias provocadas por la activación noradrenérgica. Refleja el esfuerzo real en memoria de trabajo, no la visión.
+                </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ La cámara no estuvo habilitada. La pupilometría cognitiva y detección de sobreesfuerzo mental requieren seguimiento óptico del iris.
+                  ℹ️ <strong>El participante decidió no activar la cámara web.</strong> La pupilometría cognitiva y detección óptica de sobreesfuerzo mental requieren seguimiento del iris y no aplican para esta sesión.
                 </div>
               `}
             </div>
@@ -5501,7 +5814,27 @@ const App = {
           dlBtn.disabled = false;
         }
 
-        player.src = d.url;
+        if (d.url.includes('drive.google.com')) {
+          player.style.display = 'none';
+          let driveFrame = document.getElementById('player-drive-frame');
+          if (!driveFrame) {
+            driveFrame = document.createElement('iframe');
+            driveFrame.id = 'player-drive-frame';
+            driveFrame.style.width = '100%';
+            driveFrame.style.height = isSuperAdmin ? '64vh' : '65vh';
+            driveFrame.style.border = 'none';
+            driveFrame.style.borderRadius = '10px';
+            driveFrame.setAttribute('allow', 'autoplay; fullscreen');
+            player.parentElement.appendChild(driveFrame);
+          }
+          driveFrame.style.display = 'block';
+          driveFrame.src = d.url;
+        } else {
+          const driveFrame = document.getElementById('player-drive-frame');
+          if (driveFrame) driveFrame.style.display = 'none';
+          player.style.display = 'block';
+          player.src = d.url;
+        }
         modal.classList.add('active');
 
         if (isSuperAdmin) {
@@ -6324,9 +6657,15 @@ const App = {
     this.stopAIHUDLoop();
     const modal = document.getElementById('video-modal');
     const player = document.getElementById('player-video');
+    const driveFrame = document.getElementById('player-drive-frame');
+    if (driveFrame) {
+      driveFrame.src = "";
+      driveFrame.remove();
+    }
     if (player) {
       player.pause();
       player.src = "";
+      player.style.display = 'block';
     }
     if (modal) {
       modal.classList.remove('active');
