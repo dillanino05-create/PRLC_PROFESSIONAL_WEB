@@ -1674,5 +1674,3 @@ async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None
         "note": "Modo paraclínico descriptivo de alta fidelidad."
     }
 
-
-
