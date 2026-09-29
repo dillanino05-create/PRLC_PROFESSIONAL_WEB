@@ -65,6 +65,10 @@ class ParticipantInfo(BaseModel):
     education: str
     hand: str
     occupation: str = ""
+    birth_date: Optional[str] = None
+    birthdate: Optional[str] = None
+    chronological_age: Optional[str] = None
+    chronological_detail: Optional[dict] = None
 
 
 
@@ -236,6 +240,13 @@ class SaveRequest(BaseModel):
     metrics: MetricsData
     ml_prediction: Optional[Dict[str, Any]] = None
     narrative: str = ""
+
+
+class CopilotChatRequest(BaseModel):
+    message: str
+    history: Optional[List[Dict[str, Any]]] = []
+    context: Optional[Dict[str, Any]] = None
+    custom_key: Optional[str] = None
     client_session_id: Optional[str] = None
     exam_token: Optional[str] = None
 

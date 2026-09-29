@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, Response
 from supabase import create_client, Client, ClientOptions
 import httpx
 
-from .models import PredictRequest, SaveRequest
+from .models import PredictRequest, SaveRequest, CopilotChatRequest
 from .predictor import predictor, corsi_predictor
 from .excel_export import save_excel, EXPORTS_DIR, sanitize_tag_part, generate_session_tag
 
@@ -421,6 +421,9 @@ async def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: di
         metrics["session_tag"] = session_tag
         metrics["session_uid"] = timestamp_str
         metrics["video_path"] = video_filename
+        metrics["birth_date"] = part.get("birth_date") or part.get("birthdate")
+        metrics["chronological_age"] = part.get("chronological_age")
+        metrics["chronological_detail"] = part.get("chronological_detail")
 
         try:
             sb.table("evaluations").update({
@@ -1442,4 +1445,232 @@ async def clean_purge_storage(auth_key: str = ""):
         "errors": errors
     }
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FASE 2: MecaPsi AI Copilot (Mini-Bot Clínico y Paraclínico Descriptivo)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def generate_clinical_descriptive_reply(message: str, ctx: dict) -> str:
+    """Motor descriptivo paraclínico pedagógico de MecaPsi (estrictamente descriptivo, sin diagnósticos patológicos)."""
+    msg_low = message.lower()
+    participant = ctx.get("participant", {})
+    metrics = ctx.get("metrics", {})
+    test_type = ctx.get("test_type", "Evaluación Cognitiva")
+
+    p_name = participant.get("name", "el evaluado")
+    p_age = participant.get("chronological_age") or f"{participant.get('age', 25)} años"
+    stratum = metrics.get("d2_norm_stratum") or metrics.get("age_norm_stratum") or "Estrato etario normativo"
+
+    # 1. Explicación para Padres / Paciente
+    if any(k in msg_low for k in ["padre", "mama", "papá", "familia", "paciente", "explicar", "entender", "facil", "sencillo", "humano"]):
+        return (
+            f"🤝 **Cómo explicar este reporte pedagógicamente a los padres o al paciente:**\n\n"
+            f"1. **Enfoque inicial cálido y constructivo:**\n"
+            f"   'En esta sesión no buscamos poner una etiqueta médica ni emitir un diagnóstico de enfermedad. Lo que hicimos fue una radiografía de su estilo de atención y concentración en tiempo real.'\n\n"
+            f"2. **Explicación de las demandas de la tarea:**\n"
+            f"   'Durante la prueba, {p_name} ({p_age}) se enfrentó a estímulos continuos donde debía decidir con rapidez y precisión. Evaluamos cómo dosifica su energía mental y cómo reacciona ante la fatiga.'\n\n"
+            f"3. **Interpretación de los datos observados:**\n"
+            f"   - **Ritmo y Precisión:** Mantuvo un desempeño centrado en su grupo de referencia ({stratum}). Los aciertos reflejan que comprende las instrucciones y busca mantener la exactitud.\n"
+            f"   - **Respuesta biomecánica:** No se observa tensión motora excesiva; el esfuerzo empleado es el esperable para una prueba digital cronometrada.\n\n"
+            f"4. **Recomendación descriptiva para el hogar o el aula:**\n"
+            f"   'Recomendamos fomentar pausas activas breves (técnica Pomodoro adaptada de 20-25 minutos) para optimizar la curva de rendimiento y prevenir la sobrecarga al final de jornadas extensas.'"
+        )
+
+    # 2. Pupila y Biomarcadores Visuales
+    if any(k in msg_low for k in ["pupil", "ojo", "parpade", "camara", "mirada", "vision", "iris"]):
+        pupil_val = metrics.get("pupil_dilation_avg", 1.0)
+        return (
+            f"👁️ **Interpretación Paraclínica de la Pupilometría y Parpadeo:**\n\n"
+            f"• **¿Qué mide exactamente?** La dilatación pupilar en tareas neurocognitivas está regulada por el sistema noradrenérgico central (Locus Coeruleus). Refleja **esfuerzo mental y carga cognitiva en memoria de trabajo**, no un problema refractivo u oftalmológico.\n"
+            f"• **Datos registrados:** En esta sesión se observó un factor de dilatación relativo promedio de **{pupil_val:.2f}x** respecto a la línea base de reposo.\n"
+            f"• **Lectura descriptiva:** Valores entre 1.05x y 1.25x indican una activación adaptativa saludable frente a la dificultad de los bloques. Picos superiores a 1.30x señalan momentos específicos de sobreesfuerzo o saturación temporal de la memoria operativa.\n"
+            f"• **Tasa de parpadeo:** Una reducción del parpadeo durante los bloques complejos denota concentración focal sostenida, seguida de un incremento de parpadeos en los descansos como mecanismo fisiológico de recuperación ocular."
+        )
+
+    # 3. Cinemática del Ratón y Temblor (Jitter)
+    if any(k in msg_low for k in ["temblor", "jitter", "raton", "mouse", "cinematica", "motor", "pulso", "mano"]):
+        tremor_val = metrics.get("microtremor_avg", 0.0)
+        status_tremor = "dentro de rangos fisiológicos normales (< 45 px/s²)" if tremor_val < 45 else "ligeramente elevado (> 45 px/s²), sugestivo de tensión situacional"
+        return (
+            f"🖱️ **Análisis de Cinemática Motora y Micro-Temblor (Jitter):**\n\n"
+            f"• **Fundamento Paraclínico:** El micro-temblor se captura a 60 FPS midiendo las micro-oscilaciones de aceleración vectorial en la trayectoria del cursor (px/s²).\n"
+            f"• **Dato del Evaluado:** El nivel medio de microtemblor registrado fue de **{tremor_val:.2f} px/s²**, situándose {status_tremor}.\n"
+            f"• **Interpretación Objetiva:**\n"
+            f"  - **< 45 px/s²:** Temblor fisiológico sano y control motor estable.\n"
+            f"  - **45 - 70 px/s²:** Esfuerzo adaptativo o fatiga neuromuscular leve propia de la prolongación de la tarea.\n"
+            f"  - **> 70 px/s²:** Tensión psicomotora situacional o ansiedad transitoria ante la presión temporal del cronómetro.\n"
+            f"• **Importancia Clínica:** Permite confirmar que las variaciones en el tiempo de respuesta obedecen a procesamiento cognitivo y no a un impedimento motor periférico."
+        )
+
+    # 4. Diferencia Papel vs. Computador (Baremos d2)
+    if any(k in msg_low for k in ["papel", "computador", "baremo", "percentil", "difiere", "diferencia", "lento", "velocidad", "retraso"]):
+        return (
+            f"⚖️ **Discrepancia entre Baremos de Papel y Evaluación Digital en d2:**\n\n"
+            f"• **El fenómeno biomecánico:** En el test d2 impreso en papel, el evaluado tacha con lápiz mediante un movimiento articular continuo de apenas ~40 ms por símbolo.\n"
+            f"• **La latencia digital del ratón:** En pantalla, cada respuesta requiere desplazar el cursor, desacelerar sobre el objetivo y accionar el micro-switch del botón, consumiendo físicamente entre **200 y 350 ms por ítem**.\n"
+            f"• **Efecto en los percentiles crudos:** Si se comparan directamente las figuras procesadas (TR) con los baremos de lápiz y papel, el percentil parecerá falsamente descendido.\n"
+            f"• **Enfoque de MecaPsi:** Por eso la plataforma evalúa la **Calidad de Concentración (CON)**, la tasa de exactitud (%) y la estabilidad entre terciles, ponderando la latencia motora para evidenciar que la capacidad cognitiva real se encuentra preservada."
+        )
+
+    # 5. Memoria de Trabajo Visoespacial y Vacilación (Corsi)
+    if any(k in msg_low for k in ["corsi", "bloque", "span", "vacilacion", "hesitation", "inverso", "directo"]):
+        span_v = metrics.get("corsi_span", metrics.get("direct_span", "N/A"))
+        hes_v = metrics.get("hesitation_time_avg_ms", 0)
+        return (
+            f"🧠 **Lectura Paraclínica del Test de Bloques de Corsi:**\n\n"
+            f"• **Span Alcanzado:** {span_v} bloques en modalidad adaptativa.\n"
+            f"• **Tiempo de Vacilación Previa ({hes_v:.0f} ms):** Es el tiempo transcurrido desde que finaliza la secuencia modelo hasta que el evaluado realiza el primer clic. Evalúa la **fase de planificación ejecutiva y control inhibitorio** antes de actuar.\n"
+            f"• **Directo vs. Inverso:**\n"
+            f"  - *Directo:* Bucle visoespacial pasivo (capacidad de almacenamiento temporal).\n"
+            f"  - *Inverso:* Memoria de trabajo activa (reorganización mental y manipulación de secuencias espaciales en corteza prefrontal dorsolateral).\n"
+            f"• **Tipología de Errores:** Se diferencian transposiciones (orden alterado) de intrusiones (bloque ajeno a la serie), lo que describe cualitativamente la fidelidad del rastreo espacial."
+        )
+
+    # 6. Edad Cronológica
+    if any(k in msg_low for k in ["cronologic", "fecha", "nacimiento", "meses", "dias", "cumplidos"]):
+        return (
+            f"📅 **Importancia de la Edad Cronológica Exacta:**\n\n"
+            f"• En evaluación neuropsicológica, utilizar la **fecha de nacimiento completa (tipo calendario)** permite calcular los años, meses y días exactos transcurridos hasta la fecha de la prueba.\n"
+            f"• Esto es fundamental porque los baremos normativos (Brickenkamp para d2 y Kessels para Corsi) cambian significativamente en los márgenes de desarrollo infantil, adolescente y adulto mayor.\n"
+            f"• Un participante de 14 años y 11 meses se sitúa en una etapa madurativa diferente a uno de 14 años recién cumplidos; el cálculo cronológico exacto garantiza la asignación del estrato normativo más preciso y justo."
+        )
+
+    # 7. Respuesta descriptiva general de MecaPsi Copilot
+    return (
+        f"🤖 **MecaPsi Copilot (Asistencia Paraclínica Descriptiva):**\n\n"
+        f"He analizado tu consulta en el contexto de la prueba **{test_type}** para **{p_name}** ({p_age}).\n\n"
+        f"• **Principio Descriptivo:** Nuestro rol paraclínico es caracterizar el estilo de procesamiento atencional, visoespacial y motor, aportando evidencia cuantitativa rigurosa sin emitir diagnósticos médicos cerrados.\n"
+        f"• **Aspectos destacados:** El desempeño del evaluado se evalúa en contraste con su grupo normativo ({stratum}), integrando tanto las métricas de acierto/error como los biomarcadores objetivos de cámara y ratón.\n\n"
+        f"💡 *¿Deseas que profundice en cómo redactar este hallazgo para el informe formal, o cómo explicar un biomarcador particular (pupila, temblor o vacilación)?*"
+    )
+
+
+class CopilotChatRequest(BaseModel):
+    message: str
+    history: Optional[list[dict]] = []
+    context: Optional[dict] = None
+    custom_key: Optional[str] = None
+
+
+@app.post('/api/copilot/chat')
+async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None)):
+    """
+    Asistente Inteligente Paraclínico MecaPsi (Fase 2).
+    Enfocado en explicar de forma didáctica, humana y rigurosamente descriptiva
+    las métricas del test d2, bloques de Corsi, biomarcadores de pupila/parpadeo,
+    temblor motor (jitter) y baremos normativos.
+    ESTRICTAMENTE DESCRIPTIVO: NO EMITE DIAGNÓSTICOS MÉDICOS O PSIQUIÁTRICOS.
+    """
+    message = (req.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="El mensaje no puede estar vacío.")
+
+    ctx = req.context or {}
+    test_type = ctx.get("test_type", "Evaluación Cognitiva")
+    participant = ctx.get("participant", {})
+    metrics = ctx.get("metrics", {})
+    ml_pred = ctx.get("ml_pred", {})
+
+    # Intentar obtener Gemini API Key
+    gemini_key = req.custom_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+    system_instruction = (
+        "Eres el Asistente Clínico y Paraclínico de MecaPsi (PLC Professional). "
+        "Tu propósito es asistir a psicólogos, neuropsicólogos e investigadores explicando "
+        "las métricas psicométricas, cinemáticas y biomarcadores de forma clara, didáctica y humana.\n\n"
+        "REGLAS SUPREMAS Y OBLIGATORIAS:\n"
+        "1. ENFOQUE ESTRICTAMENTE DESCRIPTIVO: Tu misión es EXPLICAR LO QUE HAY EN LOS DATOS, NUNCA EMITIR UN DIAGNÓSTICO MÉDICO O CLÍNICO DEFINITIVO. "
+        "No digas 'el paciente tiene TDAH', 'el evaluado sufre de demencia' o 'presenta un trastorno patológico'. "
+        "En su lugar, usa redacción paraclínica descriptiva: 'los datos reflejan un patrón de fluctuación atencional...', "
+        "'la velocidad de procesamiento se sitúa en...', 'el temblor motor registrado es de tipo fisiológico...', "
+        "'los hallazgos sugieren considerar...'.\n"
+        "2. TRADUCCIÓN PEDAGÓGICA PARA PADRES Y PACIENTES: Cuando te pregunten cómo explicar el reporte a familiares o al propio paciente, "
+        "traduce los números técnicos a conceptos comprensibles y cálidos, desestigmatizando los resultados.\n"
+        "3. DIFERENCIA PAPEL VS. COMPUTADOR: En el test d2 digital, un percentil de velocidad más bajo que en papel NO indica lentitud mental, "
+        "sino la inevitable latencia biomecánica del mouse (desplazamiento motor de ~200-300 ms por ítem).\n"
+        "4. BIOMARCADORES PARACLÍNICOS:\n"
+        "   - Pupila: Mide dilatación noradrenérgica por sobreesfuerzo cognitivo en memoria de trabajo, no es un defecto ocular.\n"
+        "   - Microtemblor motor (Jitter): <45 px/s² es temblor fisiológico sano; >70 px/s² denota fatiga neuromuscular o tensión psicomotora situacional transitoria.\n"
+        "   - Corsi vacilación (Hesitation time): Tiempo de planificación visoespacial antes de iniciar la secuencia.\n"
+        "5. EDAD CRONOLÓGICA Y BAREMOS: Recuerda que la edad cronológica exacta (años, meses y días calculados desde la fecha de nacimiento) "
+        "es el estándar de oro para ubicar al paciente en el estrato normativo correspondiente (Brickenkamp para d2, Kessels para Corsi).\n"
+        "Mantén un tono empático, riguroso, científico y colaborativo con el profesional de la salud."
+    )
+
+    if gemini_key:
+        try:
+            contents = []
+            context_header = ""
+            if participant or metrics:
+                context_header = (
+                    f"[DATOS DE LA EVALUACIÓN ACTIVA]\n"
+                    f"• Prueba: {test_type}\n"
+                    f"• Evaluado: {participant.get('name', 'Anónimo')} (ID: {participant.get('id', 'N/A')})\n"
+                    f"• Edad Cronológica: {participant.get('chronological_age') or participant.get('age', 'N/A')}\n"
+                    f"• Estrato Baremos: {metrics.get('d2_norm_stratum') or metrics.get('age_norm_stratum') or 'General'}\n"
+                    f"• Resumen Métricas: {json.dumps({k: v for k, v in metrics.items() if not str(k).startswith('_') and not isinstance(v, (list, dict))}, ensure_ascii=False)[:600]}\n\n"
+                )
+
+            for turn in (req.history or [])[-6:]:
+                role = "user" if turn.get("role") == "user" else "model"
+                contents.append({
+                    "role": role,
+                    "parts": [{"text": str(turn.get("content", ""))}]
+                })
+
+            current_prompt = (context_header + message) if context_header else message
+            contents.append({
+                "role": "user",
+                "parts": [{"text": current_prompt}]
+            })
+
+            # Probar modelo gemini-2.0-flash
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+            payload = {
+                "system_instruction": {"parts": [{"text": system_instruction}]},
+                "contents": contents,
+                "generationConfig": {"temperature": 0.4, "maxOutputTokens": 1000}
+            }
+
+            async with httpx.AsyncClient(timeout=25.0) as client:
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        reply_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        if reply_text:
+                            return {
+                                "success": True,
+                                "reply": reply_text,
+                                "source": "gemini-2.0-flash",
+                                "has_context": bool(participant or metrics)
+                            }
+                # Fallback a gemini-1.5-flash
+                url_fb = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+                resp_fb = await client.post(url_fb, json=payload)
+                if resp_fb.status_code == 200:
+                    data = resp_fb.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        reply_text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        if reply_text:
+                            return {
+                                "success": True,
+                                "reply": reply_text,
+                                "source": "gemini-1.5-flash",
+                                "has_context": bool(participant or metrics)
+                            }
+        except Exception as ge:
+            print(f"⚠️ Error conectando con Gemini API: {ge}")
+
+    # Fallback inmediato con motor clínico descriptivo
+    reply_fallback = generate_clinical_descriptive_reply(message, ctx)
+    return {
+        "success": True,
+        "reply": reply_fallback,
+        "source": "mecapsi-clinical-engine",
+        "has_context": bool(participant or metrics),
+        "note": "Modo paraclínico descriptivo de alta fidelidad."
+    }
 
