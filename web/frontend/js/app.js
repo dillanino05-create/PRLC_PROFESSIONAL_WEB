@@ -4178,6 +4178,24 @@ const App = {
                 <div class="elbl">${lbl}</div>
               </div>`).join('')}
           </div>
+
+          <!-- Guía Pedagógica: Métricas Objetivas -->
+          <div class="pedagogical-box" style="margin-top:18px;background:#F8FAFC;border:1px solid #E2E8F0;border-left:4px solid #1A237E;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#1A237E;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.92rem;">
+              <span>💡</span> ¿Cómo interpretar estas calificaciones de forma sencilla?
+            </div>
+            <div style="font-size:0.85rem;color:#475569;line-height:1.55;display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;">
+              <div><strong>• TA (Aciertos):</strong> Total de letras 'd' con exactamente 2 rayitas identificadas y marcadas correctamente. Mide la agudeza y precisión atencional del evaluado.</div>
+              <div><strong>• O (Omisiones):</strong> Letras correctas que no se marcaron y quedaron atrás. Mide distracción o lapsos en el rastreo visual.</div>
+              <div><strong>• C (Comisiones):</strong> Letras incorrectas marcadas por error (ej. una 'p' o 'd' con 1 o 3 rayitas). Refleja falta de control inhibitorio o impulsividad motora.</div>
+              <div><strong>• CON (Concentración Neta = TA - C):</strong> Es la métrica reina del test. Resta los errores impulsivos de los aciertos, revelando la concentración pura y real.</div>
+              <div><strong>• TOT (Efectividad Total):</strong> Total de elementos procesados restando todas las equivocaciones. Refleja la productividad global de trabajo bajo presión temporal.</div>
+              <div><strong>• CP % (Precisión):</strong> Porcentaje de aciertos respecto a los estímulos intentados. Mide la calidad y minuciosidad del trabajo.</div>
+            </div>
+            <div style="margin-top:10px;font-size:0.78rem;color:#64748B;font-style:italic;">
+              * Esta información es puramente descriptiva y pedagógica del desempeño observado; no constituye por sí sola un diagnóstico clínico.
+            </div>
+          </div>
         </div>
 
         <!-- A.15) Baremos Normativos d2 — Rolf Brickenkamp / TEA Ediciones (Estratificación por Edad) -->
@@ -4219,6 +4237,21 @@ const App = {
               <div style="font-size:0.8rem;color:#E65100;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Total Aciertos (TA)</div>
               <div style="font-size:1.35rem;font-weight:800;color:#BF360C;">TA: ${m.TA || 0} <span style="font-size:0.85rem;font-weight:700;color:#E65100;">(P${m.percentile_ta || 50})</span></div>
               <div style="font-size:0.75rem;color:#546E7A;margin-top:2px;">Z = ${(m.z_ta !== undefined ? ((m.z_ta >= 0 ? '+' : '') + Number(m.z_ta).toFixed(2)) : '0.00')} | Dianas marcadas</div>
+            </div>
+          </div>
+
+          <!-- Guía Pedagógica: Baremos y Percentiles -->
+          <div class="pedagogical-box" style="margin-top:16px;background:#EFF6FF;border:1px solid #BFDBFE;border-left:4px solid #2563EB;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#1E40AF;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.92rem;">
+              <span>📖</span> Guía Pedagógica: ¿Cómo leer los Baremos y Percentiles en Formato Digital?
+            </div>
+            <div style="font-size:0.85rem;color:#334155;line-height:1.55;">
+              <p style="margin-bottom:8px;">
+                <strong>¿Qué significa el Percentil (P)?</strong> Indica la posición del evaluado frente a 100 personas de su mismo grupo de edad. Un <strong>Percentil 50</strong> representa el promedio exacto de la población estándar. Los percentiles entre 25 y 75 corresponden al rango típico esperado.
+              </p>
+              <p style="margin:0;">
+                <strong>⚠️ Diferencia clave entre papel y computador:</strong> Los baremos históricos de Rolf Brickenkamp fueron construidos en formato de lápiz y papel (donde tachar físicamente con la mano toma menos de 100 ms). En esta versión digital con ratón/mouse de escritorio, existe una latencia motora inevitable (desplazar el cursor, apuntar y hacer clic). Por eso, un percentil de velocidad moderado en digital no refleja lentitud mental, sino la biomecánica propia del ratón.
+              </p>
             </div>
           </div>
         </div>
@@ -4366,6 +4399,19 @@ const App = {
             <div class="chart-box"><canvas id="chart-errors"></canvas></div>
             <div class="chart-box"><canvas id="chart-normal"></canvas></div>
           </div>
+
+          <!-- Guía Pedagógica: Lectura Didáctica de las Gráficas -->
+          <div class="pedagogical-box" style="margin-top:16px;background:#FAF5FF;border:1px solid #E9D5FF;border-left:4px solid #7E22CE;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#6B21A8;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.92rem;">
+              <span>📊</span> Guía Didáctica: ¿Qué nos cuenta cada una de las 4 gráficas?
+            </div>
+            <div style="font-size:0.85rem;color:#475569;line-height:1.55;display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;">
+              <div><strong>📈 1. Curva de Comportamiento (Ritmo):</strong> Muestra la cantidad de aciertos a lo largo de las 14 líneas (20 segundos por línea). Permite observar si la persona aceleró por aprendizaje y práctica o si decayó por agotamiento cognitivo.</div>
+              <div><strong>📊 2. Métricas de Atención (Barras):</strong> Compara visualmente el volumen de aciertos contra las fallas cometidas (omisiones y comisiones) y el porcentaje de precisión.</div>
+              <div><strong>📉 3. Errores por Línea:</strong> Muestra en qué líneas específicas ocurrieron las equivocaciones. Errores al inicio indican fase de adaptación; errores al final revelan fatiga ejecutiva.</div>
+              <div><strong>🔔 4. Distribución Normal (Campana de Gauss):</strong> Sitúa estadísticamente el puntaje de concentración del paciente en la campana poblacional estándar de su grupo etario.</div>
+            </div>
+          </div>
         </div>
 
         <!-- B.2) Notas de Comportamiento Visual -->
@@ -4386,6 +4432,9 @@ const App = {
                   '</ul>';
               }
             })()}
+          </div>
+          <div style="margin-top:12px;background:#FEFCE8;border:1px solid #FEF08A;border-radius:6px;padding:10px 14px;font-size:0.84rem;color:#713F12;line-height:1.5;">
+            <strong>🎯 ¿Qué evalúa el rastreo visual?</strong> El protocolo d2 exige revisar cada línea de izquierda a derecha sin saltarse caracteres. Esta gráfica detecta si el evaluado mantuvo esa disciplina secuencial o si realizó saltos erráticos y retrocesos, lo que puede evidenciar desorganización del barrido ocular o búsqueda apresurada.
           </div>
         </div>
 
@@ -4421,6 +4470,21 @@ const App = {
               <br>Las métricas biométricas crudas expuestas arriba son estadísticamente válidas.
             </p>
           `}
+
+          <!-- Guía Pedagógica: Motor de IA MLP -->
+          <div class="pedagogical-box" style="margin-top:14px;background:#F0FDF4;border:1px solid #BBF7D0;border-left:4px solid #16A34A;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#166534;display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:0.92rem;">
+              <span>🧠</span> ¿Cómo clasifica el Motor de Inteligencia Artificial (Red Neuronal Keras)?
+            </div>
+            <div style="font-size:0.85rem;color:#334155;line-height:1.55;">
+              <p style="margin-bottom:6px;">
+                La red neuronal evalúa de forma multivariada la <strong>edad</strong>, la <strong>escolaridad</strong>, la <strong>proporción de aciertos sobre errores</strong>, la <strong>estabilidad temporal</strong> y el <strong>control inhibitorio</strong>. Al ponderar todas las variables juntas, la IA es capaz de reconocer un patrón funcional óptimo incluso si la velocidad física del ratón fue moderada.
+              </p>
+              <p style="margin:0;font-size:0.8rem;color:#475569;">
+                <strong>⚠️ Recordatorio ético:</strong> Esta clasificación algorítmica es un examen complementario de soporte cuantitativo. El dictamen y diagnóstico clínico integral corresponden única y exclusivamente al profesional de la salud mental.
+              </p>
+            </div>
+          </div>
         </div>
 
 
@@ -4462,7 +4526,7 @@ const App = {
                   </div>
                 </div>
 
-                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #00ACC1;color:#334155;">
+                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #00ACC1;color:#334155;margin-bottom:10px;">
                   ${(function(){
                     let notes = [];
                     if ((m.gaze_diverted_count || 0) > 2) {
@@ -4477,9 +4541,12 @@ const App = {
                     return notes.join('<br/>');
                   })()}
                 </div>
+                <div style="font-size:0.78rem;color:#64748B;line-height:1.4;background:#F1F5F9;padding:8px 10px;border-radius:6px;">
+                  <strong>💡 ¿Qué evalúa?</strong> La frecuencia de parpadeo (EAR) y desvíos de fijación. Un parpadeo moderado indica confort visual; desvíos frecuentes reflejan desconexión temporal de la tarea.
+                </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ La persona decidió no activar la cámara web. Los biomarcadores de parpadeo (EAR) y desvío de mirada no aplican para esta sesión.
+                  ℹ️ <strong>El participante decidió no activar la cámara web.</strong> Por respeto a su autonomía y privacidad, la telemetría de parpadeo (EAR) y rastreo de mirada no fue registrada.
                 </div>
               `}
             </div>
@@ -4509,7 +4576,7 @@ const App = {
                   </div>
                 </div>
 
-                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #AB47BC;color:#334155;">
+                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #AB47BC;color:#334155;margin-bottom:10px;">
                   ${(function(){
                     let notes = [];
                     const au4Count = (m.fer_frustration_events > 60 ? Math.round(m.fer_frustration_events / 150) : (m.fer_frustration_events || 0));
@@ -4525,9 +4592,12 @@ const App = {
                     return notes.join('<br/>');
                   })()}
                 </div>
+                <div style="font-size:0.78rem;color:#64748B;line-height:1.4;background:#F1F5F9;padding:8px 10px;border-radius:6px;">
+                  <strong>💡 ¿Qué es AU4?</strong> Corresponde a la contracción del entrecejo. En tareas de alta atención no indica frustración, sino concentración visual intensa para discriminar las letras.
+                </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ La cámara no estuvo habilitada. El análisis facial de expresiones y tensión gestual (FER) requiere captura de video frontal.
+                  ℹ️ <strong>Cámara web desactivada.</strong> El análisis facial de expresiones y tensión gestual (FER) requiere captura de video frontal y no se aplicó en esta sesión.
                 </div>
               `}
             </div>
@@ -4556,7 +4626,7 @@ const App = {
                 </div>
               </div>
 
-              <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #7E57C2;color:#334155;">
+              <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #7E57C2;color:#334155;margin-bottom:10px;">
                 ${(function(){
                   let notes = [];
                   const isMicroNormal = (m.microtremor_avg || 0) < 45.0;
@@ -4571,6 +4641,9 @@ const App = {
                   }
                   return notes.join('<br/>');
                 })()}
+              </div>
+              <div style="font-size:0.78rem;color:#64748B;line-height:1.4;background:#F1F5F9;padding:8px 10px;border-radius:6px;">
+                <strong>💡 ¿Qué es el Jitter Motor?</strong> Registra la estabilidad neuromuscular de la mano sobre el ratón a 60 FPS. Menor a 45 px/s² es completamente normal; valores altos indican tensión física o fatiga motora.
               </div>
             </div>
 
@@ -4605,7 +4678,7 @@ const App = {
                   </div>
                 </div>
 
-                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #0284C7;color:#334155;">
+                <div style="font-size:0.85rem;line-height:1.4;background:#FFF;padding:10px 12px;border-radius:8px;border-left:3px solid #0284C7;color:#334155;margin-bottom:10px;">
                   ${(function(){
                     let notes = [];
                     const peaks = Number(m.cognitive_load_peaks || 0);
@@ -4624,9 +4697,12 @@ const App = {
                     return notes.join('<br/>');
                   })()}
                 </div>
+                <div style="font-size:0.78rem;color:#64748B;line-height:1.4;background:#F1F5F9;padding:8px 10px;border-radius:6px;">
+                  <strong>💡 ¿Qué refleja la pupilometría?</strong> Mide sutiles dilataciones involuntarias provocadas por la activación noradrenérgica. Refleja el esfuerzo real en memoria de trabajo, no la visión.
+                </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ La cámara no estuvo habilitada. La pupilometría cognitiva y detección de sobreesfuerzo mental requieren seguimiento óptico del iris.
+                  ℹ️ <strong>El participante decidió no activar la cámara web.</strong> La pupilometría cognitiva y detección óptica de sobreesfuerzo mental requieren seguimiento del iris y no aplican para esta sesión.
                 </div>
               `}
             </div>
