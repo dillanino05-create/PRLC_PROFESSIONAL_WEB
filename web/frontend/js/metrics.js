@@ -116,7 +116,13 @@ const BAREMOS_D2_EDAD = [
 ];
 
 function getD2AgeNorm(age) {
-  const a = Math.max(8, Math.min(99, parseInt(age) || 25));
+  let a = 25;
+  if (typeof age === 'object' && age !== null) {
+    a = parseInt(age.years ?? age.age ?? 25, 10);
+  } else {
+    a = parseInt(age, 10) || 25;
+  }
+  a = Math.max(8, Math.min(99, a));
   for (const b of BAREMOS_D2_EDAD) {
     if (a >= b.minAge && a <= b.maxAge) return b;
   }
@@ -1058,7 +1064,13 @@ const BAREMOS_CORSI_KESSELS = [
 ];
 
 function getCorsiAgeNorm(age) {
-  const a = Math.max(5, Math.min(99, parseInt(age) || 25));
+  let a = 25;
+  if (typeof age === 'object' && age !== null) {
+    a = parseInt(age.years ?? age.age ?? 25, 10);
+  } else {
+    a = parseInt(age, 10) || 25;
+  }
+  a = Math.max(5, Math.min(99, a));
   for (const b of BAREMOS_CORSI_KESSELS) {
     if (a >= b.minAge && a <= b.maxAge) return b;
   }

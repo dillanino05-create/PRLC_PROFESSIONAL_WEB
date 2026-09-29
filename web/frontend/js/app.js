@@ -792,6 +792,7 @@ const App = {
      PANTALLA 2: FORMULARIO
   ══════════════════════════════════════════════════════════════════════ */
   renderForm(app) {
+    const todayStr = new Date().toISOString().split('T')[0];
     app.innerHTML = `
       <div class="plc-header">
         <div><h1>Datos del Evaluado</h1><div class="sub">Complete la información antes de iniciar · ${this.testType === 'CORSI' ? `Test de Bloques de Corsi (${this.corsiMode === 'dual' ? 'Batería Dual Completa' : this.corsiMode === 'reverse' ? 'Inverso' : 'Directo'})` : 'Prueba PLC (Líneas Cruzadas)'}</div></div>
@@ -818,12 +819,38 @@ const App = {
               <input type="text" id="f-name" placeholder="Nombre y apellido" />
             </div>
             <div class="form-group">
-              <label>Edad * (años)</label>
-              <input type="number" id="f-age" min="5" max="100" value="25" />
+              <label style="display:flex;align-items:center;justify-content:space-between;">
+                <span>📅 Fecha de Nacimiento *</span>
+                <span style="font-size:0.75rem;color:#0284C7;font-weight:600;">(Tipo Calendario)</span>
+              </label>
+              <input type="date" id="f-birthdate" max="${todayStr}" onchange="App.onBirthdateChange()" oninput="App.onBirthdateChange()" style="cursor:pointer;" />
+              <div style="font-size:0.75rem;color:#64748B;margin-top:4px;">Define la edad cronológica exacta (años, meses y días) para baremos normativos.</div>
             </div>
             <div class="form-group">
-              <label>Ocupación / Cargo</label>
-              <input type="text" id="f-occ" placeholder="Opcional" />
+              <label>Edad Calculada * (años)</label>
+              <input type="number" id="f-age" min="5" max="100" value="25" oninput="App.onManualAgeChange()" />
+              <div style="font-size:0.75rem;color:#64748B;margin-top:4px;">Se autocompleta con el calendario o se puede ajustar manualmente.</div>
+            </div>
+
+            <!-- Badge dinámico de Edad Cronológica Exacta y Baremos -->
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <div id="f-chrono-badge" style="display:none;background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:12px 16px;color:#166534;font-size:0.88rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:1.4rem;">🎂</span>
+                  <div>
+                    <div style="font-size:0.75rem;color:#15803D;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Edad Cronológica Psicométrica</div>
+                    <div id="f-chrono-text" style="font-weight:700;color:#14532D;font-size:0.95rem;">--</div>
+                  </div>
+                </div>
+                <div id="f-chrono-stratum" style="background:#DCFCE7;border:1px solid #BBF7D0;padding:6px 12px;border-radius:20px;font-weight:700;color:#15803D;font-size:0.8rem;">
+                  ⚖️ Baremos: Calculando...
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" style="grid-column: 1 / -1;">
+              <label>Ocupación / Cargo / Escolaridad Detallada</label>
+              <input type="text" id="f-occ" placeholder="Ej: Estudiante de Ingeniería, Docente, Administrativo, etc. (Opcional)" />
             </div>
           </div>
 
@@ -863,20 +890,133 @@ const App = {
           </div>
         </div>
       </div>`;
+    // Inicializar el estrato con la edad por defecto
+    setTimeout(() => {
+      this.onManualAgeChange();
+    }, 50);
+  },
+
+  calculateChronologicalAge(birthDateStr, refDate = new Date()) {
+    if (!birthDateStr) return null;
+    const parts = birthDateStr.split('-');
+    if (parts.length !== 3) return null;
+    const birthYear = parseInt(parts[0], 10);
+    const birthMonth = parseInt(parts[1], 10) - 1;
+    const birthDay = parseInt(parts[2], 10);
+    const birth = new Date(birthYear, birthMonth, birthDay);
+    if (isNaN(birth.getTime())) return null;
+
+    const today = refDate instanceof Date ? refDate : new Date();
+    let years = today.getFullYear() - birth.getFullYear();
+    let months = today.getMonth() - birth.getMonth();
+    let days = today.getDate() - birth.getDate();
+
+    if (days < 0) {
+      months--;
+      const prevMonthDays = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+      days += prevMonthDays;
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    if (years < 0) return null;
+
+    const decimalAge = Number((years + (months / 12) + (days / 365.25)).toFixed(2));
+    const formatted = `${years} ${years === 1 ? 'año' : 'años'}, ${months} ${months === 1 ? 'mes' : 'meses'} y ${days} ${days === 1 ? 'día' : 'días'}`;
+
+    let stratum = '';
+    if (this.testType === 'CORSI' && typeof getCorsiAgeNorm === 'function') {
+      stratum = `Corsi Kessels (${getCorsiAgeNorm(years).label})`;
+    } else if (typeof getD2AgeNorm === 'function') {
+      stratum = `d2 Brickenkamp (${getD2AgeNorm(years).label})`;
+    }
+
+    return { years, months, days, decimalAge, formatted, stratum };
+  },
+
+  onBirthdateChange() {
+    const input = document.getElementById('f-birthdate');
+    if (!input || !input.value) return;
+    const chrono = this.calculateChronologicalAge(input.value);
+    const badge = document.getElementById('f-chrono-badge');
+    const textSpan = document.getElementById('f-chrono-text');
+    const stratumSpan = document.getElementById('f-chrono-stratum');
+    const ageInput = document.getElementById('f-age');
+
+    if (chrono) {
+      if (ageInput) ageInput.value = chrono.years;
+      if (badge && textSpan && stratumSpan) {
+        textSpan.innerHTML = `${chrono.formatted} <span style="font-size:0.8rem;color:#15803D;font-weight:normal;">(${chrono.decimalAge} años decimales)</span>`;
+        stratumSpan.innerHTML = `⚖️ ${chrono.stratum}`;
+        badge.style.display = 'flex';
+      }
+    } else {
+      if (badge) badge.style.display = 'none';
+    }
+  },
+
+  onManualAgeChange() {
+    const ageInput = document.getElementById('f-age');
+    const birthInput = document.getElementById('f-birthdate');
+    const badge = document.getElementById('f-chrono-badge');
+    const textSpan = document.getElementById('f-chrono-text');
+    const stratumSpan = document.getElementById('f-chrono-stratum');
+
+    if (!birthInput || !birthInput.value) {
+      const ageVal = parseInt(ageInput?.value || '25', 10);
+      let stratum = '';
+      if (this.testType === 'CORSI' && typeof getCorsiAgeNorm === 'function') {
+        stratum = `Corsi Kessels (${getCorsiAgeNorm(ageVal).label})`;
+      } else if (typeof getD2AgeNorm === 'function') {
+        stratum = `d2 Brickenkamp (${getD2AgeNorm(ageVal).label})`;
+      }
+      if (badge && textSpan && stratumSpan) {
+        textSpan.innerHTML = `${ageVal} años <span style="font-size:0.78rem;color:#0284C7;">(Selecciona fecha en el calendario para cálculo exacto)</span>`;
+        stratumSpan.innerHTML = `⚖️ ${stratum}`;
+        badge.style.display = 'flex';
+      }
+    }
   },
 
   validateForm() {
     const id = document.getElementById('f-id').value.trim();
     const name = document.getElementById('f-name').value.trim();
-    const age = parseInt(document.getElementById('f-age').value);
-    if (!id) { Math.random(); alert('El ID del participante es obligatorio.'); return; }
+    const birthdate = document.getElementById('f-birthdate')?.value || '';
+    let chrono = birthdate ? this.calculateChronologicalAge(birthdate) : null;
+    let age = parseInt(document.getElementById('f-age').value);
+
+    if (!id) { alert('El ID del participante es obligatorio.'); return; }
     if (!name || name.length < 3) { alert('El Nombre debe tener al menos 3 caracteres.'); return; }
+    if (chrono) {
+      age = chrono.years;
+    }
     if (!age || age < 5 || age > 100) { alert('Ingrese una edad válida entre 5 y 100 años.'); return; }
+
     const gender = document.querySelector('input[name="gender"]:checked')?.value || 'No especificado';
     const education = document.querySelector('input[name="education"]:checked')?.value || 'Universitario';
     const hand = document.querySelector('input[name="hand"]:checked')?.value || 'Derecha';
-    const occupation = document.getElementById('f-occ').value.trim();
-    this.participant = { id, name, age, gender, education, hand, occupation };
+    const occupation = document.getElementById('f-occ')?.value.trim() || '';
+
+    this.participant = {
+      id,
+      name,
+      age,
+      birth_date: birthdate,
+      birthdate: birthdate,
+      chronological_age: chrono ? chrono.formatted : `${age} años`,
+      chronological_detail: chrono ? {
+        years: chrono.years,
+        months: chrono.months,
+        days: chrono.days,
+        decimalAge: chrono.decimalAge,
+        stratum: chrono.stratum
+      } : { years: age, months: 0, days: 0, decimalAge: age, stratum: '' },
+      gender,
+      education,
+      hand,
+      occupation
+    };
     this.nav('pretest');
   },
 
@@ -2509,7 +2649,7 @@ const App = {
 
     // Calcular métricas neuropsicológicas del Test de Corsi de forma inmediata
     try {
-      const pAge = this.participant?.age || 30;
+      const pAge = this.participant?.chronological_detail || this.participant?.age || 30;
       const pEdu = this.participant?.education || 'Universitario';
       this.metrics = computeCorsiMetrics(result, pAge, pEdu);
       this.metrics._age = pAge;
@@ -3128,8 +3268,9 @@ const App = {
     // 1. Detener la grabación de video y obtener el Blob
     const videoBlob = await this.stopRecording();
     
-    this.metrics = calcMetrics(this.linesData, this.clickLog, this.participant.age, this.participant.education);
-    this.metrics._age = this.participant.age;
+    const pAgeObj = this.participant?.chronological_detail || this.participant?.age || 25;
+    this.metrics = calcMetrics(this.linesData, this.clickLog, pAgeObj, this.participant?.education || 'Universitario');
+    this.metrics._age = this.participant?.age || 25;
     this.metrics._education = this.participant.education;
     this.metrics._linesDataRef = this.linesData;
 
@@ -3556,7 +3697,7 @@ const App = {
             </span>
           </h1>
           <div class="sub">
-            ${escapeHTML(this.participant?.name || 'Evaluado')} &nbsp;·&nbsp; ID: ${escapeHTML(this.participant?.id || 'P01')} &nbsp;·&nbsp; ${now}
+            ${escapeHTML(this.participant?.name || 'Evaluado')} &nbsp;·&nbsp; ID: ${escapeHTML(this.participant?.id || 'P01')} &nbsp;·&nbsp; 🎂 ${this.participant?.chronological_age ? `Edad: <strong>${escapeHTML(this.participant.chronological_age)}</strong>` : `Edad: ${this.participant?.age || 25} años`} ${m.age_norm_stratum ? `· <span style="color:#0284C7;font-weight:600;">Estrato: ${m.age_norm_stratum}</span>` : ''} &nbsp;·&nbsp; ${now}
             ${this.sessionTag ? ` &nbsp;·&nbsp; <span style="color:#3949AB;font-weight:600;">Tag: ${this.sessionTag}</span>` : ''}
           </div>
         </div>
@@ -4129,7 +4270,7 @@ const App = {
             ${m.isIncomplete ? `<span class="badge" style="background:#C62828;color:#fff;font-size:0.75rem;padding:4px 8px;border-radius:12px;vertical-align:middle;">⚠️ INCOMPLETA</span>` : ''}
           </h1>
           <div class="sub">
-            ${escapeHTML(this.participant.name)} &nbsp;·&nbsp; ID: ${escapeHTML(this.participant.id)} &nbsp;·&nbsp; ${now}
+            ${escapeHTML(this.participant.name)} &nbsp;·&nbsp; ID: ${escapeHTML(this.participant.id)} &nbsp;·&nbsp; 🎂 ${this.participant.chronological_age ? `Edad: <strong>${escapeHTML(this.participant.chronological_age)}</strong>` : `Edad: ${this.participant.age} años`} ${m.d2_norm_stratum ? `· <span style="color:#0284C7;font-weight:600;">Estrato: ${m.d2_norm_stratum}</span>` : ''} &nbsp;·&nbsp; ${now}
             ${m.isIncomplete ? ` &nbsp;·&nbsp; <span style="color:#C62828;font-weight:700;">Detención en Pág. ${m.lastLine}, Estímulo ${m.lastChar}</span>` : ''}
           </div>
         </div>
