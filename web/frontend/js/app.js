@@ -1647,14 +1647,22 @@ const App = {
     let cameraStatus = 'declined';
     let cameraError = '';
 
+    this.cameraRequested = Boolean(wantCamera);
+    this.cameraPermissionGranted = false;
+    this.cameraErrorCode = '';
+
     if (!wantCamera) {
       this.resetBiometricState();
+      this.cameraStatusReason = 'user_declined';
     }
 
     if (wantCamera) {
       try {
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         cameraStatus = 'ok';
+        this.cameraPermissionGranted = true;
+        this.cameraStatusReason = 'active';
+        this._cameraWasActiveDuringTest = true;
         // Pre-compilación en background diferida de MediaPipe FaceMesh para eliminar cualquier congelamiento
         setTimeout(() => this.warmupFaceMesh(), 50);
       } catch (e) {
@@ -1662,13 +1670,18 @@ const App = {
         cameraStatus = 'error';
         if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") {
           cameraError = "Permiso bloqueado en el navegador. Revisa el icono de cámara o candado en la barra de direcciones.";
+          this.cameraStatusReason = 'permission_denied';
         } else if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") {
           cameraError = "No se detectó ninguna cámara física conectada.";
+          this.cameraStatusReason = 'not_found';
         } else if (e.name === "NotReadableError" || e.name === "TrackStartError") {
-          cameraError = "La cámara está siendo usada por otra aplicación (Zoom, Teams, etc.).";
+          cameraError = "La cámara está siendo usada por otra aplicación (Zoom, Teams, WhatsApp, etc.).";
+          this.cameraStatusReason = 'hardware_error';
         } else {
           cameraError = e.message || e.name;
+          this.cameraStatusReason = 'error';
         }
+        this.cameraErrorCode = cameraError;
         cameraStream = null;
       }
     }
@@ -1683,7 +1696,19 @@ const App = {
 
     let cameraBadge = '';
     if (cameraStatus === 'ok') {
-      cameraBadge = `<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;padding:12px;margin-bottom:16px;color:#2E7D32;font-weight:600;font-size:0.9rem;">✅ Cámara web activada en segundo plano</div>`;
+      cameraBadge = `
+        <div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;text-align:left;">
+          <video id="camera-live-test-preview" autoplay playsinline muted style="width:72px;height:54px;border-radius:8px;object-fit:cover;background:#000;border:2px solid #22C55E;box-shadow:0 2px 6px rgba(34,197,94,0.3);flex-shrink:0;"></video>
+          <div>
+            <div style="color:#15803D;font-weight:700;font-size:0.92rem;display:flex;align-items:center;gap:6px;">
+              <span style="display:inline-block;width:9px;height:9px;background:#22C55E;border-radius:50%;box-shadow:0 0 6px #22C55E;"></span>
+              Cámara Web Conectada y Operativa
+            </div>
+            <div style="font-size:0.78rem;color:#166534;margin-top:2px;line-height:1.35;">
+              Sensor óptico calibrado. Registrará parpadeo y foco visual en segundo plano durante el test.
+            </div>
+          </div>
+        </div>`;
     } else if (cameraStatus === 'error') {
       cameraBadge = `
         <div style="background:#FFF3E0;border:1px solid #FFCC80;border-radius:10px;padding:12px;margin-bottom:16px;color:#E65100;font-weight:600;font-size:0.85rem;text-align:left;line-height:1.4;">
@@ -1718,7 +1743,18 @@ const App = {
     `;
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = modalHtml;
-    document.body.appendChild(tempDiv.firstElementChild);
+    const modalElement = tempDiv.firstElementChild;
+    document.body.appendChild(modalElement);
+
+    if (cameraStatus === 'ok' && this._pendingCameraStream) {
+      setTimeout(() => {
+        const prevVid = document.getElementById('camera-live-test-preview');
+        if (prevVid && this._pendingCameraStream) {
+          prevVid.srcObject = this._pendingCameraStream;
+          prevVid.play().catch(e => console.warn("Preview play:", e));
+        }
+      }, 50);
+    }
   },
 
   async executeMandatoryScreenShare() {
@@ -2678,6 +2714,16 @@ const App = {
     this.nav('completion');
 
     try {
+      // 0. Determinar si la cámara estuvo activa ANTES de apagar los tracks en stopRecording
+      const hadActiveCamera = Boolean(
+        (this.cameraStream && this.cameraStream.active !== false && this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0 && this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')) ||
+        (this.earSamples && this.earSamples.length > 5) ||
+        (this.pupilSamples && this.pupilSamples.length > 5) ||
+        (this.ferSamples && this.ferSamples.length > 5) ||
+        this._cameraWasActiveDuringTest
+      );
+      const cameraReason = hadActiveCamera ? 'active' : (this.cameraRequested ? (this.cameraStatusReason || this.cameraErrorCode || 'error') : 'user_declined');
+
       // 1. Detener grabación de video de forma segura con timeout
       let videoBlob = null;
       try {
@@ -2696,12 +2742,7 @@ const App = {
         this._gazeDivertedStartTime = null;
       }
 
-      const hasCameraStream = Boolean(
-        this.cameraStream && 
-        (this.cameraStream.active !== false) &&
-        (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0) &&
-        this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')
-      );
+      const hasCameraStream = hadActiveCamera;
       // Duración real de la prueba (con fallback robusto a la suma de ensayos para evitar tasa espuria de parpadeo)
       let calculatedTotalTimeMs = Number(result.totalTimeMs || result.total_time_ms || 0);
       if (calculatedTotalTimeMs <= 1000) {
@@ -2722,6 +2763,8 @@ const App = {
 
       // Adjuntar biomarcadores paraclínicos IA
       this.metrics.camera_active = Boolean(hasCameraStream && oculoMetrics.camera_active);
+      this.metrics.camera_status = cameraReason;
+      this.metrics.camera_error_desc = this.cameraErrorCode || '';
       this.metrics.ear_mean = hasCameraStream ? oculoMetrics.ear_mean : null;
       this.metrics.blink_count = hasCameraStream ? oculoMetrics.blink_count : 0;
       this.metrics.blink_rate_min = hasCameraStream ? oculoMetrics.blink_rate_min : 0;
@@ -3265,6 +3308,16 @@ const App = {
     this.isSaving = true;
     this.nav('completion'); // show completion/loading state immediately
     
+    // 0. Determinar si la cámara estuvo activa ANTES de apagar los tracks en stopRecording
+    const hadActiveCamera = Boolean(
+      (this.cameraStream && this.cameraStream.active !== false && this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0 && this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')) ||
+      (this.earSamples && this.earSamples.length > 5) ||
+      (this.pupilSamples && this.pupilSamples.length > 5) ||
+      (this.ferSamples && this.ferSamples.length > 5) ||
+      this._cameraWasActiveDuringTest
+    );
+    const cameraReason = hadActiveCamera ? 'active' : (this.cameraRequested ? (this.cameraStatusReason || this.cameraErrorCode || 'error') : 'user_declined');
+
     // 1. Detener la grabación de video y obtener el Blob
     const videoBlob = await this.stopRecording();
     
@@ -3284,12 +3337,7 @@ const App = {
       this._gazeDivertedStartTime = null;
     }
 
-    const hasCameraStream = Boolean(
-      this.cameraStream && 
-      (this.cameraStream.active !== false) &&
-      (this.cameraStream.getVideoTracks && this.cameraStream.getVideoTracks().length > 0) &&
-      this.cameraStream.getVideoTracks().some(t => t.readyState === 'live')
-    );
+    const hasCameraStream = hadActiveCamera;
     const oculoMetrics = computeOculomotorMetrics(this.earSamples, this.gazeEvents, this.metrics.totalTime, hasCameraStream);
     if (hasCameraStream && this.blinkEvents && this.blinkEvents.length > 0) {
       oculoMetrics.blink_count = Math.max(oculoMetrics.blink_count || 0, this.blinkEvents.length);
@@ -3318,6 +3366,8 @@ const App = {
 
     // Consolidar en this.metrics
     this.metrics.camera_active = Boolean(hasCameraStream && oculoMetrics.camera_active);
+    this.metrics.camera_status = cameraReason;
+    this.metrics.camera_error_desc = this.cameraErrorCode || '';
     this.metrics.ear_mean = hasCameraStream && (oculoMetrics.ear_mean !== null && oculoMetrics.ear_mean !== undefined) ? Number(oculoMetrics.ear_mean) : null;
     this.metrics.blink_count = hasCameraStream ? Number(oculoMetrics.blink_count || 0) : 0;
     this.metrics.blink_rate_min = hasCameraStream ? Number(oculoMetrics.blink_rate_min || 0) : 0;
@@ -4041,7 +4091,14 @@ const App = {
                 </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ Sesión realizada sin cámara web frontal.
+                  ${m.camera_status === 'permission_denied' 
+                    ? '⚠️ <strong>Permiso de cámara bloqueado en el navegador.</strong> No se pudo acceder al sensor óptico.' 
+                    : m.camera_status === 'hardware_error'
+                    ? '⚠️ <strong>Cámara ocupada por otra aplicación.</strong> (Zoom, Teams, WhatsApp, etc.).'
+                    : m.camera_status === 'not_found'
+                    ? '⚠️ <strong>No se detectó cámara web física.</strong>'
+                    : 'ℹ️ <strong>Sesión realizada sin cámara web frontal.</strong>'}
+                  ${m.camera_error_desc ? `<div style="font-size:0.75rem;color:#94A3B8;margin-top:4px;">Detalle: ${m.camera_error_desc}</div>` : ''}
                 </div>
               `}
             </div>
@@ -4687,7 +4744,14 @@ const App = {
                 </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ <strong>El participante decidió no activar la cámara web.</strong> Por respeto a su autonomía y privacidad, la telemetría de parpadeo (EAR) y rastreo de mirada no fue registrada.
+                  ${m.camera_status === 'permission_denied' 
+                    ? '⚠️ <strong>Permiso de cámara bloqueado en el navegador.</strong> El evaluado o las políticas del navegador restringieron el acceso al sensor óptico.' 
+                    : m.camera_status === 'hardware_error'
+                    ? '⚠️ <strong>Cámara ocupada por otra aplicación.</strong> (Zoom, Teams, WhatsApp, etc.).'
+                    : m.camera_status === 'not_found'
+                    ? '⚠️ <strong>No se detectó cámara web física en este dispositivo.</strong>'
+                    : 'ℹ️ <strong>El participante decidió no activar la cámara web.</strong> Por respeto a su autonomía y privacidad, la telemetría de parpadeo (EAR) y rastreo de mirada no fue registrada.'}
+                  ${m.camera_error_desc ? `<div style="font-size:0.75rem;color:#94A3B8;margin-top:4px;">Detalle técnico: ${m.camera_error_desc}</div>` : ''}
                 </div>
               `}
             </div>

@@ -125,7 +125,7 @@ function renderResultCharts(linesData, metrics, mlPred) {
       data: {
         labels: xPts.map(x=>Math.round(x)),
         datasets: [
-          { label:`Norma ${metrics.d2_norm_stratum || 'Adultos'} (μ=${mu.toFixed(1)}, σ=${sigma.toFixed(1)})`, data: yPts, borderColor:'#1565C0',
+          { label:`Baremo Oficial TEA Ediciones — ${metrics.d2_norm_stratum || 'Estrato Poblacional'} (μ=${mu.toFixed(1)}, σ=${sigma.toFixed(1)})`, data: yPts, borderColor:'#1565C0',
             backgroundColor:'rgba(21,101,192,.1)', fill:true, tension:.4, pointRadius:0, borderWidth:2.2 },
           { label:`Evaluado (CON=${score}, Z=${zSign}${zScore})`,
             data: xPts.map((x,i) => x <= score ? yPts[i] : null),

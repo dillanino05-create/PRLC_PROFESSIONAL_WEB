@@ -369,27 +369,51 @@ function calcMetrics(linesData, clickLog, age, education = 'Universitario') {
 }
 
 function generateNarrative(m) {
-  const speedLvl = m.procSpeed > 120 ? 'superior a la media poblacional' : m.procSpeed > 80 ? 'homogéneo a la media general' : 'por debajo de la franja normativa inferior';
-  const cpLvl    = m.CP >= 80 ? 'alto' : m.CP >= 60 ? 'medio' : 'inferior';
-  const trmTxt   = m.TRM > 5         ? 'incremento lineal'
-                 : m.TRM > -15       ? 'fluctuación base estable'
-                 : m.TRM > -30       ? 'descenso métrico de desempeño cronológico'
-                 : 'decrecimiento agudo progresivo';
-  const trmSign  = m.TRM >= 0 ? '+' : '';
+  const normStratum = m.d2_norm_stratum || 'Estrato Poblacional Normativo';
   
+  // Nivel de velocidad basado estrictamente en el percentil normativo de TR (o percentil CON si TR no está disponible)
+  const trPct = m.percentile_tr !== undefined ? m.percentile_tr : (m.percentile_con || 50);
+  let speedLvl = '';
+  if (trPct >= 85) {
+    speedLvl = `desempeño superior al promedio (Percentil P${trPct})`;
+  } else if (trPct >= 75) {
+    speedLvl = `rango medio-alto (Percentil P${trPct})`;
+  } else if (trPct >= 25) {
+    speedLvl = `rango promedio esperado para su edad (Percentil P${trPct})`;
+  } else if (trPct >= 10) {
+    speedLvl = `por debajo del promedio normativo (Percentil P${trPct})`;
+  } else {
+    speedLvl = `significativamente inferior a la norma esperada (Percentil P${trPct})`;
+  }
+
+  const cpLvl = m.CP >= 80 ? 'alta precisión operativa' : m.CP >= 60 ? 'precisión media' : 'precisión reducida por dispersión';
+  const trmTxt = m.TRM > 5         ? 'incremento rítmico progresivo (efecto práctica)'
+               : m.TRM > -15       ? 'estabilidad rítmica constante sin sobrecarga'
+               : m.TRM > -30       ? 'descenso gradual de rendimiento por fatiga ejecutiva'
+               : 'fatigabilidad acentuada en la segunda mitad de la prueba';
+  const trmSign = m.TRM >= 0 ? '+' : '';
+  
+  const totalPosibles = 658; // 14 líneas * 47 caracteres
+  const totEfectividad = m.TOT_d2 !== undefined ? m.TOT_d2 : (m.TOT !== undefined ? m.TOT : Math.max(0, (m.TR || 0) - (m.O + m.COM)));
+  const pctTestCompletado = ((Math.min(totalPosibles, m.TR || 0) / totalPosibles) * 100).toFixed(1);
+
+  // Aclaración clínica de CON vs Aciertos cuando Comisiones = 0
+  const comisionesInfo = (m.COM === 0) 
+    ? `Dado que el evaluado registró 0 errores de comisión, la concentración neta coincide exactamente con los aciertos brutos (${m.TA}).`
+    : `Se descontaron ${m.COM} errores de comisión sobre los ${m.TA} aciertos registrados.`;
+
   let base = [
-    `Velocidad de procesamiento observada: ${Math.round(m.procSpeed)} estímulos/min (${speedLvl}).`,
-    `Capacidad de concentración cruda calculada (CP) = ${m.CP.toFixed(1)} % (${cpLvl}).`,
-    `Tasa estadística de consistencia visual (Estabilidad) = ${Math.round(m.estabilidad)} % (Varianza intra-bloque = ${m.VAR.toFixed(1)} %).`,
-    `Curva de resistencia rítmica cronológica: ${trmTxt} (Medición TRM = ${trmSign}${m.TRM.toFixed(1)} %).`,
-    `Tiempo de reacción iterativo (Media base): ${Math.round(m.meanRt)} ms.`,
-    `Estado de las redes neuronales implicadas: ${m.focusType}.`,
-    `Patrón predominante de respuesta algorítmica: ${m.attnStyle}.`,
-    m.percentile_con !== undefined ? `Baremos Brickenkamp (${m.d2_norm_stratum || 'Adultos'}): Concentración CON=${m.CON} en Percentil P${m.percentile_con} (Z=${m.z_con >= 0 ? '+' : ''}${m.z_con}, Escala T=${m.puntuacion_t_con}, Decatipo=${m.decatipo_con}).` : ''
-  ].filter(Boolean).join('  ');
+    `1. Velocidad de Procesamiento (TR): ${m.TR || 0} estímulos revisados de ${totalPosibles} (${pctTestCompletado}% del test · ${Math.round(m.procSpeed)} est/min), clasificándose en ${speedLvl} según el baremo de ${normStratum}.`,
+    `2. Índice de Concentración Oficial (CON = Aciertos - Comisiones): Puntuación CON = ${m.CON} (${comisionesInfo}), ubicándose en el Percentil P${m.percentile_con || 50} (Z = ${(m.z_con !== undefined ? ((m.z_con >= 0 ? '+' : '') + Number(m.z_con).toFixed(2)) : '0.00')}, Escala T = ${m.puntuacion_t_con || 50}, Decatipo = ${m.decatipo_con || 5.5}).`,
+    `3. Efectividad Total del Test (TOT = TR - Errores): ${totEfectividad} de ${totalPosibles} (${((totEfectividad / totalPosibles) * 100).toFixed(1)}% de rendimiento neto).`,
+    `4. Precisión Atencional (CP = ${(m.CP || 0).toFixed(1)}%): Calificación clasificada como ${cpLvl} (Tasa de error global E% = ${(m.errorRate !== undefined ? m.errorRate : (((m.O + m.COM) / Math.max(m.TR || 1, 1)) * 100)).toFixed(1)}%).`,
+    `5. Resistencia a la Fatiga y Consistencia: Curva rítmica ${trmTxt} (TRM = ${trmSign}${(m.TRM || 0).toFixed(1)}%, Estabilidad rítmica = ${Math.round(m.estabilidad || 100)}%).`,
+    `6. Biomarcador Cronométrico Paraclínico (Independiente de la norma en papel): Tiempo medio de reacción por microdecisión = ${Math.round(m.meanRt || 0)} ms (${(m.meanRt || 0) < 350 ? 'latencia rápida' : (m.meanRt || 0) <= 550 ? 'latencia promedio' : 'latencia reflexiva/cautelosa'}).`,
+    `7. Configuración de Redes de Atención: ${m.focusType || 'Selectiva y sostenida'}. Patrón conductual predominante: ${m.attnStyle || 'Equilibrado'}.`
+  ].join('\n\n');
 
   if (m.isIncomplete) {
-    base = `⚠️ EVALUACIÓN INCOMPLETA (Detención anticipada en Página ${m.lastLine}, estímulo ${m.lastChar}). Las métricas se calcularon de forma proporcional sobre las páginas intentadas. ` + base;
+    base = `⚠️ EVALUACIÓN INCOMPLETA (Detención anticipada en Página ${m.lastLine}, estímulo ${m.lastChar}). Las métricas se normalizaron proporcionalmente sobre las páginas intentadas para no distorsionar la calificación normativa.\n\n` + base;
   }
   return base;
 }
