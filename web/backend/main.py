@@ -715,8 +715,6 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
             },
             "session_tag": session_tag
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"No se pudo firmar el archivo de video: {str(e)}")
 
 def transcode_webm_to_mp4(webm_bytes: bytes) -> bytes:
     """Convierte bytes de video WebM a formato MP4 compatible con todos los reproductores."""
