@@ -1529,13 +1529,6 @@ def generate_clinical_descriptive_reply(message: str, ctx: dict) -> str:
     )
 
 
-class CopilotChatRequest(BaseModel):
-    message: str
-    history: Optional[list[dict]] = []
-    context: Optional[dict] = None
-    custom_key: Optional[str] = None
-
-
 @app.post('/api/copilot/chat')
 async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None)):
     """
