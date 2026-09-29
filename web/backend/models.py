@@ -240,6 +240,8 @@ class SaveRequest(BaseModel):
     metrics: MetricsData
     ml_prediction: Optional[Dict[str, Any]] = None
     narrative: str = ""
+    client_session_id: Optional[str] = None
+    exam_token: Optional[str] = None
 
 
 class CopilotChatRequest(BaseModel):
@@ -247,6 +249,4 @@ class CopilotChatRequest(BaseModel):
     history: Optional[List[Dict[str, Any]]] = []
     context: Optional[Dict[str, Any]] = None
     custom_key: Optional[str] = None
-    client_session_id: Optional[str] = None
-    exam_token: Optional[str] = None
 
