@@ -74,8 +74,9 @@
           padding: 10px 18px 10px 12px;
           border-radius: 9999px;
           box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4), 0 0 20px rgba(6, 182, 212, 0.2);
-          cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          cursor: grab;
+          touch-action: none;
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
           user-select: none;
           backdrop-filter: blur(12px);
         }
@@ -83,6 +84,12 @@
           transform: translateY(-3px) scale(1.03);
           border-color: rgba(6, 182, 212, 0.6);
           box-shadow: 0 14px 30px -5px rgba(79, 70, 229, 0.5), 0 0 25px rgba(6, 182, 212, 0.35);
+        }
+        #mecapsi-copilot-launcher.is-dragging {
+          cursor: grabbing !important;
+          transform: scale(1.05) !important;
+          box-shadow: 0 20px 40px rgba(79, 70, 229, 0.6), 0 0 35px rgba(6, 182, 212, 0.5) !important;
+          transition: none !important;
         }
         #mecapsi-copilot-launcher .copilot-icon {
           width: 36px;
@@ -392,7 +399,19 @@
           <span class="copilot-sub">Explicar Datos · No Diagnóstico</span>
         </div>
       `;
-      launcher.onclick = () => this.toggleWindow();
+
+      // Restaurar posición previa guardada
+      try {
+        const savedPos = JSON.parse(localStorage.getItem('mecapsi_copilot_pos') || '{}');
+        if (savedPos.left && savedPos.top) {
+          launcher.style.left = savedPos.left;
+          launcher.style.top = savedPos.top;
+          launcher.style.right = 'auto';
+          launcher.style.bottom = 'auto';
+        }
+      } catch (e) {}
+
+      this.makeDraggable(launcher);
       document.body.appendChild(launcher);
 
       // Inyectar HTML del Window Chat
@@ -405,7 +424,7 @@
             <div class="copilot-header-avatar">🧠</div>
             <div>
               <div class="copilot-header-title">MecaPsi AI Copilot</div>
-              <div class="copilot-header-status">
+              <div class="copilot-header-status" id="copilot-header-status-text">
                 <span style="display:inline-block;width:6px;height:6px;background:#10B981;border-radius:50%;"></span>
                 Asistencia Paraclínica Descriptiva
               </div>
@@ -450,18 +469,21 @@
 
         <!-- Modal de Ajustes (Clave Gemini) -->
         <div id="copilot-settings-modal">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h3 style="margin:0;color:#fff;font-size:1rem;font-weight:700;">⚙️ Configuración del Asistente</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h3 style="margin:0;color:#fff;font-size:0.95rem;font-weight:700;">⚙️ Configuración de IA (Google Gemini)</h3>
             <button class="copilot-btn-icon" onclick="window.MecaPsiCopilotInstance.toggleSettings()">✕</button>
           </div>
-          <div style="font-size:0.8rem;color:#94A3B8;line-height:1.4;margin-bottom:14px;">
-            El asistente MecaPsi opera automáticamente con el motor clínico integrado. Si deseas conectar directamente tu propia clave de <strong>Google Gemini API</strong> (Gemini 2.0 Flash), ingrésala a continuación:
+          <div style="font-size:0.78rem;color:#94A3B8;line-height:1.45;margin-bottom:10px;">
+            MecaPsi incluye un motor paraclínico descriptivo local. Para habilitar <strong>IA generativa avanzada ilimitada</strong> (Google Gemini 2.0 Flash), puedes ingresar tu clave gratuita.
+          </div>
+          <div style="font-size:0.75rem;color:#A5B4FC;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);padding:8px 10px;border-radius:6px;margin-bottom:12px;">
+            💡 <strong>100% Gratuito y sin tarjeta:</strong> Consigue tu clave en <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#38BDF8;font-weight:700;text-decoration:underline;">Google AI Studio</a>.
           </div>
           <label style="font-size:0.75rem;color:#C7D2FE;font-weight:600;margin-bottom:6px;display:block;">Google Gemini API Key (Opcional):</label>
           <input type="password" id="copilot-gemini-key-input" class="copilot-input" placeholder="AIzaSy..." style="margin-bottom:14px;"/>
           <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn btn-ghost btn-sm" style="color:#CBD5E1;" onclick="window.MecaPsiCopilotInstance.toggleSettings()">Cancelar</button>
-            <button class="btn btn-primary btn-sm" style="background:#4F46E5;color:#fff;padding:6px 14px;border-radius:8px;" onclick="window.MecaPsiCopilotInstance.saveCustomKey()">Guardar Clave</button>
+            <button class="btn btn-secondary btn-sm" id="copilot-test-key-btn" onclick="window.MecaPsiCopilotInstance.testAndSaveKey()" style="background:rgba(16,185,129,0.2);color:#34D399;border:1px solid rgba(16,185,129,0.4);padding:6px 12px;border-radius:8px;">🧪 Probar y Guardar</button>
           </div>
         </div>
       `;
@@ -476,6 +498,138 @@
         "Puedes preguntarme sobre el significado de cualquier biomarcador (pupilometría, micro-temblor del mouse, tiempos de vacilación en Corsi), " +
         "la calibración de los baremos según la edad cronológica exacta, o cómo traducir estos resultados a los padres de familia."
       );
+
+      this.updateStatusBadge();
+    }
+
+    makeDraggable(el) {
+      let isDragging = false;
+      let startX = 0, startY = 0;
+      let initialLeft = 0, initialTop = 0;
+
+      const onStart = (clientX, clientY) => {
+        const rect = el.getBoundingClientRect();
+        startX = clientX;
+        startY = clientY;
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        isDragging = false;
+
+        const onMove = (e) => {
+          const curX = e.touches ? e.touches[0].clientX : e.clientX;
+          const curY = e.touches ? e.touches[0].clientY : e.clientY;
+          const dx = curX - startX;
+          const dy = curY - startY;
+
+          if (!isDragging && Math.hypot(dx, dy) > 5) {
+            isDragging = true;
+            el.classList.add('is-dragging');
+          }
+
+          if (isDragging) {
+            const width = el.offsetWidth;
+            const height = el.offsetHeight;
+            let newX = initialLeft + dx;
+            let newY = initialTop + dy;
+
+            newX = Math.max(10, Math.min(window.innerWidth - width - 10, newX));
+            newY = Math.max(10, Math.min(window.innerHeight - height - 10, newY));
+
+            el.style.left = `${newX}px`;
+            el.style.top = `${newY}px`;
+            el.style.right = 'auto';
+            el.style.bottom = 'auto';
+          }
+        };
+
+        const onEnd = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onEnd);
+          window.removeEventListener('touchmove', onMove);
+          window.removeEventListener('touchend', onEnd);
+
+          if (isDragging) {
+            el.classList.remove('is-dragging');
+            try {
+              localStorage.setItem('mecapsi_copilot_pos', JSON.stringify({
+                left: el.style.left,
+                top: el.style.top
+              }));
+            } catch (e) {}
+          } else {
+            this.toggleWindow();
+          }
+        };
+
+        window.addEventListener('mousemove', onMove, { passive: false });
+        window.addEventListener('mouseup', onEnd);
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+      };
+
+      el.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        onStart(e.clientX, e.clientY);
+      });
+
+      el.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length === 1) {
+          onStart(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      }, { passive: true });
+    }
+
+    /**
+     * Controla la visibilidad del botón flotante según la pantalla activa.
+     * Solo debe verse en 'menu', 'history', 'results' y 'completion'.
+     */
+    updateVisibility(screen) {
+      const launcher = document.getElementById('mecapsi-copilot-launcher');
+      if (!launcher) return;
+      const allowed = ['menu', 'history', 'results', 'completion'];
+      const shouldShow = allowed.includes(screen);
+
+      launcher.style.display = shouldShow ? 'flex' : 'none';
+      if (!shouldShow && this.isOpen) {
+        this.toggleWindow();
+      }
+    }
+
+    /**
+     * Abre el asistente e inyecta o envía una pregunta inicial
+     */
+    openWithPrompt(promptText) {
+      if (!this.isOpen) {
+        this.toggleWindow();
+      }
+      if (promptText) {
+        const input = document.getElementById('copilot-input');
+        if (input) {
+          input.value = promptText;
+          this.sendMessage();
+        }
+      }
+    }
+
+    async updateStatusBadge() {
+      const statusEl = document.getElementById('copilot-header-status-text');
+      if (!statusEl) return;
+      const customKey = this.getCustomKey();
+      if (customKey) {
+        statusEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#10B981;border-radius:50%;"></span> Gemini 2.0 Flash (Clave Activa)';
+        return;
+      }
+      try {
+        const res = await fetch(`${BACKEND_BASE}/api/copilot/status`);
+        const d = await res.json();
+        if (d.has_server_gemini) {
+          statusEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#10B981;border-radius:50%;"></span> Gemini 2.0 Flash (Cloud Server)';
+        } else {
+          statusEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#F59E0B;border-radius:50%;"></span> Motor Paraclínico Local (Ajustes ⚙️)';
+        }
+      } catch (e) {
+        statusEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#10B981;border-radius:50%;"></span> Motor Paraclínico Descriptivo';
+      }
     }
 
     toggleWindow() {
@@ -485,6 +639,7 @@
       if (this.isOpen) {
         win.classList.add('open');
         this.refreshContext();
+        this.updateStatusBadge();
         setTimeout(() => {
           document.getElementById('copilot-input')?.focus();
         }, 100);
@@ -503,12 +658,49 @@
       }
     }
 
-    saveCustomKey() {
+    async testAndSaveKey() {
       const input = document.getElementById('copilot-gemini-key-input');
-      if (input) {
-        this.setCustomKey(input.value);
+      const testBtn = document.getElementById('copilot-test-key-btn');
+      if (!input) return;
+      const key = input.value.trim();
+      if (!key) {
+        this.setCustomKey('');
+        this.updateStatusBadge();
         this.toggleSettings();
-        this.addMessage("bot", "✅ **Clave de Gemini guardada correctamente.** Tus consultas aprovecharán el modelo de Google AI Studio.");
+        this.addMessage("bot", "ℹ️ Se removió la clave personalizada. El sistema operará con el motor paraclínico descriptivo integrado.");
+        return;
+      }
+
+      if (testBtn) {
+        testBtn.disabled = true;
+        testBtn.textContent = '⏳ Verificando...';
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_BASE}/api/copilot/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: "ping test conexion",
+            history: [],
+            context: {},
+            custom_key: key
+          })
+        });
+        this.setCustomKey(key);
+        this.updateStatusBadge();
+        this.toggleSettings();
+        this.addMessage("bot", "✅ **¡Clave de Google Gemini validada y guardada con éxito!** La IA generativa de Gemini 2.0 Flash está ahora activa.");
+      } catch (err) {
+        this.setCustomKey(key);
+        this.updateStatusBadge();
+        this.toggleSettings();
+        this.addMessage("bot", "⚠️ Se guardó la clave de Gemini. Si experimentas problemas de conexión, asegúrate de haber creado tu clave en Google AI Studio.");
+      } finally {
+        if (testBtn) {
+          testBtn.disabled = false;
+          testBtn.textContent = '🧪 Probar y Guardar';
+        }
       }
     }
 

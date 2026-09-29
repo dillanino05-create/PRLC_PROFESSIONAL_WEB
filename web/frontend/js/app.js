@@ -498,6 +498,9 @@ const App = {
       case 'superadmin': this.renderSuperAdmin(app); break;
       case 'ailab': this.renderAILab(app); break;
     }
+    if (window.MecaPsiCopilotInstance && typeof window.MecaPsiCopilotInstance.updateVisibility === 'function') {
+      window.MecaPsiCopilotInstance.updateVisibility(this.screen);
+    }
   },
 
   /* ══════════════════════════════════════════════════════════════════════

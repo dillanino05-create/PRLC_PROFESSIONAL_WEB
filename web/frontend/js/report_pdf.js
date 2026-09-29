@@ -296,13 +296,17 @@
             </div>
           </div>
 
-          <!-- Interpretación Clínica Pedagógica -->
+          <!-- Interpretación Paraclínica Descriptiva Asistida por IA (MecaPsi AI Engine) -->
           <div style="margin-bottom:20px; page-break-inside:avoid;">
-            <div style="font-size:11px; font-weight:800; color:#1E3A8A; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #E2E8F0; padding-bottom:4px;">
-              4. Interpretación Descriptiva y Pautas de Orientación
+            <div style="font-size:11px; font-weight:800; color:#1E3A8A; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #E2E8F0; padding-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+              <span>4. Interpretación Paraclínica Descriptiva Asistida por IA (MecaPsi AI Engine)</span>
+              <span style="font-size:9px; color:#166534; background:#DCFCE7; padding:2px 6px; border-radius:4px; font-weight:700;">ROL DESCRIPTIVO · NO DIAGNÓSTICO</span>
             </div>
             <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-left:3px solid #1A237E; border-radius:4px; padding:10px 14px; font-size:10.5px; color:#334155; line-height:1.55; white-space:pre-line;">
               ${narrative}
+            </div>
+            <div style="margin-top:6px; font-size:9px; color:#64748B; font-style:italic;">
+              * Cláusula ética paraclínica: Esta síntesis generada por el motor de IA es de carácter estrictamente descriptivo de las variables psicométricas y biomarcadores observados. No constituye diagnóstico médico ni psiquiátrico definitivo; la formulación diagnóstica compete exclusivamente al profesional de la salud mental evaluador.
             </div>
           </div>
 
@@ -357,10 +361,18 @@
       }
     },
 
+    isGenerating: false,
+
     /**
-     * Ejecuta la descarga inmediata ("tin tin") del PDF
+     * Ejecuta la descarga inmediata ("tin tin") del PDF sin congelar el navegador
      */
     async downloadReport(type = 'plc') {
+      if (this.isGenerating) {
+        console.warn('Ya se está procesando un informe PDF en este momento.');
+        return;
+      }
+      this.isGenerating = true;
+
       const app = window.App || {};
       const part = app.participant || {};
       const cleanName = (part.name || 'Paciente').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -368,19 +380,22 @@
       const testPrefix = (type === 'corsi' || app.corsiMode) ? 'CORSI' : 'PLC';
       const filename = `Informe_Clinico_${testPrefix}_${cleanName}_${cleanDate}.pdf`;
 
-      // Mostrar toast de preparación inmediata
+      // Notificación visual de generación
       if (typeof app.showNotification === 'function') {
         app.showNotification('📄 Generando informe clínico en PDF...', 'info');
       }
 
       const htmlContent = this.buildHTML(type);
 
-      // Crear contenedor temporal invisible
+      // Crear contenedor temporal invisible y aislado de eventos de usuario
       const container = document.createElement('div');
+      container.id = 'temp-pdf-export-container';
       container.style.position = 'fixed';
       container.style.top = '-9999px';
       container.style.left = '-9999px';
       container.style.width = '800px';
+      container.style.pointerEvents = 'none';
+      container.style.zIndex = '-9999';
       container.innerHTML = htmlContent;
       document.body.appendChild(container);
 
@@ -391,25 +406,30 @@
         const opt = {
           margin: [10, 10, 10, 10],
           filename: filename,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 1.5, useCORS: true, logging: false },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
         try {
-          // Generar el PDF y descargarlo instantáneamente
-          const worker = window.html2pdf().from(targetEl).set(opt);
-          
-          // Obtener base64 para el respaldo en Drive
-          worker.outputPdf('datauristring').then(dataUri => {
-            const base64 = dataUri.split(',')[1] || '';
-            if (base64) {
-              ReportPDF.backupToDrive(base64, filename, part, testPrefix);
-            }
-          }).catch(e => console.warn('Aviso extrayendo base64 del PDF:', e));
-
-          // Descarga directa en el navegador
-          await worker.save();
+          // Generar el PDF y descargarlo en una única pasada (single-pass)
+          await window.html2pdf()
+            .from(targetEl)
+            .set(opt)
+            .toPdf()
+            .get('pdf')
+            .then((pdf) => {
+              try {
+                const dataUri = pdf.output('datauristring');
+                const base64 = dataUri ? (dataUri.split(',')[1] || '') : '';
+                if (base64) {
+                  ReportPDF.backupToDrive(base64, filename, part, testPrefix);
+                }
+              } catch (bErr) {
+                console.warn('Aviso sincronizando PDF a Drive en segundo plano:', bErr);
+              }
+            })
+            .save();
 
           if (typeof app.showNotification === 'function') {
             app.showNotification('✅ Informe PDF descargado y respaldado en Google Drive Vault (5 TB)', 'success');
@@ -418,12 +438,14 @@
           console.error('Error generando PDF con html2pdf, recurriendo a diálogo de impresión:', pdfErr);
           this.fallbackPrint(htmlContent, filename);
         } finally {
-          container.remove();
+          try { container.remove(); } catch (e) {}
+          this.isGenerating = false;
         }
       } else {
         // Fallback robusto sin bibliotecas externas (usando print dialog con CSS A4)
         this.fallbackPrint(htmlContent, filename);
-        container.remove();
+        try { container.remove(); } catch (e) {}
+        this.isGenerating = false;
       }
     },
 
