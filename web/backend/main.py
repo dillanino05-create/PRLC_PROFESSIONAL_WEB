@@ -1086,7 +1086,7 @@ def map_user_to_psychologist(user_email: str, user_name: str = "") -> str:
     elif any(k in s for k in ["edgar", "diaz", "camargo"]):
         return "Dr_Edgar"
     elif any(k in s for k in ["jimena", "ximena", "mora"]):
-        return "Dra_Jimena"
+        return "Dra_Ximena"
     elif any(k in s for k in ["prueba", "test"]):
         return "Perfil_de_Prueba"
     return "Perfil_de_Prueba"
