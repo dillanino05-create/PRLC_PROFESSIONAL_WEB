@@ -15,14 +15,29 @@ import matplotlib.pyplot as plt
 from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, RedirectResponse
 
 from supabase import create_client, Client, ClientOptions
 import httpx
 
-from .models import PredictRequest, SaveRequest, CopilotChatRequest, UploadPdfRequest
+from .models import PredictRequest, SaveRequest, CopilotChatRequest, UploadPdfRequest, UploadVideoRequest
 from .predictor import predictor, corsi_predictor
 from .excel_export import save_excel, EXPORTS_DIR, sanitize_tag_part, generate_session_tag
+
+try:
+    from dotenv import load_dotenv
+    _backend_env = Path(__file__).parent / ".env"
+    if _backend_env.exists():
+        load_dotenv(_backend_env)
+    else:
+        load_dotenv()
+    if not os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
+        _jarvis_env = Path("C:/Users/compu/Downloads/jarvis_noster_cafe/.env.local")
+        if _jarvis_env.exists():
+            load_dotenv(_jarvis_env)
+except Exception:
+    pass
+
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 WEB_DIR      = Path(__file__).parent.parent
@@ -363,6 +378,35 @@ async def upload_pdf_to_vault(req: UploadPdfRequest, auth_ctx: dict = Depends(ge
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+@app.post('/api/vault/upload-video')
+async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depends(get_supabase)):
+    """Respalda un video clínico/forense en el Google Drive Vault (5 TB) del psicólogo con alta resiliencia."""
+    if not DRIVE_WEBHOOK_URL:
+        return {"success": False, "detail": "Drive Vault webhook no configurado"}
+    try:
+        psych_email = auth_ctx.get("email") or "Psicologo_General"
+        drive_payload = {
+            "token": DRIVE_VAULT_TOKEN,
+            "psychologist": psych_email,
+            "patient_id": req.patient_id or "PAC_ANONIMO",
+            "test_type": req.test_type or "PLC",
+            "file_type": "video",
+            "file_name": req.filename,
+            "file_base64": req.video_base64,
+            "mime_type": req.mime_type or "video/mp4"
+        }
+        async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as d_client:
+            d_resp = await d_client.post(
+                DRIVE_WEBHOOK_URL,
+                content=json.dumps(drive_payload),
+                headers={"Content-Type": "text/plain;charset=utf-8"}
+            )
+            d_res = d_resp.json()
+            return d_res
+    except Exception as e:
+        print(f"⚠️ Error subiendo video a Drive Vault desde backend: {e}")
+        return {"success": False, "error": str(e)}
+
 @app.post('/api/save')
 async def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
@@ -673,7 +717,10 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
         drive_id = drive_url.split("/d/")[1].split("/")[0]
 
     secure_url = f"https://drive.google.com/file/d/{drive_id}/preview" if drive_id else drive_url
+    if secure_url and "drive.google.com" in secure_url and "/view" in secure_url:
+        secure_url = secure_url.split("/view")[0] + "/preview"
     download_url = f"https://drive.google.com/uc?export=download&id={drive_id}" if drive_id else drive_url
+
 
     # Prioridad B: Supabase Storage fallback si aún existiera
     if not secure_url and video_path:
@@ -721,6 +768,9 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     return {
         "url": secure_url,
         "download_url": download_url,
+        "drive_url": drive_url or secure_url,
+        "drive_id": drive_id,
+        "drive_folder": metrics.get("drive_folder") or "",
         "filename": download_filename,
         "metrics": metrics,
         "lines_data": lines_val,
@@ -823,9 +873,23 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     session_tag = compute_session_tag(row)
     filename = f"{session_tag}.mp4"
 
+    drive_id = metrics.get("drive_file_id") or ""
+    drive_url = metrics.get("drive_video_url") or ""
+    if not drive_id and "id=" in drive_url:
+        drive_id = drive_url.split("id=")[-1].split("&")[0]
+    elif not drive_id and "/d/" in drive_url:
+        drive_id = drive_url.split("/d/")[1].split("/")[0]
+
     try:
         # Descargar archivo original desde Storage
-        file_bytes = sb.storage.from_("exports").download(video_path)
+        file_bytes = None
+        try:
+            file_bytes = sb.storage.from_("exports").download(video_path)
+        except Exception as sb_dl_err:
+            if drive_id:
+                # Si no está en Supabase Storage (ej. migrado a Drive o storage agotado), redirigir al enlace de descarga de Drive
+                return RedirectResponse(url=f"https://drive.google.com/uc?export=download&id={drive_id}", status_code=307)
+            raise
 
         # Si el archivo original en Storage es .webm, transcodificar a MP4 real
         if video_path.lower().endswith(".webm"):
@@ -866,6 +930,8 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
             }
         )
     except Exception as e:
+        if drive_id:
+            return RedirectResponse(url=f"https://drive.google.com/uc?export=download&id={drive_id}", status_code=307)
         raise HTTPException(status_code=500, detail=f"Error al descargar stream de video: {str(e)}")
 
 @app.delete('/api/history/{eval_id}')
@@ -1563,10 +1629,12 @@ def generate_clinical_descriptive_reply(message: str, ctx: dict) -> str:
         f"💡 *¿Deseas que profundice en cómo redactar este hallazgo para el informe formal, o cómo explicar un biomarcador particular (pupila, temblor o vacilación)?*"
     )
 
+DEFAULT_GEMINI_KEY = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
+
 @app.get('/api/copilot/status')
 async def copilot_status():
     """Verifica si el servidor tiene clave de Gemini API configurada."""
-    has_gemini = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+    has_gemini = bool(DEFAULT_GEMINI_KEY or os.getenv("GOOGLE_API_KEY"))
     return {
         "status": "online",
         "has_server_gemini": has_gemini,
@@ -1594,7 +1662,8 @@ async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None
     ml_pred = ctx.get("ml_pred", {})
 
     # Intentar obtener Gemini API Key
-    gemini_key = req.custom_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    gemini_key = req.custom_key or DEFAULT_GEMINI_KEY or os.getenv("GOOGLE_API_KEY")
+
 
     system_instruction = (
         "Eres el Asistente Clínico y Paraclínico de MecaPsi (PLC Professional). "
