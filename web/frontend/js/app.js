@@ -3751,9 +3751,10 @@ const App = {
             ${this.sessionTag ? ` &nbsp;·&nbsp; <span style="color:#3949AB;font-weight:600;">Tag: ${this.sessionTag}</span>` : ''}
           </div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2" style="align-items:center;">
           <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')">🏠 Menú</button>
           <button class="btn btn-ghost btn-sm" onclick="App.nav('form')">🔄 Nueva eval.</button>
+          <button class="btn btn-primary btn-sm" onclick="ReportPDF.downloadReport('corsi')" style="background:#7B1FA2;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 5px rgba(123,31,162,0.3);">📄 Descargar Informe PDF</button>
           ${this.evalId ? `<button class="btn btn-success btn-sm" onclick="App.downloadExcel()">📊 Descargar Excel</button>` : ''}
         </div>
       </div>
@@ -4269,9 +4270,10 @@ const App = {
         </div>
 
         <!-- Botones Finales -->
-        <div class="flex gap-2 flex-end mb-8">
+        <div class="flex gap-2 flex-end mb-8" style="align-items:center;">
           <button class="btn btn-secondary" onclick="App.nav('menu')">🏠 Menú</button>
           <button class="btn btn-ghost" onclick="App.nav('form')">🔄 Nueva evaluación</button>
+          <button class="btn btn-primary btn-lg" onclick="ReportPDF.downloadReport('corsi')" style="background:#7B1FA2;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 10px rgba(123,31,162,0.35);">📄 Descargar Informe PDF</button>
           ${this.evalId ? `<button class="btn btn-success btn-lg" onclick="App.downloadExcel()">📊 Descargar Excel completo</button>` : ''}
         </div>
 
@@ -4331,9 +4333,10 @@ const App = {
             ${m.isIncomplete ? ` &nbsp;·&nbsp; <span style="color:#C62828;font-weight:700;">Detención en Pág. ${m.lastLine}, Estímulo ${m.lastChar}</span>` : ''}
           </div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2" style="align-items:center;">
           <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')">🏠 Menú</button>
           <button class="btn btn-ghost btn-sm" onclick="App.validateForm ? App.nav('form') : App.nav('form')">🔄 Nueva eval.</button>
+          <button class="btn btn-primary btn-sm" onclick="ReportPDF.downloadReport('plc')" style="background:#1565C0;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 5px rgba(21,101,192,0.3);">📄 Descargar Informe PDF</button>
           ${this.evalId ? `<button class="btn btn-success btn-sm" onclick="App.downloadExcel()">📊 Descargar Excel</button>` : ''}
         </div>
       </div>
@@ -4930,9 +4933,10 @@ const App = {
         </div>
 
         <!-- Botones finales -->
-        <div class="flex gap-2 flex-end mb-8">
+        <div class="flex gap-2 flex-end mb-8" style="align-items:center;">
           <button class="btn btn-secondary" onclick="App.nav('menu')">🏠 Menú</button>
           <button class="btn btn-ghost" onclick="App.nav('form')">🔄 Nueva evaluación</button>
+          <button class="btn btn-primary btn-lg" onclick="ReportPDF.downloadReport('plc')" style="background:#1565C0;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 10px rgba(21,101,192,0.35);">📄 Descargar Informe PDF</button>
           ${this.evalId ? `<button class="btn btn-success btn-lg" onclick="App.downloadExcel()">📊 Descargar Excel completo</button>` : ''}
         </div>
       </div>`;

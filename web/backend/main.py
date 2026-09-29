@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, Response
 from supabase import create_client, Client, ClientOptions
 import httpx
 
-from .models import PredictRequest, SaveRequest, CopilotChatRequest
+from .models import PredictRequest, SaveRequest, CopilotChatRequest, UploadPdfRequest
 from .predictor import predictor, corsi_predictor
 from .excel_export import save_excel, EXPORTS_DIR, sanitize_tag_part, generate_session_tag
 
@@ -334,6 +334,34 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
         print(f"Error bg_excel: {e}")
         try: sb.table("evaluations").update({"status": "completed"}).eq("id", eval_id).execute()
         except Exception: pass
+
+@app.post('/api/vault/upload-pdf')
+async def upload_pdf_to_vault(req: UploadPdfRequest, auth_ctx: dict = Depends(get_supabase)):
+    """Respalda un informe clínico PDF en el Google Drive Vault (5 TB) del psicólogo."""
+    if not DRIVE_WEBHOOK_URL:
+        return {"success": False, "detail": "Drive Vault webhook no configurado"}
+    try:
+        psych_email = auth_ctx.get("email") or "Psicologo_General"
+        drive_payload = {
+            "token": DRIVE_VAULT_TOKEN,
+            "psychologist": psych_email,
+            "patient_id": req.patient_id or "PAC_ANONIMO",
+            "test_type": req.test_type or "PLC",
+            "file_type": "pdf",
+            "file_name": req.filename,
+            "file_base64": req.pdf_base64,
+            "mime_type": "application/pdf"
+        }
+        async with httpx.AsyncClient(timeout=35.0, follow_redirects=True) as d_client:
+            d_resp = await d_client.post(
+                DRIVE_WEBHOOK_URL,
+                content=json.dumps(drive_payload),
+                headers={"Content-Type": "text/plain;charset=utf-8"}
+            )
+            d_res = d_resp.json()
+            return d_res
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 @app.post('/api/save')
 async def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: dict = Depends(get_supabase)):

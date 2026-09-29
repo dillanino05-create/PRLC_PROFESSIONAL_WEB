@@ -250,3 +250,10 @@ class CopilotChatRequest(BaseModel):
     context: Optional[Dict[str, Any]] = None
     custom_key: Optional[str] = None
 
+
+class UploadPdfRequest(BaseModel):
+    patient_id: Optional[str] = "PAC_ANONIMO"
+    test_type: Optional[str] = "PLC"
+    filename: str
+    pdf_base64: str
+
