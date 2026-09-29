@@ -13,3 +13,4 @@ Pillow>=10.0
 aiofiles>=23.0
 supabase>=2.0
 opencv-python-headless>=4.8.0
+httpx>=0.27.0
