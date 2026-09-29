@@ -4344,19 +4344,27 @@ const App = {
         <div class="card mb-4">
           <div class="section-title">Métricas Objetivas</div>
           <div class="metric-cards" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
-            ${[
-        ['TA  Aciertos', m.TA, '#E8F5E9', '#2E7D32'],
-        ['O  Omisiones', m.O, '#FFF3E0', '#E65100'],
-        ['C  Comisiones', m.COM, '#FFEBEE', '#B71C1C'],
-        ['CON  Concentración', m.CON, '#E8EAF6', '#1A237E'],
-        ['TOT  Efectividad', m.TOT_d2 !== undefined ? m.TOT_d2 : Math.max(0, (m.TR || 0) - (m.O + m.COM)), '#EDE7F6', '#4527A0'],
-        ['CP %  Precisión', m.CP.toFixed(1) + ' %', '#E0F2F1', '#00695C'],
-        ['E %  Tasa Error', (m.errorRate !== undefined ? m.errorRate.toFixed(1) : (((m.O + m.COM) / Math.max(m.TR || 1, 1)) * 100).toFixed(1)) + ' %', '#FBE9E7', '#D84315'],
-      ].map(([lbl, val, bg, fg]) => `
-              <div class="metric-card" style="background:${bg};">
-                <div class="val" style="color:${fg};">${val}</div>
-                <div class="lbl">${lbl}</div>
-              </div>`).join('')}
+            ${(() => {
+              const totalEst = 658;
+              const totNum = m.TOT_d2 !== undefined ? m.TOT_d2 : Math.max(0, (m.TR || 0) - (m.O + m.COM));
+              const totPct = ((totNum / totalEst) * 100).toFixed(1);
+              const conFormula = `Fórmula: TA - C (${m.TA} - ${m.COM || 0})`;
+              const items = [
+                ['TA  Aciertos', m.TA, '#E8F5E9', '#2E7D32', 'Estímulos correctos'],
+                ['O  Omisiones', m.O, '#FFF3E0', '#E65100', 'No detectados'],
+                ['C  Comisiones', m.COM, '#FFEBEE', '#B71C1C', 'Errores impulsivos'],
+                ['CON  Concentración', m.CON, '#E8EAF6', '#1A237E', conFormula],
+                ['TOT  Efectividad', totNum, '#EDE7F6', '#4527A0', `${totNum}/${totalEst} (${totPct}%)`],
+                ['CP %  Precisión', m.CP.toFixed(1) + ' %', '#E0F2F1', '#00695C', 'Calidad atencional'],
+                ['E %  Tasa Error', (m.errorRate !== undefined ? m.errorRate.toFixed(1) : (((m.O + m.COM) / Math.max(m.TR || 1, 1)) * 100).toFixed(1)) + ' %', '#FBE9E7', '#D84315', 'Errores globales']
+              ];
+              return items.map(([lbl, val, bg, fg, sub]) => `
+                <div class="metric-card" style="background:${bg};">
+                  <div class="val" style="color:${fg};">${val}</div>
+                  <div class="lbl">${lbl}</div>
+                  ${sub ? `<div style="font-size:0.68rem;color:${fg};opacity:0.85;margin-top:2px;font-weight:600;">${sub}</div>` : ''}
+                </div>`).join('');
+            })()}
           </div>
 
           <hr class="form-divider"/>
