@@ -1237,3 +1237,66 @@ async def migrate_vault(auth_key: str = "", purge_supabase: bool = True, offset:
         "errors_count": len(errors),
         "errors_sample": errors[:5]
     }
+
+
+@app.get('/api/admin/storage-audit')
+async def storage_audit(auth_key: str = ""):
+    """Inspecciona en tiempo real todos los buckets y archivos que existen en Supabase Storage."""
+    if auth_key != "mecapsi_clinical_audit_2026":
+        raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
+    if not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="SUPABASE_SERVICE_KEY no configurado")
+
+    admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=60.0))
+    sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+
+    try:
+        buckets = sb_admin.storage.list_buckets()
+        result = []
+        for b in buckets:
+            b_name = b.name
+            try:
+                # Listar objetos hasta 1000
+                objs = sb_admin.storage.from_(b_name).list(path="", options={"limit": 1000, "sortBy": {"column": "name", "order": "asc"}})
+                total_bytes = sum((o.get('metadata') or {}).get('size', 0) for o in (objs or []))
+                result.append({
+                    "bucket": b_name,
+                    "is_public": getattr(b, "public", False),
+                    "objects_count": len(objs or []),
+                    "total_size_mb": round(total_bytes / (1024 * 1024), 2),
+                    "total_size_gb": round(total_bytes / (1024 * 1024 * 1024), 4),
+                    "files": [
+                        {
+                            "name": o.get('name'),
+                            "size_mb": round(((o.get('metadata') or {}).get('size', 0)) / (1024 * 1024), 2),
+                            "created_at": o.get('created_at')
+                        }
+                        for o in (objs or [])
+                    ]
+                })
+            except Exception as be:
+                result.append({"bucket": b_name, "error": str(be)})
+        return {"success": True, "buckets": result}
+    except Exception as ge:
+        raise HTTPException(status_code=500, detail=f"Error auditando almacenamiento: {str(ge)}")
+
+
+@app.post('/api/admin/storage-purge-files')
+async def storage_purge_files(auth_key: str = "", bucket: str = "exports", file_names: list[str] = None):
+    """Elimina una lista de archivos específicos de Supabase Storage para liberar espacio de inmediato."""
+    if auth_key != "mecapsi_clinical_audit_2026":
+        raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
+    if not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="SUPABASE_SERVICE_KEY no configurado")
+    if not file_names:
+        raise HTTPException(status_code=400, detail="Debe especificar file_names")
+
+    admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=60.0))
+    sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+
+    try:
+        del_res = sb_admin.storage.from_(bucket).remove(file_names)
+        return {"success": True, "bucket": bucket, "deleted_count": len(file_names), "response": del_res}
+    except Exception as pe:
+        raise HTTPException(status_code=500, detail=f"Error purgando archivos: {str(pe)}")
+
