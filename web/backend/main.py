@@ -629,24 +629,17 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
         if cat:
             diff_sec = (datetime.utcnow() - cat).total_seconds()
             if diff_sec >= (30 * 86400):
-                # Purgar archivo en Supabase Storage para liberar cuota de espacio
-                try:
-                    sb.storage.from_("exports").remove([video_path])
-                    print(f"[AUTO-PURGE] Video {video_path} eliminado de Storage (>30 días)")
-                except Exception as pe:
-                    print(f"[AUTO-PURGE] Error al remover video: {pe}")
-                
-                # Marcar como expirado en la base de datos
-                metrics["video_expired"] = True
-                metrics["video_path"] = ""
-                try:
-                    sb.table("evaluations").update({"metrics_json": metrics}).eq("id", eval_id).execute()
-                except Exception:
-                    pass
+                # Marcar como expirado en la plataforma web (permanece a salvo para siempre en Google Drive Vault)
+                if not metrics.get("video_expired"):
+                    metrics["video_expired"] = True
+                    try:
+                        sb.table("evaluations").update({"metrics_json": metrics}).eq("id", eval_id).execute()
+                    except Exception:
+                        pass
                 
                 raise HTTPException(
                     status_code=410, 
-                    detail="La grabación ha superado los 30 días de retención reglamentaria (iniciados desde su fecha de creación) y fue purgada para optimizar el almacenamiento."
+                    detail="La grabación ha superado los 30 días de retención reglamentaria en la plataforma web. El archivo maestro continúa respaldado de forma permanente en Google Drive Vault."
                 )
     except HTTPException:
         raise
@@ -656,23 +649,27 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     session_tag = compute_session_tag(row)
     download_filename = f"{session_tag}.mp4"
 
-    try:
-        # Enlace firmado válido por 10 minutos (600s) para reproducir o descargar
-        signed_res = None
+    # Prioridad A: Enlace desde Google Drive Vault (5 TB)
+    drive_url = metrics.get("drive_video_url") or ""
+    drive_id = metrics.get("drive_file_id") or ""
+    if not drive_id and "id=" in drive_url:
+        drive_id = drive_url.split("id=")[-1].split("&")[0]
+    elif not drive_id and "/d/" in drive_url:
+        drive_id = drive_url.split("/d/")[1].split("/")[0]
+
+    secure_url = f"https://drive.google.com/file/d/{drive_id}/preview" if drive_id else drive_url
+    download_url = f"https://drive.google.com/uc?export=download&id={drive_id}" if drive_id else drive_url
+
+    # Prioridad B: Supabase Storage fallback si aún existiera
+    if not secure_url and video_path:
         try:
             signed_res = sb.storage.from_("exports").create_signed_url(
                 video_path, 600, options={"download": download_filename}
             )
+            secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
+            download_url = secure_url
         except Exception:
-            signed_res = sb.storage.from_("exports").create_signed_url(video_path, 600)
-
-        secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
-        
-        # Generar download_url con parámetro de descarga forzada en formato MP4
-        download_url = secure_url
-        if secure_url and "download=" not in secure_url:
-            sep = "&" if "?" in secure_url else "?"
-            download_url = f"{secure_url}{sep}download={download_filename}"
+            pass
         lines_val = row.get("lines_json")
         if isinstance(lines_val, str):
             try:
@@ -1299,4 +1296,152 @@ async def storage_purge_files(auth_key: str = "", bucket: str = "exports", file_
         return {"success": True, "bucket": bucket, "deleted_count": len(file_names), "response": del_res}
     except Exception as pe:
         raise HTTPException(status_code=500, detail=f"Error purgando archivos: {str(pe)}")
+
+
+def compress_video_for_vault(video_bytes: bytes) -> bytes:
+    """Optimiza videos pesados (>20MB) usando ffmpeg para respetar el límite de 50MB de Google Apps Script."""
+    import tempfile, subprocess, os, shutil
+    if len(video_bytes) <= 20 * 1024 * 1024:
+        return video_bytes
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if not ffmpeg_bin:
+        return video_bytes
+    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as in_f:
+        in_f.write(video_bytes)
+        in_path = in_f.name
+    out_path = in_path.replace('.mp4', '_opt.mp4')
+    try:
+        cmd = [
+            ffmpeg_bin, "-y", "-i", in_path,
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-preset", "veryfast", "-crf", "28",
+            "-an", out_path
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+        if res.returncode == 0 and os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+            with open(out_path, "rb") as out_f:
+                opt_bytes = out_f.read()
+                print(f"[VAULT-OPT] Video reducido de {len(video_bytes)/(1024*1024):.1f}MB a {len(opt_bytes)/(1024*1024):.1f}MB")
+                return opt_bytes
+    except Exception as ce:
+        print(f"[VAULT-OPT-ERR] {ce}")
+    finally:
+        for p in [in_path, out_path]:
+            if os.path.exists(p):
+                try: os.remove(p)
+                except Exception: pass
+    return video_bytes
+
+
+@app.post('/api/admin/clean-purge-storage')
+async def clean_purge_storage(auth_key: str = ""):
+    """Migra los videos pesados restantes a Google Drive Vault y deja Supabase Storage en 0 MB."""
+    if auth_key != "mecapsi_clinical_audit_2026":
+        raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
+    if not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="SUPABASE_SERVICE_KEY no configurado")
+
+    admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=120.0))
+    sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+
+    users_map = {}
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            r_users = client.get(
+                f"{SUPABASE_URL}/auth/v1/admin/users?per_page=100",
+                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+            )
+            if r_users.status_code == 200:
+                for u in r_users.json().get("users", []):
+                    users_map[u.get("id")] = map_user_to_psychologist(u.get("email", ""), (u.get("user_metadata") or {}).get("full_name", ""))
+    except Exception as ue:
+        print(f"Error obteniendo usuarios: {ue}")
+
+    objs = sb_admin.storage.from_("exports").list(path="", options={"limit": 1000}) or []
+    migrated_videos = []
+    purged_files = []
+    errors = []
+
+    for obj in objs:
+        f_name = obj.get("name")
+        if not f_name:
+            continue
+
+        if f_name.lower().endswith((".mp4", ".webm")):
+            try:
+                eval_row = None
+                res_all = sb_admin.table("evaluations").select("id, participant_id, metrics_json, user_id").order("id", desc=True).limit(200).execute()
+                for ev in (res_all.data or []):
+                    m = ev.get("metrics_json") or {}
+                    if m.get("video_path") == f_name:
+                        eval_row = ev
+                        break
+
+                vid_bytes = sb_admin.storage.from_("exports").download(f_name)
+                if vid_bytes and len(vid_bytes) > 0:
+                    opt_bytes = compress_video_for_vault(vid_bytes)
+                    
+                    psych_name = "Perfil_de_Prueba"
+                    pat_id = "PAC_ANONIMO"
+                    eval_id = None
+                    metrics = {}
+                    test_type = "CORSI" if "CORSI" in f_name.upper() else "PLC"
+
+                    if eval_row:
+                        eval_id = eval_row.get("id")
+                        uid = eval_row.get("user_id")
+                        psych_name = users_map.get(uid, "Perfil_de_Prueba")
+                        pat_id = str(eval_row.get("participant_id") or f"PAC_{eval_id}")
+                        metrics = eval_row.get("metrics_json") or {}
+                        test_type = metrics.get("test_type") or test_type
+
+                    drive_payload = {
+                        "token": DRIVE_VAULT_TOKEN,
+                        "psychologist": psych_name,
+                        "patient_id": pat_id,
+                        "test_type": test_type,
+                        "file_type": "video",
+                        "file_name": f_name if f_name.endswith(".mp4") else f_name.rsplit(".", 1)[0] + ".mp4",
+                        "file_base64": base64.b64encode(opt_bytes).decode("utf-8"),
+                        "mime_type": "video/mp4"
+                    }
+
+                    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as d_client:
+                        d_resp = await d_client.post(
+                            DRIVE_WEBHOOK_URL,
+                            content=json.dumps(drive_payload),
+                            headers={"Content-Type": "text/plain;charset=utf-8"}
+                        )
+                        d_res = d_resp.json()
+                        if d_res.get("success"):
+                            migrated_videos.append(f_name)
+                            if eval_id:
+                                metrics["drive_video_url"] = d_res.get("file_url")
+                                metrics["drive_folder"] = d_res.get("folder_path")
+                                metrics["drive_file_id"] = d_res.get("file_id")
+                                sb_admin.table("evaluations").update({"metrics_json": metrics}).eq("id", eval_id).execute()
+            except Exception as ve:
+                errors.append(f"Error migrando {f_name}: {str(ve)}")
+
+        # Purgar archivo de Supabase Storage para dejarlo en 0 MB
+        try:
+            sb_admin.storage.from_("exports").remove([f_name])
+            purged_files.append(f_name)
+        except Exception as pe:
+            errors.append(f"Error purgando {f_name}: {str(pe)}")
+
+    remaining_objs = sb_admin.storage.from_("exports").list(path="", options={"limit": 1000}) or []
+    remaining_bytes = sum((o.get("metadata") or {}).get("size", 0) for o in remaining_objs)
+
+    return {
+        "success": True,
+        "migrated_to_drive_count": len(migrated_videos),
+        "migrated_videos": migrated_videos,
+        "purged_from_supabase_count": len(purged_files),
+        "purged_files": purged_files,
+        "final_supabase_storage_objects": len(remaining_objs),
+        "final_supabase_storage_mb": round(remaining_bytes / (1024 * 1024), 2),
+        "errors": errors
+    }
+
 
