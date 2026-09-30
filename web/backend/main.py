@@ -1684,7 +1684,7 @@ async def copilot_status():
     return {
         "status": "online",
         "has_server_gemini": has_gemini,
-        "model": "gemini-2.0-flash" if has_gemini else "mecapsi-clinical-engine",
+        "model": "gemini-2.5-flash" if has_gemini else "mecapsi-clinical-engine",
         "mode": "descriptive-only"
     }
 
@@ -1794,8 +1794,8 @@ async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None
                 "parts": [{"text": current_prompt}]
             })
 
-            # Probar modelo gemini-2.0-flash
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+            # Probar modelo gemini-2.5-flash
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
             payload = {
                 "system_instruction": {"parts": [{"text": system_instruction}]},
                 "contents": contents,
@@ -1813,7 +1813,7 @@ async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None
                             return {
                                 "success": True,
                                 "reply": reply_text,
-                                "source": "gemini-2.0-flash",
+                                "source": "gemini-2.5-flash",
                                 "has_context": bool(participant or metrics)
                             }
                 # Fallback a gemini-1.5-flash
