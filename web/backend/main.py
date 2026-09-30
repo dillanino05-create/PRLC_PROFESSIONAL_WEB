@@ -466,7 +466,7 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
                                 cur_m["drive_video_url"] = file_url
                                 cur_m["drive_file_id"] = file_id
                                 cur_m["drive_folder"] = folder_path
-                                cur_m["video_path"] = fname
+                                cur_m["video_path"] = req.filename
                                 cur_m["has_video"] = True
                                 cur_m["video_expired"] = False
                                 sb.table("evaluations").update({"metrics_json": cur_m}).eq("id", target_id).execute()
