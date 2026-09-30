@@ -135,7 +135,7 @@ window.CorsiRunner = {
                 <span style="font-size: 0.75rem; color: ${isDirect ? '#38BDF8' : '#C084FC'}; font-weight: 600; text-transform: uppercase;">
                   Modo ${isDirect ? '➡️ Directo (Mismo Orden)' : '🔄 Inverso (Orden Inverso)'}
                 </span>
-                ${(window.App && window.App.cameraStream) ? `
+                ${(window.App && (window.App.cameraStream || window.App._cameraWasActiveDuringTest || window.App.cameraPermissionGranted || (window.App.cameraVideoElement && window.App.cameraVideoElement.srcObject))) ? `
                   <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10B981;padding:2px 7px;border-radius:10px;font-size:0.68rem;font-weight:700;">
                     <span style="width:6px;height:6px;border-radius:50%;background:#10B981;box-shadow:0 0 5px #10B981;"></span> Cámara Activa
                   </span>

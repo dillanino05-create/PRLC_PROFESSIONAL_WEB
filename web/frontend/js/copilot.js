@@ -62,12 +62,62 @@
         test_type: h.test_type
       }));
 
+      const m = app.metrics || {};
+      const p = app.participant || {};
+      const testType = app.testType || (app.corsiMode ? 'CORSI' : 'PLC Professional');
+
+      // Formato enriquecido de métricas según tipo de prueba
+      let metricsSummary = {};
+      if (testType === 'CORSI') {
+        metricsSummary = {
+          prueba: 'Test de Bloques de Corsi',
+          modalidad: m.corsi_mode || app.corsiMode || 'Directo/Inverso',
+          span_visoespacial: m.corsi_span || 5,
+          puntaje_compuesto_block_product: m.composite_score || 0,
+          percentil_kessels: m.kessels_percentile !== undefined ? `P${m.kessels_percentile}` : 'P50',
+          clasificacion_clinica: m.clinical_category || 'Promedio',
+          precision_porcentaje: `${Number(m.accuracy_pct || 0).toFixed(1)}%`,
+          duda_previa_vacilacion_ms: `${Math.round(m.hesitation_time_avg_ms || 0)} ms`,
+          tiempo_reaccion_medio_ms: `${Math.round(m.rt_mean_ms || 0)} ms`,
+          biomarcadores: {
+            camera_status: m.camera_status || 'activa',
+            ear_apertura_ocular: m.ear_mean,
+            parpadeos_totales: m.blink_count,
+            tasa_parpadeo_min: m.blink_rate_min,
+            desvios_mirada: m.gaze_diverted_count,
+            microtemblor_mouse_jitter: `${Number(m.microtremor_avg || 0).toFixed(2)} px/s²`,
+            regularidad_trazo: `${Number(m.sweep_regularity_avg || 0).toFixed(1)}%`,
+            tension_facial_fer: `${Number(m.fer_tension_score || 0).toFixed(1)}% (${m.fer_dominant || 'Sereno'})`,
+            dilatacion_pupilar_media: m.pupil_dilation_avg ? `${m.pupil_dilation_avg}x` : '1.01x',
+            picos_sobreesfuerzo_cognitivo: m.cognitive_load_peaks || 0
+          }
+        };
+      } else {
+        metricsSummary = {
+          prueba: 'PLC Professional (Test d2)',
+          velocidad_procesamiento_tr: `${m.TR || 0} estímulos (${Math.round(m.procSpeed || 0)} est/min)`,
+          indice_concentracion_con: `${m.CON || 0} (Aciertos: ${m.TA || 0}, Comisiones: ${m.COM || 0})`,
+          efectividad_total_tot: `${m.TOT_d2 || m.TOT || 0} / 658`,
+          precision_atencional_cp: `${Number(m.CP || 0).toFixed(1)}%`,
+          percentil_con: m.percentile_con !== undefined ? `P${m.percentile_con}` : 'P50',
+          escala_t: m.puntuacion_t_con || 50,
+          biomarcadores: {
+            camera_status: m.camera_status || 'activa',
+            ear_apertura_ocular: m.ear_mean,
+            microtemblor_mouse_jitter: `${Number(m.microtremor_avg || 0).toFixed(2)} px/s²`,
+            dilatacion_pupilar_media: m.pupil_dilation_avg ? `${m.pupil_dilation_avg}x` : null
+          }
+        };
+      }
+
       const ctx = {
-        test_type: app.testType || (app.corsiMode ? 'CORSI' : 'PLC Professional'),
-        participant: app.participant || null,
-        participant_name: app.participant?.name || null,
-        age: app.participant?.chronological_age || app.participant?.age || null,
-        metrics: app.metrics || null,
+        test_type: testType,
+        participant: p,
+        participant_name: p.name || 'Evaluado',
+        participant_id: p.id || 'N/A',
+        age: p.chronological_age || (p.age ? `${p.age} años` : 'N/A'),
+        metrics: metricsSummary,
+        raw_metrics: m,
         ml_pred: app.mlPrediction || null,
         session_tag: app.sessionTag || null,
         evaluator_email: userEmail,
@@ -393,20 +443,6 @@
           transform: none;
         }
 
-        /* Settings overlay */
-        #copilot-settings-modal {
-          position: absolute;
-          inset: 0;
-          background: rgba(15, 23, 42, 0.95);
-          backdrop-filter: blur(10px);
-          z-index: 99995;
-          display: none;
-          flex-direction: column;
-          padding: 20px;
-        }
-        #copilot-settings-modal.active {
-          display: flex;
-        }
       `;
       document.head.appendChild(style);
 
@@ -467,7 +503,6 @@
             </div>
           </div>
           <div class="copilot-header-actions">
-            <button class="copilot-btn-icon" title="Configurar Clave Gemini" onclick="window.MecaPsiCopilotInstance.toggleSettings()">⚙️</button>
             <button class="copilot-btn-icon" title="Cerrar" onclick="window.MecaPsiCopilotInstance.toggleWindow()">✕</button>
           </div>
         </div>
@@ -490,10 +525,10 @@
         <!-- Chips de Sugerencias Rápidas -->
         <div class="copilot-chips">
           <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Cómo le explico este reporte a los padres o al paciente de forma pedagógica y sin patologizar?')">👨‍👩‍👧 Explicar a padres/paciente</button>
-          <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Por qué el percentil de velocidad en computador difiere de la prueba tradicional de papel?')">⚖️ Papel vs. Computador</button>
-          <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Qué significa la dilatación pupilar y la tasa de parpadeo en esta prueba?')">👁️ Pupila y parpadeo</button>
-          <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Qué indica el micro-temblor (jitter) del mouse y sus umbrales?')">🖱️ Temblor (Jitter)</button>
-          <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Qué representa el tiempo de vacilación previa en la prueba de Corsi?')">⏱️ Corsi y vacilación</button>
+          <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Qué significa el Span y los baremos de Kessels en este evaluado?')">🧊 Span y Baremos Corsi</button>
+          <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Qué indica el micro-temblor (jitter) del mouse y la regularidad?')">🖱️ Temblor y Cinemática</button>
+          <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Qué significa la dilatación pupilar y la tasa de parpadeo (EAR)?')">👁️ Pupila y Parpadeo</button>
+          <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Qué representa el tiempo de vacilación previa en la prueba de Corsi?')">⏱️ Vacilación previa</button>
           <button class="copilot-chip" onclick="window.MecaPsiCopilotInstance.sendSuggested('¿Por qué es fundamental calcular la edad cronológica exacta para los baremos?')">📅 Edad Cronológica</button>
         </div>
 
@@ -501,26 +536,6 @@
         <div class="copilot-input-area">
           <input type="text" id="copilot-input" class="copilot-input" placeholder="Pregunta sobre los datos o biomarcadores..." onkeydown="if(event.key==='Enter') window.MecaPsiCopilotInstance.sendMessage()"/>
           <button id="copilot-send-btn" class="copilot-send-btn" onclick="window.MecaPsiCopilotInstance.sendMessage()">➤</button>
-        </div>
-
-        <!-- Modal de Ajustes (Clave Gemini) -->
-        <div id="copilot-settings-modal">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <h3 style="margin:0;color:#fff;font-size:0.95rem;font-weight:700;">⚙️ Configuración de IA (Google Gemini)</h3>
-            <button class="copilot-btn-icon" onclick="window.MecaPsiCopilotInstance.toggleSettings()">✕</button>
-          </div>
-          <div style="font-size:0.78rem;color:#94A3B8;line-height:1.45;margin-bottom:10px;">
-            MecaPsi incluye un motor paraclínico descriptivo local. Para habilitar <strong>IA generativa avanzada ilimitada</strong> (Google Gemini 2.0 Flash), puedes ingresar tu clave gratuita.
-          </div>
-          <div style="font-size:0.75rem;color:#A5B4FC;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);padding:8px 10px;border-radius:6px;margin-bottom:12px;">
-            💡 <strong>100% Gratuito y sin tarjeta:</strong> Consigue tu clave en <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#38BDF8;font-weight:700;text-decoration:underline;">Google AI Studio</a>.
-          </div>
-          <label style="font-size:0.75rem;color:#C7D2FE;font-weight:600;margin-bottom:6px;display:block;">Google Gemini API Key (Opcional):</label>
-          <input type="password" id="copilot-gemini-key-input" class="copilot-input" placeholder="AIzaSy..." style="margin-bottom:14px;"/>
-          <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button class="btn btn-ghost btn-sm" style="color:#CBD5E1;" onclick="window.MecaPsiCopilotInstance.toggleSettings()">Cancelar</button>
-            <button class="btn btn-secondary btn-sm" id="copilot-test-key-btn" onclick="window.MecaPsiCopilotInstance.testAndSaveKey()" style="background:rgba(16,185,129,0.2);color:#34D399;border:1px solid rgba(16,185,129,0.4);padding:6px 12px;border-radius:8px;">🧪 Probar y Guardar</button>
-          </div>
         </div>
       `;
       document.body.appendChild(win);
@@ -651,22 +666,7 @@
     async updateStatusBadge() {
       const statusEl = document.getElementById('copilot-header-status-text');
       if (!statusEl) return;
-      const customKey = this.getCustomKey();
-      if (customKey) {
-        statusEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#10B981;border-radius:50%;"></span> Gemini 2.0 Flash (Clave Activa)';
-        return;
-      }
-      try {
-        const res = await fetch(`${BACKEND_BASE}/api/copilot/status`);
-        const d = await res.json();
-        if (d.has_server_gemini) {
-          statusEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#10B981;border-radius:50%;"></span> Gemini 2.0 Flash (Cloud Server)';
-        } else {
-          statusEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#F59E0B;border-radius:50%;"></span> Motor Paraclínico Local (Ajustes ⚙️)';
-        }
-      } catch (e) {
-        statusEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#10B981;border-radius:50%;"></span> Motor Paraclínico Descriptivo';
-      }
+      statusEl.innerHTML = '<span style="display:inline-block;width:6px;height:6px;background:#10B981;border-radius:50%;box-shadow:0 0 5px #10B981;"></span> Gemini 2.5 Flash · Asistente Activo';
     }
 
     toggleWindow() {
@@ -682,62 +682,6 @@
         }, 100);
       } else {
         win.classList.remove('open');
-      }
-    }
-
-    toggleSettings() {
-      const modal = document.getElementById('copilot-settings-modal');
-      const input = document.getElementById('copilot-gemini-key-input');
-      if (!modal) return;
-      modal.classList.toggle('active');
-      if (modal.classList.contains('active') && input) {
-        input.value = this.getCustomKey();
-      }
-    }
-
-    async testAndSaveKey() {
-      const input = document.getElementById('copilot-gemini-key-input');
-      const testBtn = document.getElementById('copilot-test-key-btn');
-      if (!input) return;
-      const key = input.value.trim();
-      if (!key) {
-        this.setCustomKey('');
-        this.updateStatusBadge();
-        this.toggleSettings();
-        this.addMessage("bot", "ℹ️ Se removió la clave personalizada. El sistema operará con el motor paraclínico descriptivo integrado.");
-        return;
-      }
-
-      if (testBtn) {
-        testBtn.disabled = true;
-        testBtn.textContent = '⏳ Verificando...';
-      }
-
-      try {
-        const res = await fetch(`${BACKEND_BASE}/api/copilot/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: "ping test conexion",
-            history: [],
-            context: {},
-            custom_key: key
-          })
-        });
-        this.setCustomKey(key);
-        this.updateStatusBadge();
-        this.toggleSettings();
-        this.addMessage("bot", "✅ **¡Clave de Google Gemini validada y guardada con éxito!** La IA generativa de Gemini 2.0 Flash está ahora activa.");
-      } catch (err) {
-        this.setCustomKey(key);
-        this.updateStatusBadge();
-        this.toggleSettings();
-        this.addMessage("bot", "⚠️ Se guardó la clave de Gemini. Si experimentas problemas de conexión, asegúrate de haber creado tu clave en Google AI Studio.");
-      } finally {
-        if (testBtn) {
-          testBtn.disabled = false;
-          testBtn.textContent = '🧪 Probar y Guardar';
-        }
       }
     }
 
@@ -852,7 +796,7 @@ Contexto activo:
 - Tipo de prueba: ${ctx.test_type || 'Evaluación Cognitiva'}
 - Resumen de métricas: ${JSON.stringify(ctx.metrics || {})}`;
 
-          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(customKey)}`;
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(customKey)}`;
           const gRes = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

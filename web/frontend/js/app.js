@@ -12,7 +12,7 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
   ? ''
   : 'https://dalamus2405-plc-backend.hf.space';
 
-const App = {
+const App = window.App = {
   /* ── Estado ──────────────────────────────────────────────────────────── */
   screen: 'login',
   supabase: null,
@@ -1898,14 +1898,14 @@ const App = {
     if (!this.cameraStream) {
       const stream = this.screenStream;
       let options = {
-        videoBitsPerSecond: 350000 // 350 kbps: ultraligero (~12MB por sesión de 4.6 min) y compatible con límite Google Apps Script (50MB)
+        videoBitsPerSecond: 950000 // 950 kbps: nitidez HD cristalina (~24MB por sesión) compatible con Google Drive Vault
       };
       if (chosenMime) options.mimeType = chosenMime;
       try {
         this.mediaRecorder = new MediaRecorder(stream, options);
       } catch (e) {
         try {
-          this.mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: 350000 });
+          this.mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: 950000 });
         } catch (e2) {
           this.mediaRecorder = new MediaRecorder(stream);
         }
@@ -2045,11 +2045,11 @@ const App = {
 
     requestAnimationFrame(drawFrame);
 
-    // Capturar stream del canvas a 15 fps estables
-    const stream = canvas.captureStream(15);
+    // Capturar stream del canvas a 20 fps estables y fluidos
+    const stream = canvas.captureStream(20);
     
     let options = {
-      videoBitsPerSecond: 350000 // 350 kbps: ultraligero (~12MB por sesión) para subida inmediata a Google Drive
+      videoBitsPerSecond: 950000 // 950 kbps: nitidez HD cristalina sin pixelación inicial ni artefactos
     };
     if (chosenMime) options.mimeType = chosenMime;
 
@@ -2057,7 +2057,7 @@ const App = {
       this.mediaRecorder = new MediaRecorder(stream, options);
     } catch (e) {
       try {
-        this.mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: 350000 });
+        this.mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: 950000 });
       } catch (e2) {
         this.mediaRecorder = new MediaRecorder(stream);
       }
@@ -3153,7 +3153,7 @@ const App = {
         <div class="test-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <div style="display:flex;align-items:center;gap:12px;">
             <span class="line-label">PÁGINA ${this.currentLine + 1} / ${this.TOTAL_LINES}</span>
-            ${this.cameraStream ? `
+            ${(this.cameraStream || this._cameraWasActiveDuringTest || this.cameraPermissionGranted || (this.cameraVideoElement && this.cameraVideoElement.srcObject)) ? `
               <span class="badge-cam-live" style="display:inline-flex;align-items:center;gap:5px;background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;padding:3px 8px;border-radius:12px;font-size:0.74rem;font-weight:700;">
                 <span style="width:7px;height:7px;border-radius:50%;background:#10B981;box-shadow:0 0 6px #10B981;"></span> Cámara Conectada
               </span>
