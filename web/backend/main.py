@@ -925,8 +925,8 @@ def transcode_webm_to_mp4(webm_bytes: bytes) -> bytes:
                 pass
 
 @app.post("/api/admin/sync-vault-evaluations")
-async def sync_vault_evaluations(auth_key: str = "", limit: int = 200):
-    """Sincroniza y repara metadatos de Google Drive Vault (IDs de video, desmarque de expiración y respaldo de Excels faltantes)."""
+async def sync_vault_evaluations(auth_key: str = "", limit: int = 200, sync_excel: bool = False):
+    """Sincroniza y repara metadatos de Google Drive Vault (IDs de video, desmarque de expiración y opcionalmente Excels)."""
     if auth_key != "mecapsi_clinical_audit_2026":
         raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
     if not SUPABASE_SERVICE_KEY:
@@ -936,17 +936,18 @@ async def sync_vault_evaluations(auth_key: str = "", limit: int = 200):
     sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
 
     users_map = {}
-    try:
-        with httpx.Client(timeout=15.0) as client:
-            r_users = client.get(
-                f"{SUPABASE_URL}/auth/v1/admin/users?per_page=100",
-                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
-            )
-            if r_users.status_code == 200:
-                for u in r_users.json().get("users", []):
-                    users_map[u.get("id")] = map_user_to_psychologist(u.get("email", ""), (u.get("user_metadata") or {}).get("full_name", ""))
-    except Exception as ue:
-        print(f"Error cargando usuarios: {ue}")
+    if sync_excel:
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                r_users = client.get(
+                    f"{SUPABASE_URL}/auth/v1/admin/users?per_page=100",
+                    headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+                )
+                if r_users.status_code == 200:
+                    for u in r_users.json().get("users", []):
+                        users_map[u.get("id")] = map_user_to_psychologist(u.get("email", ""), (u.get("user_metadata") or {}).get("full_name", ""))
+        except Exception as ue:
+            print(f"Error cargando usuarios: {ue}")
 
     res_all = sb_admin.table("evaluations").select("*").order("id", desc=True).limit(limit).execute()
     evals = res_all.data or []
@@ -981,9 +982,13 @@ async def sync_vault_evaluations(auth_key: str = "", limit: int = 200):
                     m["has_video"] = True
                     changed = True
                     synced_videos += 1
+            elif d_url or d_id:
+                if not m.get("has_video"):
+                    m["has_video"] = True
+                    changed = True
 
-            # 3. Si no tiene drive_excel_url y tiene datos, generar y respaldar a Drive Vault
-            if DRIVE_WEBHOOK_URL and not m.get("drive_excel_url") and (ev.get("lines_json") or ev.get("clicks_json")):
+            # 3. Si se solicitó sync_excel explícito, generar y respaldar a Drive Vault
+            if sync_excel and DRIVE_WEBHOOK_URL and not m.get("drive_excel_url") and (ev.get("lines_json") or ev.get("clicks_json")):
                 try:
                     part = {
                         'id': ev.get('participant_id', 'P01'),
