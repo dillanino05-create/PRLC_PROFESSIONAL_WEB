@@ -682,12 +682,13 @@ def history(auth_ctx: dict = Depends(get_supabase)):
         data = []
         if is_superadmin and SUPABASE_SERVICE_KEY:
             try:
-                admin_opts = ClientOptions(headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"})
-                sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
-                res = sb_admin.table("evaluations").select(
-                    "id, created_at, participant_id, participant_name, age, metrics_json, status, excel_path"
-                ).order("id", desc=True).execute()
-                data = res.data or []
+                with httpx.Client(timeout=25.0) as client:
+                    r_sb = client.get(
+                        f"{SUPABASE_URL}/rest/v1/evaluations?select=id,created_at,participant_id,participant_name,age,metrics_json,status,excel_path&order=id.desc&limit=500",
+                        headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+                    )
+                    if r_sb.status_code == 200:
+                        data = r_sb.json() or []
             except Exception as admin_err:
                 print(f"[HISTORY-SUPERADMIN-WARN] {admin_err}")
         
@@ -740,7 +741,7 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'reverse_block_product': m.get('reverse_block_product'),
                 'corsi_span': corsi_span,
                 'composite_score': composite_score,
-                'accuracy_rate': accuracy_rate,
+                'accuracy_rate': m.get('accuracy_rate', 0),
                 'CP': round(m.get('CP', 0), 1) if 'CP' in m else 0,
                 'TA': m.get('TA', 0),
                 'video_path': vpath,
