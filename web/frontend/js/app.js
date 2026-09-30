@@ -2795,7 +2795,16 @@ const App = {
         (this.ferSamples && this.ferSamples.length > 5) ||
         this._cameraWasActiveDuringTest
       );
-      const cameraReason = hadActiveCamera ? 'active' : (this.cameraRequested ? (this.cameraStatusReason || this.cameraErrorCode || 'error') : 'user_declined');
+      let cameraReason = 'user_declined';
+      if (hadActiveCamera) {
+        cameraReason = 'active';
+      } else if (this.cameraRequested) {
+        if (this.cameraPermissionGranted) {
+          cameraReason = 'init_error';
+        } else {
+          cameraReason = this.cameraStatusReason || 'hardware_error';
+        }
+      }
 
       // 1. Detener grabación de video de forma segura con timeout
       let videoBlob = null;
@@ -3140,11 +3149,24 @@ const App = {
 
     app.innerHTML = `
       <div id="test-screen">
-        <!-- Header -->
-        <div class="test-header">
-          <span class="line-label">PÁGINA ${this.currentLine + 1} / ${this.TOTAL_LINES}</span>
-          <span class="count-lbl" id="count-lbl">Marcados: 0</span>
-          <span class="timer-lbl" id="timer-lbl">${this.TIME_PER_LINE}.0 s</span>
+        <!-- Header con feedback visual de cámara -->
+        <div class="test-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span class="line-label">PÁGINA ${this.currentLine + 1} / ${this.TOTAL_LINES}</span>
+            ${this.cameraStream ? `
+              <span class="badge-cam-live" style="display:inline-flex;align-items:center;gap:5px;background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;padding:3px 8px;border-radius:12px;font-size:0.74rem;font-weight:700;">
+                <span style="width:7px;height:7px;border-radius:50%;background:#10B981;box-shadow:0 0 6px #10B981;"></span> Cámara Conectada
+              </span>
+            ` : `
+              <span class="badge-cam-idle" style="display:inline-flex;align-items:center;gap:5px;background:#F8FAFC;border:1px solid #E2E8F0;color:#64748B;padding:3px 8px;border-radius:12px;font-size:0.74rem;">
+                <span style="width:6px;height:6px;border-radius:50%;background:#94A3B8;"></span> Sin Cámara
+              </span>
+            `}
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <span class="count-lbl" id="count-lbl">Marcados: 0</span>
+            <span class="timer-lbl" id="timer-lbl">${this.TIME_PER_LINE}.0 s</span>
+          </div>
         </div>
 
         <!-- Timer bar -->
@@ -3391,7 +3413,16 @@ const App = {
       (this.ferSamples && this.ferSamples.length > 5) ||
       this._cameraWasActiveDuringTest
     );
-    const cameraReason = hadActiveCamera ? 'active' : (this.cameraRequested ? (this.cameraStatusReason || this.cameraErrorCode || 'error') : 'user_declined');
+    let cameraReason = 'user_declined';
+    if (hadActiveCamera) {
+      cameraReason = 'active';
+    } else if (this.cameraRequested) {
+      if (this.cameraPermissionGranted) {
+        cameraReason = 'init_error';
+      } else {
+        cameraReason = this.cameraStatusReason || 'hardware_error';
+      }
+    }
 
     // 1. Detener la grabación de video y obtener el Blob
     const videoBlob = await this.stopRecording();
@@ -4279,12 +4310,14 @@ const App = {
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
                   ${m.camera_status === 'permission_denied' 
                     ? '⚠️ <strong>Permiso de cámara bloqueado en el navegador.</strong> No se pudo acceder al sensor óptico.' 
-                    : m.camera_status === 'hardware_error'
+                    : (m.camera_status === 'hardware_error' || m.camera_status === 'device_busy')
                     ? '⚠️ <strong>Cámara ocupada por otra aplicación.</strong> (Zoom, Teams, WhatsApp, etc.).'
                     : m.camera_status === 'not_found'
                     ? '⚠️ <strong>No se detectó cámara web física.</strong>'
-                    : 'ℹ️ <strong>Sesión realizada sin cámara web frontal.</strong>'}
-                  ${m.camera_error_desc ? `<div style="font-size:0.75rem;color:#94A3B8;margin-top:4px;">Detalle: ${m.camera_error_desc}</div>` : ''}
+                    : (m.camera_status === 'init_error' || m.camera_status === 'error')
+                    ? '⚠️ <strong>Sensor óptico no disponible.</strong> Error en la inicialización o captura de cuadros del video.'
+                    : 'ℹ️ <strong>Cámara no habilitada para esta sesión.</strong> La prueba de memoria visoespacial y sus baremos son plenamente válidos.'}
+                  ${m.camera_error_desc ? `<div style="font-size:0.75rem;color:#94A3B8;margin-top:4px;">Detalle: ${escapeHTML(m.camera_error_desc)}</div>` : ''}
                 </div>
               `}
             </div>
@@ -4881,7 +4914,63 @@ const App = {
           </div>
         </div>
 
+        <!-- C.1b) Explicación Clínica y Pedagógica con IA (Google Gemini 2.0 Flash) & Copilot -->
+        <div class="card mb-4" style="border-left: 4px solid #4F46E5; background: linear-gradient(to right, #F8FAFC, #FFFFFF);">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4F46E5,#06B6D4);display:flex;align-items:center;justify-content:center;font-size:1.2rem;box-shadow:0 4px 10px rgba(79,70,229,0.3);">
+                🤖
+              </div>
+              <div>
+                <h3 style="margin:0;font-size:1.05rem;font-weight:800;color:#1E1B4B;">Explicación Clínica Descriptiva con IA (Google Gemini)</h3>
+                <span style="font-size:0.75rem;color:#4F46E5;font-weight:700;">Análisis Paraclínico Asistido · Enfoque Estrictamente Descriptivo</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" onclick="window.openMecaPsiCopilot ? window.openMecaPsiCopilot('Hola Copilot. Por favor explícame de manera detallada y pedagógica los resultados del Test d2 (Atención Selectiva y Concentración) de este evaluado, su velocidad vs precisión, baremos y biomarcadores, sin emitir diagnósticos patológicos.') : (window.MecaPsiCopilotInstance && window.MecaPsiCopilotInstance.openWithPrompt('Hola Copilot. Por favor explícame de manera detallada y pedagógica los resultados del Test d2...'))" style="background:linear-gradient(135deg,#4F46E5,#06B6D4);color:#FFF;font-weight:700;border:none;border-radius:8px;padding:6px 14px;box-shadow:0 3px 8px rgba(79,70,229,0.3);cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                🧠 Abrir MecaPsi Copilot
+              </button>
+            </div>
+          </div>
 
+          <div style="background:#EEF2FF;border:1px solid #C7D2FE;border-radius:10px;padding:16px;margin-bottom:14px;">
+            <div style="font-weight:700;color:#3730A3;font-size:0.9rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+              <span>💡</span> Síntesis Descriptiva del Perfil Atencional:
+            </div>
+            <p style="font-size:0.88rem;color:#312E81;line-height:1.6;margin:0;">
+              ${ml?.profile_info?.desc || (
+                (m.percentile_con < 25) 
+                ? 'El evaluado evidenció un <strong>Estilo de Trabajo con Susceptibilidad a Dispersión Atencional</strong> (Percentil CON P' + (m.percentile_con || 15) + '). Se observa capacidad para sostener el ritmo de inspección (' + Math.round(m.procSpeed || 100) + ' est/min), pero con omisiones o comisiones que moderan el rendimiento neto. Este patrón describe fluctuaciones naturales en la alerta visual que pueden beneficiarse de pautas de autorregulación y pausas estructuradas.'
+                : 'El evaluado evidenció un <strong>Rendimiento Atencional Adaptativo y Equilibrado</strong> (Percentil CON P' + (m.percentile_con || 50) + '), acorde con la distribución esperada para su estrato etario (' + (m.d2_norm_stratum || 'Adultos') + '). Mantiene una adecuada consistencia rítmica (' + Math.round(m.estabilidad || 100) + '% estabilidad) y un control inhibitorio preservado frente a distractores.'
+              )}
+            </p>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;margin-bottom:12px;">
+            <div style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+              <div style="font-weight:700;color:#0F172A;font-size:0.82rem;margin-bottom:4px;">🎯 Estilo de Trabajo Atencional:</div>
+              <div style="font-size:0.8rem;color:#475569;line-height:1.45;">
+                Velocidad motora de ${Math.round(m.procSpeed || 0)} estímulos/minuto con una precisión atencional de CP = ${(m.CP || 0).toFixed(1)}%. ${Number(m.percentile_tr || 50) > Number(m.percentile_con || 50) + 20 ? 'Evidencia una estrategia orientada a la velocidad y cantidad de trabajo, con menor filtro inhibitorio de detalle.' : 'Mantiene un balance armónico entre velocidad de ejecución y exactitud visual.'}
+              </div>
+            </div>
+            <div style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+              <div style="font-weight:700;color:#0F172A;font-size:0.82rem;margin-bottom:4px;">🔍 Discriminación Visual y Decisión (SDT):</div>
+              <div style="font-size:0.8rem;color:#475569;line-height:1.45;">
+                Sensibilidad perceptiva d\' = ${m.d_prime !== undefined ? m.d_prime : (m.sdt?.d_prime || 'N/A')} y criterio c = ${m.criterion_c !== undefined ? m.criterion_c : (m.sdt?.criterion_c || '0.00')} (${m.criterion_desc || 'Equilibrado'}). Registró ${m.O || 0} omisiones y ${m.COM || 0} comisiones en 14 páginas cronometradas.
+              </div>
+            </div>
+            <div style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+              <div style="font-weight:700;color:#0F172A;font-size:0.82rem;margin-bottom:4px;">📈 Sugerencias Descriptivas para Devolución:</div>
+              <div style="font-size:0.8rem;color:#475569;line-height:1.45;">
+                Comunicar que la atención selectiva es un recurso dinámico sensible al descanso, la hora del día y la habituación a pantallas. Evitar conclusiones diagnósticas cerradas a partir de una única sesión computarizada.
+              </div>
+            </div>
+          </div>
+
+          <div style="font-size:0.78rem;color:#64748B;font-style:italic;border-top:1px solid #F1F5F9;padding-top:8px;">
+            * Sistema de Apoyo a la Decisión Clínica (CDSS). Esta interpretación es estrictamente descriptiva y pedagógica para el profesional de la psicología; no sustituye el juicio clínico integral.
+          </div>
+        </div>
 
         <!-- C.2) Datos Extras de IA: Biomarcadores Oculomotores, Emociones Facial (FER) y Cinemáticos -->
         <div class="card mb-4" style="border-left: 4px solid #00BCD4;">
@@ -4942,12 +5031,14 @@ const App = {
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
                   ${m.camera_status === 'permission_denied' 
                     ? '⚠️ <strong>Permiso de cámara bloqueado en el navegador.</strong> El evaluado o las políticas del navegador restringieron el acceso al sensor óptico.' 
-                    : m.camera_status === 'hardware_error'
-                    ? '⚠️ <strong>Cámara ocupada por otra aplicación.</strong> (Zoom, Teams, WhatsApp, etc.).'
+                    : (m.camera_status === 'hardware_error' || m.camera_status === 'device_busy')
+                    ? '⚠️ <strong>Cámara web ocupada por otra aplicación.</strong> (Zoom, Teams, WhatsApp, etc.).'
                     : m.camera_status === 'not_found'
                     ? '⚠️ <strong>No se detectó cámara web física en este dispositivo.</strong>'
-                    : 'ℹ️ <strong>El participante decidió no activar la cámara web.</strong> Por respeto a su autonomía y privacidad, la telemetría de parpadeo (EAR) y rastreo de mirada no fue registrada.'}
-                  ${m.camera_error_desc ? `<div style="font-size:0.75rem;color:#94A3B8;margin-top:4px;">Detalle técnico: ${m.camera_error_desc}</div>` : ''}
+                    : (m.camera_status === 'init_error' || m.camera_status === 'error')
+                    ? '⚠️ <strong>Fallo en la captura del sensor óptico.</strong> Se concedieron permisos pero el stream de video no completó el muestreo de cuadros.'
+                    : 'ℹ️ <strong>Cámara no habilitada para esta sesión.</strong> El evaluador o participante optó por no activar el sensor óptico; la evaluación psicométrica es plenamente válida.'}
+                  ${m.camera_error_desc ? `<div style="font-size:0.75rem;color:#94A3B8;margin-top:4px;">Detalle técnico: ${escapeHTML(m.camera_error_desc)}</div>` : ''}
                 </div>
               `}
             </div>
@@ -5103,7 +5194,16 @@ const App = {
                 </div>
               ` : `
                 <div style="background:#FFF;border:1px dashed #CFD8DC;border-radius:8px;padding:20px;text-align:center;color:#607D8B;font-size:0.85rem;">
-                  ℹ️ <strong>El participante decidió no activar la cámara web.</strong> La pupilometría cognitiva y detección óptica de sobreesfuerzo mental requieren seguimiento del iris y no aplican para esta sesión.
+                  ${m.camera_status === 'permission_denied' 
+                    ? '⚠️ <strong>Permiso de cámara bloqueado en el navegador.</strong> La pupilometría cognitiva requiere acceso óptico para estimar la dilatación del iris.' 
+                    : (m.camera_status === 'hardware_error' || m.camera_status === 'device_busy')
+                    ? '⚠️ <strong>Cámara ocupada por otra aplicación.</strong> La pupilometría requiere exclusividad del stream de video.'
+                    : m.camera_status === 'not_found'
+                    ? '⚠️ <strong>Sin cámara web física detectada.</strong>'
+                    : (m.camera_status === 'init_error' || m.camera_status === 'error')
+                    ? '⚠️ <strong>Sensor óptico no disponible.</strong> Error en la inicialización o captura de cuadros del video.'
+                    : 'ℹ️ <strong>Cámara no habilitada para esta sesión.</strong> La pupilometría cognitiva y detección óptica de sobreesfuerzo mental requieren seguimiento del iris y no aplican para esta sesión.'}
+                  ${m.camera_error_desc ? `<div style="font-size:0.75rem;color:#94A3B8;margin-top:4px;">Detalle técnico: ${escapeHTML(m.camera_error_desc)}</div>` : ''}
                 </div>
               `}
             </div>

@@ -46,12 +46,34 @@
     getCurrentContext() {
       // Extraer contexto del estado de la app si está presente en window.App
       const app = window.App || {};
+      const isSuper = Boolean(
+        app.user?.user_metadata?.role === 'superadmin' ||
+        app.user?.app_metadata?.role === 'superadmin' ||
+        app.user?.email === 'dillanino05@gmail.com'
+      );
+      const userEmail = app.user?.email || '';
+      const userName = app.user?.user_metadata?.full_name || (userEmail ? userEmail.split('@')[0] : 'Evaluador');
+
+      // Lista de pacientes autorizados según historial de la sesión activa
+      const historyList = (app.historyData || []).map(h => ({
+        id: h.id,
+        name: h.participant_name || h.name,
+        date: h.created_at,
+        test_type: h.test_type
+      }));
+
       const ctx = {
         test_type: app.testType || (app.corsiMode ? 'CORSI' : 'PLC Professional'),
         participant: app.participant || null,
+        participant_name: app.participant?.name || null,
+        age: app.participant?.chronological_age || app.participant?.age || null,
         metrics: app.metrics || null,
         ml_pred: app.mlPrediction || null,
-        session_tag: app.sessionTag || null
+        session_tag: app.sessionTag || null,
+        evaluator_email: userEmail,
+        evaluator_name: userName,
+        is_superadmin: isSuper,
+        authorized_patients: historyList
       };
       return ctx;
     }
@@ -425,6 +447,8 @@
 
       this.makeDraggable(launcher);
       document.body.appendChild(launcher);
+      // Ocultar por defecto si la app está en login o en pantalla de test
+      this.updateVisibility(window.App ? window.App.screen : 'login');
 
       // Inyectar HTML del Window Chat
       const win = document.createElement('div');
@@ -593,12 +617,13 @@
 
     /**
      * Controla la visibilidad del botón flotante según la pantalla activa.
-     * Solo debe verse en 'menu', 'history', 'results' y 'completion'.
+     * Solo debe verse en 'menu', 'history', 'results', 'completion', 'superadmin' y 'ailab'.
+     * Oculto estrictamente durante la prueba ('form', 'pretest', 'practice', 'test') y 'login'.
      */
     updateVisibility(screen) {
       const launcher = document.getElementById('mecapsi-copilot-launcher');
       if (!launcher) return;
-      const allowed = ['menu', 'history', 'results', 'completion'];
+      const allowed = ['menu', 'history', 'results', 'completion', 'superadmin', 'ailab'];
       const shouldShow = allowed.includes(screen);
 
       launcher.style.display = shouldShow ? 'flex' : 'none';
@@ -801,16 +826,29 @@
 
       let reply = null;
 
-      // Prioridad 1: Consulta directa a Google Gemini 2.0 Flash (latencia mínima ~300ms, sin depender de cold starts del servidor)
-      if (customKey) {
+      try {
+        // Prioridad 1: Consulta directa a Google Gemini 2.0 Flash (latencia mínima ~300ms, sin depender de cold starts del servidor)
+        if (customKey) {
         try {
-          const sysPrompt = `Eres MecaPsi Copilot, el asistente paraclínico y pedagógico de la plataforma MecaPsi (Versión 3.4 - RedCOLSI).
+          const patList = (ctx.authorized_patients || []).map(p => p.name || p.id).filter(Boolean);
+          const patStr = patList.length ? patList.slice(0, 25).join(', ') : (ctx.participant_name || 'Paciente activo');
+          const scopePrompt = ctx.is_superadmin 
+            ? 'MODO AUDITORÍA SUPERADMIN: Tienes autorización global sobre todos los psicólogos y pacientes del ecosistema MecaPsi.'
+            : `PRIVACIDAD Y RESTRICCIÓN RLS: Estás asistiendo a la evaluadora/psicóloga ${ctx.evaluator_name} (${ctx.evaluator_email}). Solo tienes autorización ética y clínica para responder sobre los pacientes evaluados por esta cuenta: [${patStr}]. Si el usuario pregunta por un paciente que no está en esta lista o por datos de otros evaluadores, explica con cortesía deontológica que por confidencialidad médica (RLS) solo tienes acceso a los expedientes de su propio panel de evaluación.`;
+
+          const sysPrompt = `Eres MecaPsi Copilot, el asistente paraclínico y consultor en neuropsicología de la plataforma MecaPsi (Versión 3.4).
+Eres un experto de apoyo para las pruebas PLC Professional (Test d2) y Test de Bloques de Corsi (Directo, Inverso y Dual), así como en neuropsicología general, psicometría (baremos Brickenkamp, Kessels), tiempos de reacción y biomarcadores digitales.
+
 Tu rol es estrictamente DESCRIPTIVO y ORIENTATIVO para profesionales de psicología, evaluados y familias:
-1. Explica los hallazgos en términos de estilo cognitivo, velocidad de procesamiento, fatiga ejecutiva y control inhibitorio.
+1. Explica los hallazgos en términos de estilo cognitivo, velocidad de procesamiento, fatiga ejecutiva, control inhibitorio y capacidad visoespacial.
 2. NO emitas diagnósticos médicos cerrados ni etiquetas patológicas definitivas.
-3. Brinda recomendaciones prácticas sobre cómo comunicar los resultados a padres o pacientes de forma humana y constructiva.
-Contexto actual:
-- Evaluado: ${ctx.participant_name || 'Paciente'} (${ctx.age || 'N/A'} años)
+3. Brinda recomendaciones prácticas sobre cómo comunicar los resultados a padres o pacientes de forma humana, clara y constructiva.
+4. Recuerda que la edad cronológica exacta es el estándar para ubicar al paciente en su estrato normativo correspondiente.
+5. ${scopePrompt}
+
+Contexto activo:
+- Evaluador: ${ctx.evaluator_name} (${ctx.evaluator_email || 'Sin sesión'})
+- Evaluado en pantalla: ${ctx.participant_name || 'Sin paciente seleccionado'} (${ctx.age || 'N/A'})
 - Tipo de prueba: ${ctx.test_type || 'Evaluación Cognitiva'}
 - Resumen de métricas: ${JSON.stringify(ctx.metrics || {})}`;
 
@@ -847,9 +885,16 @@ Contexto actual:
       // Prioridad 2: Fallback vía Backend Proxy (/api/copilot/chat)
       if (!reply) {
         try {
+          let authHeader = {};
+          try {
+            const sess = await window.App?.supabase?.auth?.getSession?.();
+            const token = sess?.data?.session?.access_token;
+            if (token) authHeader = { 'Authorization': `Bearer ${token}` };
+          } catch(eAuth) {}
+
           const res = await fetch(`${BACKEND_BASE}/api/copilot/chat`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...authHeader },
             body: JSON.stringify({
               message: userText,
               history: this.history.slice(-6),
@@ -876,11 +921,18 @@ Contexto actual:
       } else {
         // Prioridad 3: Fallback clínico heurístico local garantizado
         this.addMessage("bot", `🤖 **MecaPsi Copilot (Asistencia Paraclínica Descriptiva):**\n\nEn relación a tu consulta sobre **${ctx.test_type || 'la evaluación'}** para **${ctx.participant_name || 'el paciente'}**:\n\n• **Explicación Pedagógica (Sin Patologizar):** Al comunicar este reporte a los padres o al paciente, es fundamental encuadrar los hallazgos en términos de *estilo de trabajo atencional* (ritmo, precisión y autorregulación) y no como un "déficit irreversible". Explica que las fluctuaciones entre líneas reflejan el esfuerzo cognitivo natural y los tiempos necesarios de recuperación.\n• **Telemetría y Biomarcadores:** Los tiempos de reacción y la cinemática del ratón ofrecen evidencia objetiva de si hubo vacilación, fatiga al final de la prueba o impulsividad en los primeros compases.\n\n💡 *El modelo Gemini 2.0 Flash se encuentra listo para profundizar en cualquier baremo o métrica.*`);
-      } finally {
-        this.isLoading = false;
-        if (sendBtn) sendBtn.disabled = false;
-        input.focus();
       }
+    } catch (errGlobal) {
+      if (document.getElementById('copilot-thinking-indicator')) {
+        document.getElementById('copilot-thinking-indicator').remove();
+      }
+      console.error("Error en copilot sendMessage:", errGlobal);
+      this.addMessage("bot", `🤖 **MecaPsi Copilot (Asistencia Paraclínica Descriptiva):**\n\nEn relación a tu consulta sobre **${ctx.test_type || 'la evaluación'}** para **${ctx.participant_name || 'el paciente'}**:\n\n• **Explicación Pedagógica (Sin Patologizar):** Al comunicar este reporte a los padres o al paciente, es fundamental encuadrar los hallazgos en términos de *estilo de trabajo atencional* (ritmo, precisión y autorregulación) y no como un "déficit irreversible". Explica que las fluctuaciones entre líneas reflejan el esfuerzo cognitivo natural y los tiempos necesarios de recuperación.\n• **Telemetría y Biomarcadores:** Los tiempos de reacción y la cinemática del ratón ofrecen evidencia objetiva de si hubo vacilación, fatiga al final de la prueba o impulsividad en los primeros compases.\n\n💡 *El modelo Gemini 2.0 Flash se encuentra listo para profundizar en cualquier baremo o métrica.*`);
+    } finally {
+      this.isLoading = false;
+      if (sendBtn) sendBtn.disabled = false;
+      input.focus();
+    }
     }
   }
 

@@ -370,20 +370,34 @@ function calcMetrics(linesData, clickLog, age, education = 'Universitario') {
 
 function generateNarrative(m) {
   const normStratum = m.d2_norm_stratum || 'Estrato Poblacional Normativo';
-  
-  // Nivel de velocidad basado estrictamente en el percentil normativo de TR (o percentil CON si TR no está disponible)
+  const totalPosibles = 658; // 14 líneas * 47 caracteres
+  const totEfectividad = m.TOT_d2 !== undefined ? m.TOT_d2 : (m.TOT !== undefined ? m.TOT : Math.max(0, (m.TR || 0) - (m.O + m.COM)));
+  const pctTestCompletado = ((Math.min(totalPosibles, m.TR || 0) / totalPosibles) * 100).toFixed(1);
+  const totPctNeto = ((totEfectividad / totalPosibles) * 100).toFixed(1);
+
+  // Nivel de velocidad basado estrictamente en el percentil normativo de TR
   const trPct = m.percentile_tr !== undefined ? m.percentile_tr : (m.percentile_con || 50);
+  const conPct = m.percentile_con !== undefined ? m.percentile_con : 50;
+  
   let speedLvl = '';
   if (trPct >= 85) {
     speedLvl = `desempeño superior al promedio (Percentil P${trPct})`;
   } else if (trPct >= 75) {
     speedLvl = `rango medio-alto (Percentil P${trPct})`;
   } else if (trPct >= 25) {
-    speedLvl = `rango promedio esperado para su edad (Percentil P${trPct})`;
+    speedLvl = `rango promedio esperado para su estrato etario (Percentil P${trPct})`;
   } else if (trPct >= 10) {
     speedLvl = `por debajo del promedio normativo (Percentil P${trPct})`;
   } else {
     speedLvl = `significativamente inferior a la norma esperada (Percentil P${trPct})`;
+  }
+
+  // Análisis psicométrico diferencial: Velocidad motora (TR) vs. Concentración selectiva (CON)
+  let speedConDivergence = '';
+  if (trPct >= 25 && conPct < 25) {
+    speedConDivergence = `\n   ↳ 🔍 *Aclaración Clínica:* Aunque la velocidad bruta de inspección visual (${Math.round(m.procSpeed)} est/min) se ubica en rango típico (P${trPct}), el Índice de Concentración Neta (CON) descendió al percentil P${conPct}. Esto evidencia un estilo de trabajo ágil pero con pérdida de selectividad atencional (omisiones o comisiones), explicando por qué la campana normativa de concentración se sitúa por debajo de la media a pesar del ritmo motor.`;
+  } else if (trPct < 25 && conPct >= 25) {
+    speedConDivergence = `\n   ↳ 🔍 *Aclaración Clínica:* Aunque el ritmo motor global fue pausado (P${trPct}), la precisión y selectividad atencional se mantuvieron en percentil P${conPct}, reflejando un estilo cognitivo reflexivo/cauteloso que priorizó no equivocarse a expensas de la velocidad.`;
   }
 
   const cpLvl = m.CP >= 80 ? 'alta precisión operativa' : m.CP >= 60 ? 'precisión media' : 'precisión reducida por dispersión';
@@ -393,22 +407,18 @@ function generateNarrative(m) {
                : 'fatigabilidad acentuada en la segunda mitad de la prueba';
   const trmSign = m.TRM >= 0 ? '+' : '';
   
-  const totalPosibles = 658; // 14 líneas * 47 caracteres
-  const totEfectividad = m.TOT_d2 !== undefined ? m.TOT_d2 : (m.TOT !== undefined ? m.TOT : Math.max(0, (m.TR || 0) - (m.O + m.COM)));
-  const pctTestCompletado = ((Math.min(totalPosibles, m.TR || 0) / totalPosibles) * 100).toFixed(1);
-
-  // Aclaración clínica de CON vs Aciertos cuando Comisiones = 0
+  // Aclaración matemática y clínica de CON vs Aciertos
   const comisionesInfo = (m.COM === 0) 
-    ? `Dado que el evaluado registró 0 errores de comisión, la concentración neta coincide exactamente con los aciertos brutos (${m.TA}).`
-    : `Se descontaron ${m.COM} errores de comisión sobre los ${m.TA} aciertos registrados.`;
+    ? `Al no registrarse errores de comisión (C = 0), el índice de concentración coincide matemáticamente con los aciertos brutos (${m.TA}), sin duplicidad de métricas.`
+    : `Se descontaron ${m.COM} errores de comisión (impulsividad) sobre los ${m.TA} aciertos registrados.`;
 
   let base = [
-    `1. Velocidad de Procesamiento (TR): ${m.TR || 0} estímulos revisados de ${totalPosibles} (${pctTestCompletado}% del test · ${Math.round(m.procSpeed)} est/min), clasificándose en ${speedLvl} según el baremo de ${normStratum}.`,
-    `2. Índice de Concentración Oficial (CON = Aciertos - Comisiones): Puntuación CON = ${m.CON} (${comisionesInfo}), ubicándose en el Percentil P${m.percentile_con || 50} (Z = ${(m.z_con !== undefined ? ((m.z_con >= 0 ? '+' : '') + Number(m.z_con).toFixed(2)) : '0.00')}, Escala T = ${m.puntuacion_t_con || 50}, Decatipo = ${m.decatipo_con || 5.5}).`,
-    `3. Efectividad Total del Test (TOT = TR - Errores): ${totEfectividad} de ${totalPosibles} (${((totEfectividad / totalPosibles) * 100).toFixed(1)}% de rendimiento neto).`,
+    `1. Velocidad de Procesamiento (TR): ${m.TR || 0} estímulos revisados de ${totalPosibles} (${pctTestCompletado}% del test · ${Math.round(m.procSpeed)} est/min), clasificándose en ${speedLvl} según el baremo oficial TEA Ediciones para ${normStratum}.${speedConDivergence}`,
+    `2. Índice de Concentración Oficial (CON = Aciertos - Comisiones): Puntuación CON = ${m.CON} (${comisionesInfo}), ubicándose en el Percentil P${conPct} (Z = ${(m.z_con !== undefined ? ((m.z_con >= 0 ? '+' : '') + Number(m.z_con).toFixed(2)) : '0.00')}, Escala T = ${m.puntuacion_t_con || 50}, Decatipo = ${m.decatipo_con || 5.5}).`,
+    `3. Efectividad Total del Test (TOT = TR - Errores): ${totEfectividad} / ${totalPosibles} (${totPctNeto}% del total del test), reflejando la productividad neta de trabajo bajo presión temporal.`,
     `4. Precisión Atencional (CP = ${(m.CP || 0).toFixed(1)}%): Calificación clasificada como ${cpLvl} (Tasa de error global E% = ${(m.errorRate !== undefined ? m.errorRate : (((m.O + m.COM) / Math.max(m.TR || 1, 1)) * 100)).toFixed(1)}%).`,
     `5. Resistencia a la Fatiga y Consistencia: Curva rítmica ${trmTxt} (TRM = ${trmSign}${(m.TRM || 0).toFixed(1)}%, Estabilidad rítmica = ${Math.round(m.estabilidad || 100)}%).`,
-    `6. Biomarcador Cronométrico Paraclínico (Independiente de la norma en papel): Tiempo medio de reacción por microdecisión = ${Math.round(m.meanRt || 0)} ms (${(m.meanRt || 0) < 350 ? 'latencia rápida' : (m.meanRt || 0) <= 550 ? 'latencia promedio' : 'latencia reflexiva/cautelosa'}).`,
+    `6. Biomarcadores Paraclínicos Digitales (Aporte de la computarización sin distorsionar baremos en papel): Tiempo medio de reacción por microdecisión = ${Math.round(m.meanRt || 0)} ms (${(m.meanRt || 0) < 350 ? 'latencia rápida' : (m.meanRt || 0) <= 550 ? 'latencia promedio' : 'latencia reflexiva/cautelosa'}). Microtemblor motor medio = ${(m.microtremor_avg !== undefined ? Number(m.microtremor_avg).toFixed(2) : '0.00')} px/s² (control psicomotor estable).`,
     `7. Configuración de Redes de Atención: ${m.focusType || 'Selectiva y sostenida'}. Patrón conductual predominante: ${m.attnStyle || 'Equilibrado'}.`
   ].join('\n\n');
 

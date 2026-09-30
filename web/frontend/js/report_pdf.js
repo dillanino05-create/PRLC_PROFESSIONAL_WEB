@@ -91,10 +91,12 @@
         camBadge = `<span style="color:#2E7D32;background:#E8F5E9;padding:3px 8px;border-radius:4px;font-weight:700;font-size:11px;">● Sensor Activo y Calibrado</span>`;
       } else if (camStatus === 'permission_denied') {
         camBadge = `<span style="color:#C62828;background:#FFEBEE;padding:3px 8px;border-radius:4px;font-weight:700;font-size:11px;">⚠️ Permiso Bloqueado en Navegador</span>`;
-      } else if (camStatus === 'hardware_error') {
-        camBadge = `<span style="color:#E65100;background:#FFF3E0;padding:3px 8px;border-radius:4px;font-weight:700;font-size:11px;">⚠️ Dispositivo Ocupado (Zoom/Teams)</span>`;
+      } else if (camStatus === 'hardware_error' || camStatus === 'device_busy') {
+        camBadge = `<span style="color:#E65100;background:#FFF3E0;padding:3px 8px;border-radius:4px;font-weight:700;font-size:11px;">⚠️ Cámara Ocupada (Zoom/Teams)</span>`;
+      } else if (camStatus === 'init_error' || camStatus === 'error') {
+        camBadge = `<span style="color:#D97706;background:#FEF3C7;padding:3px 8px;border-radius:4px;font-weight:700;font-size:11px;">⚠️ Fallo Captura Sensor</span>`;
       } else {
-        camBadge = `<span style="color:#546E7A;background:#ECEFF1;padding:3px 8px;border-radius:4px;font-weight:700;font-size:11px;">ℹ️ Sin Sensor Óptico Registrado</span>`;
+        camBadge = `<span style="color:#546E7A;background:#ECEFF1;padding:3px 8px;border-radius:4px;font-weight:700;font-size:11px;">ℹ️ Sensor Óptico No Habilitado</span>`;
       }
 
       // Interpretación pedagógica clínica

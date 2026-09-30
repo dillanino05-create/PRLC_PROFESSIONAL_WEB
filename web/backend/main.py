@@ -1710,6 +1710,37 @@ async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None
     # Intentar obtener Gemini API Key
     gemini_key = req.custom_key or DEFAULT_GEMINI_KEY or os.getenv("GOOGLE_API_KEY")
 
+    user_email = (ctx.get("evaluator_email") or "").strip().lower()
+    is_superadmin = bool(ctx.get("is_superadmin", False))
+    evaluator_name = ctx.get("evaluator_name") or (user_email.split("@")[0] if user_email else "Evaluador")
+
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            token = authorization.split(" ")[1]
+            opts = ClientOptions(headers={'Authorization': f'Bearer {token}'}, httpx_client=httpx.Client(http2=False))
+            sb_user = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
+            user_res = sb_user.auth.get_user(token)
+            if user_res and user_res.user:
+                user_email = (user_res.user.email or "").strip().lower()
+                is_superadmin = (user_email == "dillanino05@gmail.com") or ((user_res.user.user_metadata or {}).get("role") == "superadmin")
+                evaluator_name = (user_res.user.user_metadata or {}).get("full_name") or user_email.split("@")[0]
+        except Exception as e_auth:
+            print(f"Copilot auth check: {e_auth}")
+
+    if is_superadmin:
+        scope_instruction = (
+            f"MODO AUDITORÍA SUPERADMIN: Estás asistiendo al Administrador Global ({user_email}). "
+            "Tienes autorización de auditoría global sobre todos los psicólogos y pacientes del ecosistema MecaPsi."
+        )
+    else:
+        pat_list = [p.get("name") or p.get("id") for p in (ctx.get("authorized_patients") or []) if isinstance(p, dict)]
+        pat_str = ", ".join(pat_list[:25]) if pat_list else (participant.get("name") or "Sesión activa del paciente")
+        scope_instruction = (
+            f"PRIVACIDAD Y RESTRICCIÓN RLS: Estás asistiendo a la evaluadora/psicóloga {evaluator_name} ({user_email}). "
+            f"Solo tienes autorización clínica y ética para responder o consultar sobre los pacientes evaluados por esta cuenta: [{pat_str}]. "
+            "Si el usuario pregunta por un paciente que no está en esta lista o por datos de otros evaluadores, explica con gentileza y rigor deontológico "
+            "que por confidencialidad médica y secreto profesional (Row Level Security) solo tienes acceso a los expedientes de su propio panel de evaluación."
+        )
 
     system_instruction = (
         "Eres el Asistente Clínico y Paraclínico de MecaPsi (PLC Professional). "
@@ -1731,6 +1762,8 @@ async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None
         "   - Corsi vacilación (Hesitation time): Tiempo de planificación visoespacial antes de iniciar la secuencia.\n"
         "5. EDAD CRONOLÓGICA Y BAREMOS: Recuerda que la edad cronológica exacta (años, meses y días calculados desde la fecha de nacimiento) "
         "es el estándar de oro para ubicar al paciente en el estrato normativo correspondiente (Brickenkamp para d2, Kessels para Corsi).\n"
+        "6. CONSULTORÍA NEUROPSICOLÓGICA GENERAL: Además del paciente activo, eres un asistente experto en neuropsicología clínica para las pruebas PLC (Test d2) y Test de Bloques de Corsi (Directo, Inverso y Dual), así como en psicometría (baremos Brickenkamp, Kessels), tiempos de reacción, telemetría y biomarcadores.\n"
+        f"7. {scope_instruction}\n"
         "Mantén un tono empático, riguroso, científico y colaborativo con el profesional de la salud."
     )
 

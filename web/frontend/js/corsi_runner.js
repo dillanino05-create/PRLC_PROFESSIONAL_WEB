@@ -131,8 +131,19 @@ window.CorsiRunner = {
             <span style="font-size: 1.3rem;">🧊</span>
             <div>
               <div style="font-weight: 700; color: #F8FAFC; font-size: 1rem; letter-spacing: -0.3px;">Test de Bloques de Corsi</div>
-              <div style="font-size: 0.75rem; color: ${isDirect ? '#38BDF8' : '#C084FC'}; font-weight: 600; text-transform: uppercase;">
-                Modo ${isDirect ? '➡️ Directo (Mismo Orden)' : '🔄 Inverso (Orden Inverso)'}
+              <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+                <span style="font-size: 0.75rem; color: ${isDirect ? '#38BDF8' : '#C084FC'}; font-weight: 600; text-transform: uppercase;">
+                  Modo ${isDirect ? '➡️ Directo (Mismo Orden)' : '🔄 Inverso (Orden Inverso)'}
+                </span>
+                ${(window.App && window.App.cameraStream) ? `
+                  <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10B981;padding:2px 7px;border-radius:10px;font-size:0.68rem;font-weight:700;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#10B981;box-shadow:0 0 5px #10B981;"></span> Cámara Activa
+                  </span>
+                ` : `
+                  <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.2);color:#94A3B8;padding:2px 7px;border-radius:10px;font-size:0.68rem;">
+                    <span style="width:5px;height:5px;border-radius:50%;background:#94A3B8;"></span> Sin Cámara
+                  </span>
+                `}
               </div>
             </div>
           </div>
