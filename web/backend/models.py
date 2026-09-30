@@ -252,6 +252,7 @@ class CopilotChatRequest(BaseModel):
 
 
 class UploadPdfRequest(BaseModel):
+    eval_id: Optional[int] = None
     patient_id: Optional[str] = "PAC_ANONIMO"
     test_type: Optional[str] = "PLC"
     filename: str

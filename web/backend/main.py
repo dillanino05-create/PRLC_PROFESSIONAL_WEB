@@ -395,7 +395,20 @@ async def upload_pdf_to_vault(req: UploadPdfRequest, auth_ctx: dict = Depends(ge
                 content=json.dumps(drive_payload),
                 headers={"Content-Type": "text/plain;charset=utf-8"}
             )
-            return d_resp.json()
+            d_res = d_resp.json()
+            if d_res.get("success") and req.eval_id:
+                sb = auth_ctx.get("client")
+                if sb:
+                    try:
+                        cur_res = sb.table("evaluations").select("metrics_json").eq("id", req.eval_id).execute()
+                        if cur_res.data:
+                            cur_m = cur_res.data[0].get("metrics_json") or {}
+                            cur_m["drive_pdf_url"] = d_res.get("file_url") or ""
+                            cur_m["drive_pdf_id"] = d_res.get("file_id") or ""
+                            sb.table("evaluations").update({"metrics_json": cur_m}).eq("id", req.eval_id).execute()
+                    except Exception as pe:
+                        print(f"[PDF-VAULT-DB-WARN] {pe}")
+            return d_res
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -414,6 +427,18 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
         if not fname.lower().endswith((".mp4", ".webm")):
             fname += ".mp4"
 
+        # Transcodificar a MP4 seekable con tabla de búsqueda e I-frames regulares antes de subir a Drive
+        video_b64 = req.video_base64
+        if video_b64:
+            try:
+                import base64
+                raw_bytes = base64.b64decode(video_b64)
+                seekable_bytes = transcode_to_seekable_mp4(raw_bytes)
+                if seekable_bytes and len(seekable_bytes) > 50:
+                    video_b64 = base64.b64encode(seekable_bytes).decode("ascii")
+            except Exception as te:
+                print(f"[TRANSCODE-PRE-VAULT-WARN] {te}")
+
         drive_payload = {
             "token": DRIVE_VAULT_TOKEN,
             "psychologist": psych_name,
@@ -421,8 +446,8 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
             "test_type": req.test_type or "PLC",
             "file_type": "video",
             "file_name": fname,
-            "file_base64": req.video_base64,
-            "mime_type": req.mime_type or "video/mp4"
+            "file_base64": video_b64,
+            "mime_type": "video/mp4"
         }
         async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as d_client:
             d_resp = await d_client.post(
@@ -750,6 +775,7 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'drive_video_url': d_vid_url,
                 'drive_file_id': d_file_id,
                 'drive_excel_url': m.get('drive_excel_url', ''),
+                'drive_pdf_url': m.get('drive_pdf_url', ''),
                 'has_video': has_vid
             })
         return result
@@ -869,34 +895,48 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
         "session_tag": session_tag
     }
 
-def transcode_webm_to_mp4(webm_bytes: bytes) -> bytes:
-    """Convierte bytes de video WebM a formato MP4 compatible con todos los reproductores."""
+def transcode_to_seekable_mp4(video_bytes: bytes) -> bytes:
+    """Convierte cualquier video (WebM, fMP4 fragmentado, o MP4 sin índices) a MP4 estándar H.264 con faststart y tabla de búsqueda de keyframes (permitiendo avanzar y retroceder sin trabas)."""
     import tempfile, subprocess, os, shutil
-    with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as in_f:
-        in_f.write(webm_bytes)
+    if not video_bytes or len(video_bytes) < 100:
+        return video_bytes
+
+    with tempfile.NamedTemporaryFile(suffix='.raw_video', delete=False) as in_f:
+        in_f.write(video_bytes)
         in_path = in_f.name
-    out_path = in_path.replace('.webm', '.mp4')
+    out_path = in_path + '.seekable.mp4'
+
     try:
-        # 1. Intentar con ffmpeg si está en el sistema (rápido y nativo)
         ffmpeg_bin = shutil.which("ffmpeg")
         if ffmpeg_bin:
             cmd = [
-                ffmpeg_bin, "-y", "-i", in_path,
-                "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                "-preset", "veryfast", "-crf", "24",
-                "-an", out_path
+                ffmpeg_bin, "-y",
+                "-fflags", "+genpts",
+                "-avoid_negative_ts", "make_zero",
+                "-i", in_path,
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-preset", "veryfast",
+                "-crf", "23",
+                "-g", "30",
+                "-keyint_min", "15",
+                "-movflags", "+faststart",
+                "-an",
+                out_path
             ]
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if res.returncode == 0 and os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                 with open(out_path, "rb") as f:
                     return f.read()
-
-        # 2. Fallback con OpenCV (cv2)
+            else:
+                print(f"[FFMPEG-TRANSCODE-WARN] Returncode {res.returncode}: {res.stderr.decode('utf-8', errors='ignore')[:300]}")
+        
+        # Fallback con OpenCV (cv2)
         try:
             import cv2
             cap = cv2.VideoCapture(in_path)
             if cap.isOpened():
-                fps = cap.get(cv2.CAP_PROP_FPS) or 15.0
+                fps = cap.get(cv2.CAP_PROP_FPS) or 20.0
                 w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -914,7 +954,7 @@ def transcode_webm_to_mp4(webm_bytes: bytes) -> bytes:
         except Exception as cv_err:
             print(f"[TRANSCODE-CV2-ERR] {cv_err}")
 
-        return webm_bytes
+        return video_bytes
     finally:
         for p in (in_path, out_path):
             try:
@@ -922,6 +962,9 @@ def transcode_webm_to_mp4(webm_bytes: bytes) -> bytes:
                     os.remove(p)
             except Exception:
                 pass
+
+def transcode_webm_to_mp4(webm_bytes: bytes) -> bytes:
+    return transcode_to_seekable_mp4(webm_bytes)
 
 @app.post("/api/admin/sync-vault-evaluations")
 async def sync_vault_evaluations(auth_key: str = "", limit: int = 200, sync_excel: bool = False):
@@ -1089,19 +1132,21 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     if not drive_id and not video_path:
         raise HTTPException(status_code=404, detail="No hay video disponible para esta evaluación.")
 
-    # 1. Si tenemos archivo en Google Drive Vault, intentar servir directamente
+    # 1. Si tenemos archivo en Google Drive Vault, intentar servir directamente y asegurar que sea seekable
     if drive_id:
         try:
             drive_dl_url = f"https://drive.google.com/uc?export=download&id={drive_id}"
             async with httpx.AsyncClient(timeout=45.0, follow_redirects=True) as client:
                 r_drive = await client.get(drive_dl_url)
                 if r_drive.status_code == 200 and len(r_drive.content) > 1000 and "text/html" not in (r_drive.headers.get("content-type") or ""):
+                    seekable_content = transcode_to_seekable_mp4(r_drive.content)
                     return Response(
-                        content=r_drive.content,
+                        content=seekable_content,
                         media_type="video/mp4",
                         headers={
                             "Content-Disposition": f'attachment; filename="{filename}"',
-                            "Access-Control-Expose-Headers": "Content-Disposition"
+                            "Access-Control-Expose-Headers": "Content-Disposition",
+                            "Accept-Ranges": "bytes"
                         }
                     )
         except Exception as de:
@@ -1112,17 +1157,15 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     # 2. Fallback a Supabase Storage si aún existiera
     try:
         file_bytes = sb.storage.from_("exports").download(video_path)
-        if video_path.lower().endswith(".webm"):
-            transcoded = transcode_webm_to_mp4(file_bytes)
-            if transcoded and len(transcoded) > 0:
-                file_bytes = transcoded
+        file_bytes = transcode_to_seekable_mp4(file_bytes)
 
         return Response(
             content=file_bytes,
             media_type="video/mp4",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
-                "Access-Control-Expose-Headers": "Content-Disposition"
+                "Access-Control-Expose-Headers": "Content-Disposition",
+                "Accept-Ranges": "bytes"
             }
         )
     except Exception as e:
