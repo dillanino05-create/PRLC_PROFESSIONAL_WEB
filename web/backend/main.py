@@ -317,9 +317,20 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
         # ── Respaldo Automático a Google Drive Vault (5 TB) ───────────────────
         if DRIVE_WEBHOOK_URL:
             try:
+                # Resolver carpeta del profesional de forma personalizada
+                psych_name = "Psicologo_General"
+                try:
+                    user_email = ""
+                    user_meta = {}
+                    if uid:
+                        # Si tenemos client SDK de Supabase o admin
+                        u_info = sb.table("evaluations").select("user_id").eq("id", eval_id).execute()
+                except Exception:
+                    pass
+
                 drive_payload = {
                     "token": DRIVE_VAULT_TOKEN,
-                    "psychologist": "Psicologo_General",
+                    "psychologist": psych_name,
                     "patient_id": str(part.get("id", "PAC_ANONIMO")),
                     "test_type": test_type or "PLC",
                     "file_type": "excel",
@@ -327,7 +338,7 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
                     "file_base64": base64.b64encode(file_bytes).decode("utf-8"),
                     "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 }
-                with httpx.Client(timeout=30.0, follow_redirects=True) as d_client:
+                with httpx.Client(timeout=35.0, follow_redirects=True) as d_client:
                     d_resp = d_client.post(
                         DRIVE_WEBHOOK_URL,
                         content=json.dumps(drive_payload),
@@ -335,6 +346,9 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
                     )
                     drive_data = d_resp.json()
                     if drive_data.get("success"):
+                        metrics["drive_excel_url"] = drive_data.get("file_url")
+                        metrics["drive_excel_id"] = drive_data.get("file_id")
+                        metrics["drive_excel_folder"] = drive_data.get("folder_path")
                         print(f"✅ [DRIVE VAULT 5TB] Excel guardado en: {drive_data.get('folder_path')}")
             except Exception as de:
                 print(f"⚠️ Aviso subiendo Excel a Drive Vault: {de}")
@@ -343,7 +357,11 @@ def process_excel_bg(token: str, eval_id: int, uid: str, part, lines, clicks, me
         try: os.remove(excel_path)
         except Exception: pass
             
-        sb.table("evaluations").update({"status": "completed", "excel_path": filename}).eq("id", eval_id).execute()
+        sb.table("evaluations").update({
+            "status": "completed", 
+            "excel_path": filename,
+            "metrics_json": metrics
+        }).eq("id", eval_id).execute()
         
     except Exception as e:
         print(f"Error bg_excel: {e}")
@@ -356,10 +374,14 @@ async def upload_pdf_to_vault(req: UploadPdfRequest, auth_ctx: dict = Depends(ge
     if not DRIVE_WEBHOOK_URL:
         return {"success": False, "detail": "Drive Vault webhook no configurado"}
     try:
-        psych_email = auth_ctx.get("email") or "Psicologo_General"
+        user_email = auth_ctx.get("email") or ""
+        user = auth_ctx.get("user")
+        user_meta = getattr(user, "user_metadata", {}) or {}
+        psych_name = map_user_to_psychologist(user_email, user_meta.get("full_name", ""))
+
         drive_payload = {
             "token": DRIVE_VAULT_TOKEN,
-            "psychologist": psych_email,
+            "psychologist": psych_name,
             "patient_id": req.patient_id or "PAC_ANONIMO",
             "test_type": req.test_type or "PLC",
             "file_type": "pdf",
@@ -367,14 +389,13 @@ async def upload_pdf_to_vault(req: UploadPdfRequest, auth_ctx: dict = Depends(ge
             "file_base64": req.pdf_base64,
             "mime_type": "application/pdf"
         }
-        async with httpx.AsyncClient(timeout=35.0, follow_redirects=True) as d_client:
+        async with httpx.AsyncClient(timeout=45.0, follow_redirects=True) as d_client:
             d_resp = await d_client.post(
                 DRIVE_WEBHOOK_URL,
                 content=json.dumps(drive_payload),
                 headers={"Content-Type": "text/plain;charset=utf-8"}
             )
-            d_res = d_resp.json()
-            return d_res
+            return d_resp.json()
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -384,14 +405,22 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
     if not DRIVE_WEBHOOK_URL:
         return {"success": False, "detail": "Drive Vault webhook no configurado"}
     try:
-        psych_email = auth_ctx.get("email") or "Psicologo_General"
+        user_email = auth_ctx.get("email") or ""
+        user = auth_ctx.get("user")
+        user_meta = getattr(user, "user_metadata", {}) or {}
+        psych_name = map_user_to_psychologist(user_email, user_meta.get("full_name", ""))
+
+        fname = req.filename or f"PLC_Sesion_{req.eval_id or 'reciente'}.mp4"
+        if not fname.lower().endswith((".mp4", ".webm")):
+            fname += ".mp4"
+
         drive_payload = {
             "token": DRIVE_VAULT_TOKEN,
-            "psychologist": psych_email,
+            "psychologist": psych_name,
             "patient_id": req.patient_id or "PAC_ANONIMO",
             "test_type": req.test_type or "PLC",
             "file_type": "video",
-            "file_name": req.filename,
+            "file_name": fname,
             "file_base64": req.video_base64,
             "mime_type": req.mime_type or "video/mp4"
         }
@@ -437,8 +466,9 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
                                 cur_m["drive_video_url"] = file_url
                                 cur_m["drive_file_id"] = file_id
                                 cur_m["drive_folder"] = folder_path
-                                cur_m["video_path"] = req.filename
+                                cur_m["video_path"] = fname
                                 cur_m["has_video"] = True
+                                cur_m["video_expired"] = False
                                 sb.table("evaluations").update({"metrics_json": cur_m}).eq("id", target_id).execute()
                                 d_res["synced_eval_id"] = target_id
                                 print(f"✅ [VAULT SYNC] Video vinculado a evaluación #{target_id} en Supabase")
@@ -550,52 +580,87 @@ async def save(req: SaveRequest, authorization: str = Header(None), auth_ctx: di
 async def export(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
     uid = auth_ctx["user_id"]
-    # Defensa IDOR: Registro vinculado al usuario autenticado
-    res = sb.table("evaluations").select("*").eq("id", eval_id).eq("user_id", uid).execute()
+    user = auth_ctx.get("user")
+    user_email = auth_ctx.get("email", "")
+    user_meta = getattr(user, "user_metadata", {}) or {}
+    app_meta = getattr(user, "app_metadata", {}) or {}
+    is_superadmin = (
+        user_email == "dillanino05@gmail.com" 
+        or user_meta.get("role") == "superadmin" 
+        or app_meta.get("role") == "superadmin"
+    )
+
+    query = sb.table("evaluations").select("*").eq("id", eval_id)
+    if not is_superadmin:
+        query = query.eq("user_id", uid)
+    res = query.execute()
     if not res.data:
-        raise HTTPException(status_code=404, detail="Archivo no encontrado en base de datos")
+        raise HTTPException(status_code=404, detail="Evaluación no encontrada en base de datos")
     
     row = res.data[0]
-    filename = row.get("excel_path")
-    st = row.get("status")
+    metrics = row.get("metrics_json") or {}
+    session_tag = compute_session_tag(row)
+    download_name = f"{session_tag}.xlsx"
 
-    # 1. Si existe en Storage y completado, intentar enlace firmado
-    if filename and st == "completed":
-        try:
-            signed_res = sb.storage.from_("exports").create_signed_url(filename, 120)
-            secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
-            if secure_url:
-                return {"url": secure_url}
-        except Exception as pe:
-            print(f"⚠️ create_signed_url falló para {filename}: {pe}. Activando compilación on-the-fly.")
+    part = {
+        'id': row.get('participant_id', 'P01'),
+        'name': row.get('participant_name', 'Paciente'),
+        'age': row.get('age', 25),
+        'gender': row.get('gender', 'M'),
+        'education': row.get('education', 'Universitario'),
+        'hand': row.get('hand', 'Derecha'),
+        'occupation': row.get('occupation', '')
+    }
+    lines = row.get('lines_json') or []
+    clicks = row.get('clicks_json') or []
+    ml_pred = row.get('ml_json')
+    narrative = row.get('narrative', '')
 
-    # 2. FALLBACK INMUNE: Generar Excel en caliente en el servidor y servir como FileResponse
+    test_type = metrics.get("test_type", "PLC")
     try:
-        part = {
-            'id': row.get('participant_id', 'P01'),
-            'name': row.get('participant_name', 'Paciente'),
-            'age': row.get('age', 25),
-            'gender': row.get('gender', 'M'),
-            'education': row.get('education', 'Universitario'),
-            'hand': row.get('hand', 'Derecha'),
-            'occupation': row.get('occupation', '')
-        }
-        lines = row.get('lines_json') or []
-        clicks = row.get('clicks_json') or []
-        metrics = row.get('metrics_json') or {}
-        ml_pred = row.get('ml_json')
-        narrative = row.get('narrative', '')
-
-        session_tag = compute_session_tag(row)
-        test_type = metrics.get("test_type", "PLC")
         excel_path = save_excel(part, lines, clicks, metrics, ml_pred, narrative,
                                 test_type=test_type, session_id=eval_id, session_tag=session_tag)
-        download_name = f"{session_tag}.xlsx"
-        
+
+        # Si aún no tiene respaldo en Google Drive Vault, respaldarlo de inmediato
+        if DRIVE_WEBHOOK_URL and not metrics.get("drive_excel_url"):
+            try:
+                with open(excel_path, "rb") as ef:
+                    ebytes = ef.read()
+                psych_name = map_user_to_psychologist(user_email, user_meta.get("full_name", ""))
+                drive_payload = {
+                    "token": DRIVE_VAULT_TOKEN,
+                    "psychologist": psych_name,
+                    "patient_id": str(part.get("id", "PAC_ANONIMO")),
+                    "test_type": test_type or "PLC",
+                    "file_type": "excel",
+                    "file_name": download_name,
+                    "file_base64": base64.b64encode(ebytes).decode("utf-8"),
+                    "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                }
+                with httpx.Client(timeout=30.0, follow_redirects=True) as d_client:
+                    d_resp = d_client.post(
+                        DRIVE_WEBHOOK_URL,
+                        content=json.dumps(drive_payload),
+                        headers={"Content-Type": "text/plain;charset=utf-8"}
+                    )
+                    d_data = d_resp.json()
+                    if d_data.get("success"):
+                        metrics["drive_excel_url"] = d_data.get("file_url")
+                        metrics["drive_excel_id"] = d_data.get("file_id")
+                        metrics["drive_excel_folder"] = d_data.get("folder_path")
+                        sb.table("evaluations").update({"metrics_json": metrics}).eq("id", eval_id).execute()
+                        print(f"✅ [DRIVE VAULT] Excel respaldado en Drive al exportar: {download_name}")
+            except Exception as up_ex:
+                print(f"⚠️ Aviso subiendo Excel a Drive Vault en export: {up_ex}")
+
         return FileResponse(
             path=excel_path,
             filename=download_name,
-            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                "Content-Disposition": f'attachment; filename="{download_name}"',
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
         )
     except Exception as fe:
         raise HTTPException(status_code=500, detail=f"No se pudo compilar el Excel de este participante: {str(fe)}")
@@ -633,25 +698,16 @@ def history(auth_ctx: dict = Depends(get_supabase)):
             data = res.data or []
         
         result = []
-        now_dt = datetime.utcnow()
         for r in data:
             m = r.get("metrics_json") or {}
             vpath = m.get("video_path", "")
-            video_days_left = None
-            is_expired = bool(m.get("video_expired", False))
-            
-            created_at_str = r.get('created_at')
-            cat = parse_iso_datetime(created_at_str)
-            if cat:
-                diff_sec = (now_dt - cat).total_seconds()
-                days_diff = diff_sec / 86400.0
-                # Política de 30 días: Día 1 comienza en la fecha de creación (0 días transcurridos -> 30 días restantes)
-                video_days_left = max(0, int(math.ceil(30.0 - days_diff)))
-                if days_diff >= 30.0:
-                    is_expired = True
-                    video_days_left = 0
-            else:
-                video_days_left = 30 if not is_expired else 0
+            d_vid_url = m.get("drive_video_url", "")
+            d_file_id = m.get("drive_file_id", "")
+            if not d_file_id and d_vid_url:
+                if "id=" in d_vid_url:
+                    d_file_id = d_vid_url.split("id=")[-1].split("&")[0]
+                elif "/d/" in d_vid_url:
+                    d_file_id = d_vid_url.split("/d/")[1].split("/")[0]
 
             test_type = m.get('test_type', 'PLC')
             session_tag = m.get('session_tag') or compute_session_tag(r)
@@ -666,6 +722,8 @@ def history(auth_ctx: dict = Depends(get_supabase)):
             corsi_span = m.get('corsi_span')
             composite_score = m.get('composite_score')
             accuracy_rate = m.get('accuracy_rate') or m.get('accuracy_pct')
+
+            has_vid = bool(d_vid_url or d_file_id or vpath)
 
             result.append({
                 'id': r['id'],
@@ -687,11 +745,13 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 'accuracy_rate': accuracy_rate,
                 'CP': round(m.get('CP', 0), 1) if 'CP' in m else 0,
                 'TA': m.get('TA', 0),
-                'video_path': vpath if (not is_expired and video_days_left > 0) else '',
-                'video_days_left': video_days_left,
-                'video_expired': is_expired,
-                'drive_video_url': m.get('drive_video_url', ''),
-                'has_video': bool(m.get('drive_video_url') or (vpath and not is_expired and video_days_left > 0))
+                'video_path': vpath,
+                'video_days_left': 9999,
+                'video_expired': False,
+                'drive_video_url': d_vid_url,
+                'drive_file_id': d_file_id,
+                'drive_excel_url': m.get('drive_excel_url', ''),
+                'has_video': has_vid
             })
         return result
     except Exception as e:
@@ -722,39 +782,8 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     
     row = res.data[0]
     metrics = row.get("metrics_json") or {}
-    video_path = metrics.get("video_path")
-    has_video_track = bool(metrics.get("drive_video_url") or metrics.get("drive_file_id") or video_path)
-    if not has_video_track or metrics.get("video_expired", False):
-        raise HTTPException(status_code=404, detail="Esta evaluación no cuenta con una grabación de video activa o ya ha expirado.")
+    video_path = metrics.get("video_path") or ""
 
-    # ── Política de Retención: Verificar si han pasado más de 30 días ────────
-    try:
-        created_at_str = row.get("created_at")
-        cat = parse_iso_datetime(created_at_str)
-        if cat:
-            diff_sec = (datetime.utcnow() - cat).total_seconds()
-            if diff_sec >= (30 * 86400):
-                # Marcar como expirado en la plataforma web (permanece a salvo para siempre en Google Drive Vault)
-                if not metrics.get("video_expired"):
-                    metrics["video_expired"] = True
-                    try:
-                        sb.table("evaluations").update({"metrics_json": metrics}).eq("id", eval_id).execute()
-                    except Exception:
-                        pass
-                
-                raise HTTPException(
-                    status_code=410, 
-                    detail="La grabación ha superado los 30 días de retención reglamentaria en la plataforma web. El archivo maestro continúa respaldado de forma permanente en Google Drive Vault."
-                )
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error verificando retención de video: {e}")
-        
-    session_tag = compute_session_tag(row)
-    download_filename = f"{session_tag}.mp4"
-
-    # Prioridad A: Enlace desde Google Drive Vault (5 TB)
     drive_url = metrics.get("drive_video_url") or ""
     drive_id = metrics.get("drive_file_id") or ""
     if not drive_id and "id=" in drive_url:
@@ -762,13 +791,20 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     elif not drive_id and "/d/" in drive_url:
         drive_id = drive_url.split("/d/")[1].split("/")[0]
 
+    has_video_track = bool(drive_url or drive_id or video_path)
+    if not has_video_track:
+        raise HTTPException(status_code=404, detail="Esta evaluación no cuenta con una grabación de video activa.")
+
+    session_tag = compute_session_tag(row)
+    download_filename = f"{session_tag}.mp4"
+
+    # Enlace optimizado desde Google Drive Vault (5 TB)
     secure_url = f"https://drive.google.com/file/d/{drive_id}/preview" if drive_id else drive_url
     if secure_url and "drive.google.com" in secure_url and "/view" in secure_url:
         secure_url = secure_url.split("/view")[0] + "/preview"
     download_url = f"https://drive.google.com/uc?export=download&id={drive_id}" if drive_id else drive_url
 
-
-    # Prioridad B: Supabase Storage fallback si aún existiera
+    # Fallback si no hay enlace Drive pero hay video_path en storage
     if not secure_url and video_path:
         try:
             signed_res = sb.storage.from_("exports").create_signed_url(
@@ -782,7 +818,7 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     if not secure_url:
         raise HTTPException(
             status_code=404,
-            detail="La grabación de esta sesión no se encuentra disponible (fue realizada con anterioridad a la migración al Vault de 5TB de Google Drive o el evaluado no activó la cámara/pantalla). Todos los datos clínicos, métricas y baremos se encuentran 100% seguros y respaldados."
+            detail="La grabación de esta sesión no se encuentra disponible (el participante no activó la cámara o no se completó la grabación)."
         )
 
     lines_val = row.get("lines_json")
@@ -888,118 +924,127 @@ def transcode_webm_to_mp4(webm_bytes: bytes) -> bytes:
             except Exception:
                 pass
 
-@app.post("/api/vault/upload-video")
-async def vault_upload_video(req: UploadVideoRequest, auth_ctx: dict = Depends(get_supabase)):
-    """Proxy resiliente de carga de video a Google Drive Vault (5 TB) con actualización de BD."""
-    sb = auth_ctx["client"]
-    user_email = auth_ctx.get("email", "")
-    user = auth_ctx.get("user")
-    user_meta = getattr(user, "user_metadata", {}) or {}
-    
-    # Resolver nombre de carpeta del psicólogo
-    psych_folder = "Psicologo_General"
-    u_lower = (user_email + " " + (user_meta.get("full_name") or "")).lower()
-    if "ximena" in u_lower or "jimena" in u_lower:
-        psych_folder = "Dra_Ximena"
-    elif "andrea" in u_lower:
-        psych_folder = "Dra_Andrea"
-    elif "edgar" in u_lower:
-        psych_folder = "Dr_Edgar"
-    elif "dillan" in u_lower or "dilan" in u_lower:
-        psych_folder = "Ingeniero_Dilan"
-    else:
-        psych_folder = (user_meta.get("full_name") or user_email.split("@")[0] or "Psicologo_General").replace(" ", "_")
+@app.post("/api/admin/sync-vault-evaluations")
+async def sync_vault_evaluations(auth_key: str = "", limit: int = 200):
+    """Sincroniza y repara metadatos de Google Drive Vault (IDs de video, desmarque de expiración y respaldo de Excels faltantes)."""
+    if auth_key != "mecapsi_clinical_audit_2026":
+        raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
+    if not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="SUPABASE_SERVICE_KEY no configurado")
 
-    fname = req.filename or f"PLC_Sesion_{req.eval_id or 'reciente'}.mp4"
-    if not fname.lower().endswith(".mp4") and not fname.lower().endswith(".webm"):
-        fname += ".mp4"
+    admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=60.0))
+    sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
 
-    payload = {
-        "token": DRIVE_VAULT_TOKEN,
-        "psychologist": psych_folder,
-        "patient_id": req.patient_id or "PAC_ANONIMO",
-        "test_type": req.test_type or "PLC",
-        "file_type": "video",
-        "file_name": fname,
-        "file_base64": req.video_base64,
-        "mime_type": req.mime_type or "video/mp4"
-    }
-
-    drive_res = None
+    users_map = {}
     try:
-        async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
-            headers = {"Content-Type": "text/plain;charset=utf-8"}
-            r = await client.post(DRIVE_WEBHOOK_URL, json=payload, headers=headers)
-            if r.status_code == 200:
-                drive_res = r.json()
-    except Exception as up_err:
-        print(f"[DRIVE-VAULT-BACKEND-WARN] Error subiendo video a Drive Webhook: {up_err}")
+        with httpx.Client(timeout=15.0) as client:
+            r_users = client.get(
+                f"{SUPABASE_URL}/auth/v1/admin/users?per_page=100",
+                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+            )
+            if r_users.status_code == 200:
+                for u in r_users.json().get("users", []):
+                    users_map[u.get("id")] = map_user_to_psychologist(u.get("email", ""), (u.get("user_metadata") or {}).get("full_name", ""))
+    except Exception as ue:
+        print(f"Error cargando usuarios: {ue}")
 
-    # Si se sincronizó con Google Drive y tenemos eval_id, actualizar metrics_json en Supabase
-    if drive_res and drive_res.get("success") and req.eval_id:
+    res_all = sb_admin.table("evaluations").select("*").order("id", desc=True).limit(limit).execute()
+    evals = res_all.data or []
+
+    synced_videos = 0
+    unlocked_expired = 0
+    synced_excels = 0
+    errors = []
+
+    for ev in evals:
         try:
-            row_res = sb.table("evaluations").select("metrics_json").eq("id", req.eval_id).execute()
-            if row_res.data:
-                m = row_res.data[0].get("metrics_json") or {}
-                m["drive_video_url"] = drive_res.get("file_url")
-                m["drive_file_id"] = drive_res.get("file_id")
-                m["drive_folder"] = drive_res.get("folder_path")
-                m["video_path"] = fname
-                sb.table("evaluations").update({"metrics_json": m}).eq("id", req.eval_id).execute()
-        except Exception as db_err:
-            print(f"[DRIVE-VAULT-DB-WARN] Error actualizando Supabase con datos de video Drive: {db_err}")
+            ev_id = ev["id"]
+            m = ev.get("metrics_json") or {}
+            changed = False
 
-    if drive_res and drive_res.get("success"):
-        return drive_res
+            # 1. Desbloquear video_expired si estuviera en True
+            if m.get("video_expired"):
+                m["video_expired"] = False
+                changed = True
+                unlocked_expired += 1
+
+            # 2. Extraer drive_file_id si tenemos drive_video_url pero no file_id
+            d_url = m.get("drive_video_url", "")
+            d_id = m.get("drive_file_id", "")
+            if d_url and not d_id:
+                if "id=" in d_url:
+                    d_id = d_url.split("id=")[-1].split("&")[0]
+                elif "/d/" in d_url:
+                    d_id = d_url.split("/d/")[1].split("/")[0]
+                if d_id:
+                    m["drive_file_id"] = d_id
+                    m["has_video"] = True
+                    changed = True
+                    synced_videos += 1
+
+            # 3. Si no tiene drive_excel_url y tiene datos, generar y respaldar a Drive Vault
+            if DRIVE_WEBHOOK_URL and not m.get("drive_excel_url") and (ev.get("lines_json") or ev.get("clicks_json")):
+                try:
+                    part = {
+                        'id': ev.get('participant_id', 'P01'),
+                        'name': ev.get('participant_name', 'Paciente'),
+                        'age': ev.get('age', 25),
+                        'gender': ev.get('gender', 'M'),
+                        'education': ev.get('education', 'Universitario'),
+                        'hand': ev.get('hand', 'Derecha'),
+                        'occupation': ev.get('occupation', '')
+                    }
+                    lines = ev.get('lines_json') or []
+                    clicks = ev.get('clicks_json') or []
+                    ml_pred = ev.get('ml_json')
+                    narrative = ev.get('narrative', '')
+                    s_tag = compute_session_tag(ev)
+                    t_type = m.get("test_type", "PLC")
+                    ex_path = save_excel(part, lines, clicks, m, ml_pred, narrative, test_type=t_type, session_id=ev_id, session_tag=s_tag)
+                    
+                    with open(ex_path, "rb") as ef:
+                        ebytes = ef.read()
+                    
+                    p_name = users_map.get(ev.get("user_id"), "Psicologo_General")
+                    payload = {
+                        "token": DRIVE_VAULT_TOKEN,
+                        "psychologist": p_name,
+                        "patient_id": str(part.get("id", "PAC_ANONIMO")),
+                        "test_type": t_type or "PLC",
+                        "file_type": "excel",
+                        "file_name": f"{s_tag}.xlsx",
+                        "file_base64": base64.b64encode(ebytes).decode("utf-8"),
+                        "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    }
+                    with httpx.Client(timeout=35.0, follow_redirects=True) as d_client:
+                        d_resp = d_client.post(DRIVE_WEBHOOK_URL, content=json.dumps(payload), headers={"Content-Type": "text/plain;charset=utf-8"})
+                        if d_resp.status_code == 200:
+                            d_data = d_resp.json()
+                            if d_data.get("success"):
+                                m["drive_excel_url"] = d_data.get("file_url")
+                                m["drive_excel_id"] = d_data.get("file_id")
+                                m["drive_excel_folder"] = d_data.get("folder_path")
+                                changed = True
+                                synced_excels += 1
+                    try: os.remove(ex_path)
+                    except Exception: pass
+                except Exception as ex_sync_err:
+                    errors.append(f"Eval {ev_id} Excel sync: {str(ex_sync_err)}")
+
+            if changed:
+                sb_admin.table("evaluations").update({"metrics_json": m}).eq("id", ev_id).execute()
+
+        except Exception as item_err:
+            errors.append(f"Eval {ev.get('id')}: {str(item_err)}")
 
     return {
-        "success": False,
-        "error": "No se pudo sincronizar el video con Google Drive Vault desde el backend"
+        "success": True,
+        "total_evaluations_checked": len(evals),
+        "unlocked_expired_videos": unlocked_expired,
+        "synced_video_ids": synced_videos,
+        "synced_excel_vault_files": synced_excels,
+        "errors": errors[:20]
     }
-
-@app.post("/api/vault/upload-pdf")
-async def vault_upload_pdf(req: UploadPdfRequest, auth_ctx: dict = Depends(get_supabase)):
-    """Proxy de respaldo de informes clínicos PDF a Google Drive Vault."""
-    user_email = auth_ctx.get("email", "")
-    user = auth_ctx.get("user")
-    user_meta = getattr(user, "user_metadata", {}) or {}
-    
-    psych_folder = "Psicologo_General"
-    u_lower = (user_email + " " + (user_meta.get("full_name") or "")).lower()
-    if "ximena" in u_lower or "jimena" in u_lower:
-        psych_folder = "Dra_Ximena"
-    elif "andrea" in u_lower:
-        psych_folder = "Dra_Andrea"
-    elif "edgar" in u_lower:
-        psych_folder = "Dr_Edgar"
-    elif "dillan" in u_lower or "dilan" in u_lower:
-        psych_folder = "Ingeniero_Dilan"
-
-    fname = req.filename or f"Informe_Clinico_{req.patient_id or 'paciente'}.pdf"
-    if not fname.lower().endswith(".pdf"):
-        fname += ".pdf"
-
-    payload = {
-        "token": DRIVE_VAULT_TOKEN,
-        "psychologist": psych_folder,
-        "patient_id": req.patient_id or "PAC_ANONIMO",
-        "test_type": req.test_type or "PLC",
-        "file_type": "pdf",
-        "file_name": fname,
-        "file_base64": req.pdf_base64,
-        "mime_type": "application/pdf"
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
-            headers = {"Content-Type": "text/plain;charset=utf-8"}
-            r = await client.post(DRIVE_WEBHOOK_URL, json=payload, headers=headers)
-            if r.status_code == 200:
-                return r.json()
-    except Exception as up_err:
-        print(f"[DRIVE-VAULT-PDF-WARN] Error subiendo PDF a Drive Webhook: {up_err}")
-
-    return {"success": False, "error": "No se pudo respaldar el PDF en Drive Vault"}
 
 @app.get('/api/video/{eval_id}/stream')
 async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
@@ -1025,9 +1070,7 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     
     row = res.data[0]
     metrics = row.get("metrics_json") or {}
-    video_path = metrics.get("video_path")
-    if not video_path or metrics.get("video_expired", False):
-        raise HTTPException(status_code=404, detail="No hay video disponible para esta evaluación.")
+    video_path = metrics.get("video_path") or ""
 
     session_tag = compute_session_tag(row)
     filename = f"{session_tag}.mp4"
@@ -1039,46 +1082,36 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     elif not drive_id and "/d/" in drive_url:
         drive_id = drive_url.split("/d/")[1].split("/")[0]
 
-    try:
-        # Descargar archivo original desde Storage
-        file_bytes = None
+    if not drive_id and not video_path:
+        raise HTTPException(status_code=404, detail="No hay video disponible para esta evaluación.")
+
+    # 1. Si tenemos archivo en Google Drive Vault, intentar servir directamente
+    if drive_id:
         try:
-            file_bytes = sb.storage.from_("exports").download(video_path)
-        except Exception as sb_dl_err:
-            if drive_id:
-                # Si no está en Supabase Storage (ej. migrado a Drive o storage agotado), redirigir al enlace de descarga de Drive
-                return RedirectResponse(url=f"https://drive.google.com/uc?export=download&id={drive_id}", status_code=307)
-            raise
+            drive_dl_url = f"https://drive.google.com/uc?export=download&id={drive_id}"
+            async with httpx.AsyncClient(timeout=45.0, follow_redirects=True) as client:
+                r_drive = await client.get(drive_dl_url)
+                if r_drive.status_code == 200 and len(r_drive.content) > 1000 and "text/html" not in (r_drive.headers.get("content-type") or ""):
+                    return Response(
+                        content=r_drive.content,
+                        media_type="video/mp4",
+                        headers={
+                            "Content-Disposition": f'attachment; filename="{filename}"',
+                            "Access-Control-Expose-Headers": "Content-Disposition"
+                        }
+                    )
+        except Exception as de:
+            print(f"Aviso streaming desde Drive: {de}")
+        # Redirigir a enlace de descarga directa de Google Drive
+        return RedirectResponse(url=f"https://drive.google.com/uc?export=download&id={drive_id}", status_code=307)
 
-        # Si el archivo original en Storage es .webm, transcodificar a MP4 real
+    # 2. Fallback a Supabase Storage si aún existiera
+    try:
+        file_bytes = sb.storage.from_("exports").download(video_path)
         if video_path.lower().endswith(".webm"):
-            mp4_filename = video_path.rsplit(".", 1)[0] + ".mp4"
-            cached_mp4 = False
-            try:
-                cached_bytes = sb.storage.from_("exports").download(mp4_filename)
-                if cached_bytes and len(cached_bytes) > 0:
-                    file_bytes = cached_bytes
-                    cached_mp4 = True
-            except Exception:
-                cached_mp4 = False
-
-            if not cached_mp4:
-                print(f"[TRANSCODE] Convirtiendo video existente {video_path} a MP4...")
-                transcoded = transcode_webm_to_mp4(file_bytes)
-                if transcoded and len(transcoded) > 0:
-                    file_bytes = transcoded
-                    # Guardar el MP4 en Storage para que las siguientes descargas sean instantáneas
-                    try:
-                        sb.storage.from_("exports").upload(
-                            mp4_filename,
-                            file_bytes,
-                            file_options={"content-type": "video/mp4", "upsert": "true"}
-                        )
-                        metrics["video_path"] = mp4_filename
-                        sb.table("evaluations").update({"metrics_json": metrics}).eq("id", eval_id).execute()
-                        print(f"[TRANSCODE-SAVED] Guardado {mp4_filename} en Storage y DB.")
-                    except Exception as up_err:
-                        print(f"[TRANSCODE-UPLOAD-WARN] {up_err}")
+            transcoded = transcode_webm_to_mp4(file_bytes)
+            if transcoded and len(transcoded) > 0:
+                file_bytes = transcoded
 
         return Response(
             content=file_bytes,
@@ -1438,7 +1471,7 @@ async def migrate_vault(auth_key: str = "", purge_supabase: bool = True, offset:
 
         # B) Migrar Video si existe en Supabase Storage
         video_path = metrics.get('video_path')
-        if video_path and not metrics.get('video_expired'):
+        if video_path:
             try:
                 video_bytes = sb_admin.storage.from_('exports').download(video_path)
                 if video_bytes and len(video_bytes) > 0:

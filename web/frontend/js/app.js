@@ -5356,38 +5356,19 @@ const App = window.App = {
   generateHistoryRowsHTML(rows) {
     if (!rows.length) return `<tr><td colspan="8" style="text-align:center;color:#789;">No se encontraron resultados</td></tr>`;
     return rows.map(r => {
-      const createdDate = new Date(r.created_at);
-      const now = new Date();
-      const diffMs = now - createdDate;
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const dayCurrent = Math.min(30, Math.max(1, diffDays + 1)); // Día 1 empieza en su fecha de creación
-      
-      let daysLeft = 30 - diffDays;
-      if (r.video_days_left !== undefined && r.video_days_left !== null) {
-        daysLeft = r.video_days_left;
-      }
-      if (daysLeft < 0) daysLeft = 0;
-
-      const isExpired = Boolean(r.video_expired || daysLeft <= 0);
+      const hasVideo = Boolean(r.drive_video_url || r.drive_file_id || r.has_video || r.video_path);
 
       let videoBadgeHtml = '';
-      if (r.video_path && !isExpired) {
-        const badgeStyle = daysLeft <= 3 
-          ? 'background:#FFEBEE;color:#C62828;border:1px solid #FFCDD2;' 
-          : daysLeft <= 10 
-            ? 'background:#FFF3E0;color:#E65100;border:1px solid #FFE0B2;' 
-            : 'background:#E3F2FD;color:#1565C0;border:1px solid #BBDEFB;';
+      if (hasVideo) {
         videoBadgeHtml = `
           <div style="display:inline-flex;flex-direction:column;align-items:center;gap:3px;">
             <div style="display:flex;gap:4px;">
               <button class="btn btn-ghost btn-sm" style="background:#FFE8E8;color:#C62828;padding:2px 7px;font-size:0.75rem;font-weight:600;" onclick="App.playVideo(${r.id}, this)" title="Reproducir video de la sesión">🎥 Ver</button>
               <button class="btn btn-ghost btn-sm" style="background:#E0F2FE;color:#0284C7;padding:2px 7px;font-size:0.75rem;font-weight:600;" onclick="App.downloadVideo(${r.id}, this)" title="Descargar archivo de video (.mp4) a tu equipo">⬇️ MP4</button>
             </div>
-            <span style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:4px;${badgeStyle}" title="Día ${dayCurrent} de 30 de retención clínica">⏳ Quedan ${daysLeft}d (${dayCurrent}/30)</span>
+            <span style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:4px;background:#E8F5E9;color:#2E7D32;border:1px solid #C8E6C9;" title="Almacenado de forma permanente en Google Drive Vault (5 TB)">🟢 Drive Vault</span>
           </div>
         `;
-      } else if (isExpired && (r.video_path || r.video_expired || diffDays >= 30)) {
-        videoBadgeHtml = `<span style="font-size:0.7rem;color:#64748B;padding:3px 6px;background:#F1F5F9;border-radius:6px;border:1px solid #CBD5E1;font-weight:600;" title="El video cumplió el período reglamentario de 30 días y fue purgado de la nube.">🗑️ Expirado (+30d)</span>`;
       }
 
       const isCorsi = (r.test_type === 'CORSI');
@@ -5459,6 +5440,7 @@ const App = window.App = {
             `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
             `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id}, this)" title="Descargar Excel clínico completo">📥 Excel</button>`
           }
+          ${r.drive_excel_url ? `<a href="${r.drive_excel_url}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="background:#E8F5E9;color:#2E7D32;padding:2px 7px;font-size:0.75rem;font-weight:700;text-decoration:none;border-radius:4px;border:1px solid #C8E6C9;" title="Abrir Excel en Google Drive">↗️ Drive</a>` : ''}
           <button class="btn btn-danger btn-sm" onclick="App.deleteEval(${r.id}, this)">🗑</button>
         </td>
       </tr>`;
@@ -5751,7 +5733,7 @@ const App = window.App = {
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
               <span style="font-weight:700;font-size:0.95rem;color:#00838F;">⚡ Datos Extras de IA — Telemetría Oculomotora, Facial (FER) y Cinemática</span>
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                ${(metrics.video_path || data.video_path) ? `
+                ${(metrics.video_path || data.video_path || metrics.drive_video_url || metrics.drive_file_id || data.has_video) ? `
                   <button class="btn btn-primary btn-sm" style="background:linear-gradient(135deg, #4F46E5, #7C3AED);color:#FFF;padding:4px 11px;font-size:0.75rem;font-weight:800;border:none;border-radius:6px;box-shadow:0 2px 6px rgba(79,70,229,0.3);cursor:pointer;" onclick="App.playVideo(${id}, this)" title="Abrir Visor Forense IA con Overlay y Línea de Tiempo">🛡️ Visor IA Forense</button>
                   <button class="btn btn-ghost btn-sm" style="background:#E0F2FE;color:#0284C7;padding:4px 10px;font-size:0.75rem;font-weight:800;border:1px solid #BAE6FD;border-radius:6px;cursor:pointer;" onclick="App.downloadVideo(${id}, this)" title="Descargar Video MP4">⬇️ MP4</button>
                 ` : ''}
@@ -7697,7 +7679,7 @@ const App = window.App = {
     if (!tableEl) return;
 
     if (countEl) {
-      const withVideo = rows.filter(r => r.video_path && !r.video_expired).length;
+      const withVideo = rows.filter(r => r.drive_video_url || r.drive_file_id || r.has_video || r.video_path).length;
       countEl.textContent = `${withVideo} videos disponibles · ${rows.length} evaluaciones`;
     }
 
@@ -7715,22 +7697,21 @@ const App = window.App = {
             <th style="padding:12px 10px;text-align:left;color:#90CAF9;font-weight:700;">Prueba / Batería</th>
             <th style="padding:12px 10px;text-align:left;color:#90CAF9;font-weight:700;">Participante / ID</th>
             <th style="padding:12px 10px;text-align:left;color:#90CAF9;font-weight:700;">Indicadores de IA</th>
-            <th style="padding:12px 10px;text-align:left;color:#90CAF9;font-weight:700;">Caducidad</th>
+            <th style="padding:12px 10px;text-align:left;color:#90CAF9;font-weight:700;">Almacenamiento</th>
             <th style="padding:12px 10px;text-align:center;color:#90CAF9;font-weight:700;">Acciones Forenses</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map(r => {
-            const hasVideo = Boolean(r.video_path && !r.video_expired);
+            const hasVideo = Boolean(r.drive_video_url || r.drive_file_id || r.has_video || r.video_path);
             const isSuperAdminTest = (r.participant_name && r.participant_name.includes('SuperAdmin')) || (r.participant_id && r.participant_id.includes('SUPERADMIN'));
             const dateStr = r.created_at ? new Date(r.created_at).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '—';
             const testLabel = r.test_type === 'CORSI'
               ? `<span style="background:rgba(156,39,176,0.25);color:#E1BEE7;padding:3px 8px;border-radius:6px;font-weight:700;font-size:0.78rem;">Corsi (${r.corsi_mode || 'Directo'})</span>`
               : `<span style="background:rgba(30,136,229,0.25);color:#90CAF9;padding:3px 8px;border-radius:6px;font-weight:700;font-size:0.78rem;">Test d2 (PLC)</span>`;
             
-            const daysLeft = r.video_days_left != null ? r.video_days_left : 30;
-            const daysBadge = hasVideo
-              ? `<span style="color:#81C784;font-size:0.8rem;font-weight:600;">🟢 ${daysLeft} días restantes</span>`
+            const storageBadge = hasVideo
+              ? `<span style="color:#81C784;font-size:0.8rem;font-weight:600;">🟢 Drive Vault (5 TB)</span>`
               : `<span style="color:#EF9A9A;font-size:0.8rem;">⚪ Sin video</span>`;
 
             return `
@@ -7752,19 +7733,36 @@ const App = window.App = {
                     <span style="font-size:0.72rem;background:rgba(255,255,255,0.08);color:#B0BEC5;padding:2px 6px;border-radius:4px;">🧠 Keras MLP</span>
                   </div>
                 </td>
-                <td style="padding:12px 10px;">${daysBadge}</td>
+                <td style="padding:12px 10px;">${storageBadge}</td>
                 <td style="padding:12px 10px;text-align:center;">
                   ${hasVideo ? `
-                    <div style="display:inline-flex;gap:6px;">
+                    <div style="display:inline-flex;gap:6px;align-items:center;">
                       <button class="btn btn-primary btn-sm" style="background:linear-gradient(135deg,#6200EA,#7C4DFF);color:#FFF;padding:5px 12px;font-size:0.78rem;font-weight:700;border:none;border-radius:6px;cursor:pointer;" onclick="App.playVideo(${r.id}, this)" title="Abrir Visor Forense IA con Overlay y Línea de Tiempo">
                         🛡️ Visor IA Forense
                       </button>
                       <button class="btn btn-ghost btn-sm" style="background:rgba(2,132,199,0.2);color:#38BDF8;border:1px solid rgba(56,189,248,0.4);padding:5px 10px;font-size:0.78rem;font-weight:800;border-radius:6px;cursor:pointer;" onclick="App.downloadVideo(${r.id}, this)" title="Descargar como archivo MP4 genuino a tu equipo">
                         ⬇️ MP4
                       </button>
+                      ${r.drive_video_url ? `
+                        <a href="${r.drive_video_url}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="background:rgba(76,175,80,0.15);color:#81C784;border:1px solid rgba(76,175,80,0.4);padding:5px 8px;font-size:0.78rem;font-weight:700;border-radius:6px;text-decoration:none;display:inline-flex;align-items:center;" title="Abrir video en Google Drive">
+                          ↗️ Drive
+                        </a>
+                      ` : ''}
+                      ${r.drive_excel_url ? `
+                        <a href="${r.drive_excel_url}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="background:rgba(46,125,50,0.2);color:#A5D6A7;border:1px solid rgba(46,125,50,0.4);padding:5px 8px;font-size:0.78rem;font-weight:700;border-radius:6px;text-decoration:none;display:inline-flex;align-items:center;" title="Abrir Excel en Google Drive">
+                          📊 Excel
+                        </a>
+                      ` : ''}
                     </div>
                   ` : `
-                    <span style="color:#78909C;font-size:0.8rem;font-style:italic;">No disponible</span>
+                    <div style="display:inline-flex;gap:6px;align-items:center;">
+                      <span style="color:#78909C;font-size:0.8rem;font-style:italic;">No disponible</span>
+                      ${r.drive_excel_url ? `
+                        <a href="${r.drive_excel_url}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="background:rgba(46,125,50,0.2);color:#A5D6A7;border:1px solid rgba(46,125,50,0.4);padding:5px 8px;font-size:0.78rem;font-weight:700;border-radius:6px;text-decoration:none;display:inline-flex;align-items:center;" title="Abrir Excel en Google Drive">
+                          📊 Excel Drive
+                        </a>
+                      ` : ''}
+                    </div>
                   `}
                 </td>
               </tr>
