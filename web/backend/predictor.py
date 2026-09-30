@@ -228,58 +228,58 @@ class CorsiMLPredictor:
         },
         1: {
             'key': 'Disociacion_Ejecutiva_Frontal',
-            'nombre': 'Disociación Ejecutiva Visoespacial (Disfunción Frontal DLPFC)',
-            'desc': 'Marcada discrepancia entre el bucle pasivo (Span Directo preservado) y la memoria de trabajo activa (Span Inverso deficiente con caída >= 2 cubos). Señal patognomónica de sobrecosto en manipulación mental y control ejecutivo frontoparietal.',
+            'nombre': 'Estilo Disociativo de Carga Ejecutiva',
+            'desc': 'Rendimiento eficiente en retención pasiva (Span Directo conservado) con mayor demanda cognitiva ante la tarea de reordenamiento e inversión mental (Span Inverso). Describe un patrón donde la memoria fotográfica inicial es sólida pero la manipulación en el ejecutivo central requiere mayor tiempo y estrategias de apoyo.',
             'rasgos': [
-                'Span directo adecuado frente a colapso significativo en modalidad inversa',
-                'Tiempo de vacilación inicial (IRT) excesivamente prolongado en inversión',
-                'Frecuentes errores de transposición secuencial en secuencias de carga media'
+                'Span directo en rango esperado frente a mayor costo en inversión de cubos',
+                'Tiempo de vacilación inicial (IRT) prolongado durante la fase inversa',
+                'Aparición de errores de transposición secuencial al aumentar la longitud'
             ],
-            'risk': 'Moderado - Alto'
+            'risk': 'Atención Focalizada'
         },
         2: {
             'key': 'Deficit_Almacenamiento_Primario',
-            'nombre': 'Déficit de Almacenamiento Primario (Compromiso Parieto-Occipital)',
-            'desc': 'Descenso simétrico tanto en modalidad directa como inversa (Span <= 3 o 4). Incapacidad para retener el mapa espacial inmediato independientemente de la demanda ejecutiva, sugestivo de compromiso en la red dorsal visoespacial.',
+            'nombre': 'Patrón de Retención Visoespacial Inicial',
+            'desc': 'Desempeño caracterizado por retención de secuencias cortas (2 a 3 bloques). Describe un estilo de procesamiento focalizado en información inmediata, donde secuencias más extensas superan la capacidad transitoria de agrupamiento visual. Examen puramente complementario; el dictamen integral corresponde exclusivamente al criterio clínico.',
             'rasgos': [
-                'Span restringido desde los niveles basales de la prueba',
-                'Errores tempranos de intrusión (toque de bloques no iluminados)',
-                'Bajo puntaje de consistencia Kessels (Block-Product Score descendido)'
+                'Span centrado en los niveles basales de la prueba',
+                'Ocurrencia temprana de intrusiones (toque de bloques no iluminados)',
+                'Block-Product Score inicial que sugiere reforzar técnicas de chunking espacial'
             ],
-            'risk': 'Alto'
+            'risk': 'Soporte Recomendado'
         },
         3: {
             'key': 'Fatiga_Agotamiento_Cognitivo',
-            'nombre': 'Fatiga y Agotamiento Cognitivo Progresivo',
-            'desc': 'Ejecución inicial adecuada y precisa en los primeros niveles, seguida de una degradación abrupta en la retención secuencial y aumento súbito de vacilaciones y dilatación pupilar ante fatiga acumulada.',
+            'nombre': 'Patrón con Susceptibilidad a Fatiga Atencional',
+            'desc': 'Ejecución inicial precisa y fluida en los primeros niveles, seguida de una fluctuación en la retención secuencial y aumento progresivo de vacilaciones y dilatación pupilar ante la demanda sostenida.',
             'rasgos': [
-                'Declive no lineal del rendimiento a medida que avanzan los ensayos',
-                'Incremento exponencial de latencias y pausas motoras en niveles avanzados',
-                'Picos transitorios de sobreesfuerzo pupilar y tensión gestual (FER)'
+                'Curva de progresión con decremento gradual a medida que avanzan los ensayos',
+                'Incremento de pausas y tiempos de decisión en los niveles superiores',
+                'Picos transitorios de sobreesfuerzo pupilar y tensión gestual adaptativa'
             ],
-            'risk': 'Moderado'
+            'risk': 'Seguimiento'
         },
         4: {
             'key': 'Impulsividad_Visomotora',
-            'nombre': 'Impulsividad Visomotora y Desinhibición',
-            'desc': 'Latencias de planificación extremadamente cortas (IRT < 300 ms) con toques apresurados y erráticos. El sujeto inicia la respuesta antes de consolidar el trazo espacial, cometiendo errores evitables por falta de control inhibitorio.',
+            'nombre': 'Estilo de Respuesta Rápida / Impulsivo-Motor',
+            'desc': 'Latencias de planificación breves que priorizan la velocidad de respuesta motora sobre el tiempo de consolidación espacial, con errores atribuibles a apresuramiento motriz antes de fijar el mapa de cubos.',
             'rasgos': [
-                'Tiempo de duda táctica casi inexistente antes del primer contacto',
-                'Alta velocidad de clic con frecuentes errores de orden y perseveraciones',
+                'Tiempo de duda táctica muy breve antes del primer contacto',
+                'Alta velocidad de clic con errores de ordenación por respuesta anticipada',
                 'Micro-temblor motor acelerado en la trayectoria del cursor'
             ],
-            'risk': 'Moderado'
+            'risk': 'Autorregulación'
         },
         5: {
             'key': 'Bradipsiquia_Enlentecimiento',
-            'nombre': 'Lentificación Cognitivo-Motora / Bradipsiquia',
-            'desc': 'Secuenciación exacta y preservación de la precisión a expensas de tiempos de reacción y vacilación extremadamente dilatados. Refleja lentificación en la velocidad de procesamiento central o excesiva cautela psicomotora.',
+            'nombre': 'Estilo Cauteloso / Procesamiento Pausado',
+            'desc': 'Secuenciación exacta y preservación de la precisión a expensas de tiempos de reacción y vacilación más extensos. Refleja un estilo cauteloso, reflexivo y metódico que asegura la exactitud.',
             'rasgos': [
-                'Latencias de reacción inter-bloque (ITI) sustancialmente por encima de la media',
+                'Latencias de reacción inter-bloque superiores a la media etaria',
                 'Tiempo de duda táctica prolongado previo al primer movimiento',
-                'Mantenimiento de alta precisión a expensas de un costo temporal elevado'
+                'Alta exactitud alcanzada mediante una estrategia pausada y deliberada'
             ],
-            'risk': 'Moderado - Bajo'
+            'risk': 'Fisiológico / Cauteloso'
         }
     }
 
