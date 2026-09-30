@@ -380,7 +380,7 @@ async def upload_pdf_to_vault(req: UploadPdfRequest, auth_ctx: dict = Depends(ge
 
 @app.post('/api/vault/upload-video')
 async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depends(get_supabase)):
-    """Respalda un video clínico/forense en el Google Drive Vault (5 TB) del psicólogo con alta resiliencia."""
+    """Respalda un video clínico/forense en el Google Drive Vault (5 TB) del psicólogo con alta resiliencia y actualiza Supabase."""
     if not DRIVE_WEBHOOK_URL:
         return {"success": False, "detail": "Drive Vault webhook no configurado"}
     try:
@@ -402,6 +402,49 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
                 headers={"Content-Type": "text/plain;charset=utf-8"}
             )
             d_res = d_resp.json()
+            
+            # Si el respaldo en Google Drive fue exitoso, persistir inmediatamente en Supabase
+            if d_res.get("success"):
+                file_url = d_res.get("file_url") or ""
+                file_id = d_res.get("file_id") or ""
+                folder_path = d_res.get("folder_path") or ""
+                
+                sb = auth_ctx.get("client")
+                uid = auth_ctx.get("user_id")
+                if sb and uid:
+                    target_id = req.eval_id
+                    try:
+                        if not target_id:
+                            # Localizar evaluación reciente por session_tag, filename o id de paciente
+                            q = sb.table("evaluations").select("id, metrics_json, excel_path").eq("user_id", uid).order("id", desc=True).limit(6)
+                            rows = q.execute().data or []
+                            for r in rows:
+                                m_cur = r.get("metrics_json") or {}
+                                ep = str(r.get("excel_path") or "")
+                                if req.session_tag and (m_cur.get("session_tag") == req.session_tag or req.session_tag in ep):
+                                    target_id = r["id"]
+                                    break
+                                if req.filename and (m_cur.get("video_path") == req.filename or req.filename.replace('.mp4','.xlsx') in ep or req.filename.replace('.webm','.xlsx') in ep):
+                                    target_id = r["id"]
+                                    break
+                            if not target_id and rows:
+                                target_id = rows[0]["id"]
+                        
+                        if target_id:
+                            cur_res = sb.table("evaluations").select("metrics_json").eq("id", target_id).execute()
+                            if cur_res.data:
+                                cur_m = cur_res.data[0].get("metrics_json") or {}
+                                cur_m["drive_video_url"] = file_url
+                                cur_m["drive_file_id"] = file_id
+                                cur_m["drive_folder"] = folder_path
+                                cur_m["video_path"] = req.filename
+                                cur_m["has_video"] = True
+                                sb.table("evaluations").update({"metrics_json": cur_m}).eq("id", target_id).execute()
+                                d_res["synced_eval_id"] = target_id
+                                print(f"✅ [VAULT SYNC] Video vinculado a evaluación #{target_id} en Supabase")
+                    except Exception as sync_err:
+                        print(f"⚠️ Aviso sincronizando video con Supabase: {sync_err}")
+            
             return d_res
     except Exception as e:
         print(f"⚠️ Error subiendo video a Drive Vault desde backend: {e}")
@@ -680,7 +723,8 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     row = res.data[0]
     metrics = row.get("metrics_json") or {}
     video_path = metrics.get("video_path")
-    if not video_path or metrics.get("video_expired", False):
+    has_video_track = bool(metrics.get("drive_video_url") or metrics.get("drive_file_id") or video_path)
+    if not has_video_track or metrics.get("video_expired", False):
         raise HTTPException(status_code=404, detail="Esta evaluación no cuenta con una grabación de video activa o ya ha expirado.")
 
     # ── Política de Retención: Verificar si han pasado más de 30 días ────────

@@ -185,7 +185,7 @@
                     <th style="padding:6px; border:1px solid #CBD5E1;">Puntaje Compuesto</th>
                     <th style="padding:6px; border:1px solid #CBD5E1;">Percentil (Kessels)</th>
                     <th style="padding:6px; border:1px solid #CBD5E1;">Precisión (%)</th>
-                    <th style="padding:6px; border:1px solid #CBD5E1;">Categoría Clínica</th>
+                    <th style="padding:6px; border:1px solid #CBD5E1;">Categoría Descriptiva</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -198,6 +198,14 @@
                   </tr>
                 </tbody>
               </table>
+
+              <!-- Guía Pedagógica Corsi para Informe PDF -->
+              <div style="margin-top:10px; background:#F8FAFC; border:1px solid #E2E8F0; border-left:3px solid #1A237E; border-radius:4px; padding:8px 12px; font-size:9.5px; color:#475569; line-height:1.45;">
+                <div style="font-weight:700; color:#1A237E; margin-bottom:3px;">💡 Guía Pedagógica de Interpretación (Corsi):</div>
+                <strong>• SPAN Visoespacial:</strong> Longitud máxima de cubos reproducida en secuencia estricta. Un Span de 2 o 3 describe retención basal en fases iniciales; 5 a 6 representa la media típica en adultos jóvenes (Kessels et al., 2000, 2008). Indicador puramente descriptivo.<br/>
+                <strong>• Duda Previa / Hesitation:</strong> Latencia antes del primer contacto táctil (${Math.round(m.hesitation_time_avg_ms || 0)} ms). Refleja consolidación en el buffer visoespacial.<br/>
+                <strong>• Block-Product Score:</strong> Consistencia de la sesión (${compositeScore} pts = Span × Aciertos).
+              </div>
             ` : `
               <table style="width:100%; border-collapse:collapse; font-size:10.5px; text-align:center;">
                 <thead>

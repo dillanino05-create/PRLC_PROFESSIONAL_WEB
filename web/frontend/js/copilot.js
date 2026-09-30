@@ -402,16 +402,26 @@
         </div>
       `;
 
-      // Restaurar posición previa guardada
+      // Restaurar posición previa guardada asegurando que esté dentro del viewport visible
       try {
         const savedPos = JSON.parse(localStorage.getItem('mecapsi_copilot_pos') || '{}');
-        if (savedPos.left && savedPos.top) {
-          launcher.style.left = savedPos.left;
-          launcher.style.top = savedPos.top;
+        const l = parseInt(savedPos.left, 10);
+        const t = parseInt(savedPos.top, 10);
+        const maxW = (window.innerWidth || 1200) - 140;
+        const maxH = (window.innerHeight || 800) - 80;
+        if (!isNaN(l) && !isNaN(t) && l >= 10 && l <= maxW && t >= 10 && t <= maxH) {
+          launcher.style.left = `${l}px`;
+          launcher.style.top = `${t}px`;
           launcher.style.right = 'auto';
           launcher.style.bottom = 'auto';
+        } else {
+          launcher.style.right = '24px';
+          launcher.style.bottom = '24px';
         }
-      } catch (e) {}
+      } catch (e) {
+        launcher.style.right = '24px';
+        launcher.style.bottom = '24px';
+      }
 
       this.makeDraggable(launcher);
       document.body.appendChild(launcher);
@@ -879,6 +889,11 @@ Contexto actual:
     if (!window.MecaPsiCopilotInstance) {
       window.MecaPsiCopilotInstance = new MecaPsiCopilot();
     }
+    window.openMecaPsiCopilot = function(promptText) {
+      if (window.MecaPsiCopilotInstance) {
+        window.MecaPsiCopilotInstance.openWithPrompt(promptText);
+      }
+    };
   }
 
   if (document.readyState === 'loading') {

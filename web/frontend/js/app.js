@@ -191,7 +191,7 @@ const App = {
     }
   },
 
-  async uploadToDriveVault({ psychologist, patientId, testType, fileType, fileName, blob }) {
+  async uploadToDriveVault({ psychologist, patientId, testType, fileType, fileName, blob, evalId, sessionTag }) {
     const DRIVE_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxv3Zg_6jOsDKIC1amVIJUzplYsDH5k2HKfmYx5ZzUUg3v07nuZ35i5nIKaFJdD_Ns/exec';
     const DRIVE_VAULT_TOKEN = 'MECAPSI_DRIVE_VAULT_2026';
     
@@ -240,6 +240,8 @@ const App = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
+                  eval_id: evalId || this.evalId || null,
+                  session_tag: sessionTag || this.sessionTag || null,
                   patient_id: payload.patient_id,
                   test_type: payload.test_type,
                   filename: payload.file_name,
@@ -1913,6 +1915,7 @@ const App = {
           this.recordedChunks.push(e.data);
         }
       };
+      this.recordingActive = true;
       this.mediaRecorder.start(1000);
       return;
     }
@@ -2121,6 +2124,7 @@ const App = {
             try {
               blob = new Blob(this.recordedChunks, { type: this.recordingMimeType || 'video/mp4' });
               this.recordedVideoBlob = blob;
+              window._mecapsiLastVideoBlob = blob;
             } catch (e) {}
             finish(blob);
           };
@@ -2129,7 +2133,11 @@ const App = {
           clearTimeout(safetyTimer);
           let blob = null;
           if (this.recordedChunks && this.recordedChunks.length > 0) {
-            try { blob = new Blob(this.recordedChunks, { type: this.recordingMimeType || 'video/mp4' }); } catch (e) {}
+            try {
+              blob = new Blob(this.recordedChunks, { type: this.recordingMimeType || 'video/mp4' });
+              this.recordedVideoBlob = blob;
+              window._mecapsiLastVideoBlob = blob;
+            } catch (e) {}
           }
           finish(blob);
         }
@@ -2992,10 +3000,10 @@ const App = {
             all_probs: {
               'Base_Normativa_Visoespacial': 0.75,
               'Disociacion_Ejecutiva_MT': 0.05,
-              'Deficit_Primario_ParietoOccipital': 0.05,
+              'Retencion_Visoespacial_Inicial': 0.05,
               'Fatiga_Agotamiento_Cognitivo': 0.05,
               'Impulsividad_Visomotora': 0.05,
-              'Bradipsiquia_Enlentecimiento': 0.05
+              'Procesamiento_Pausado': 0.05
             }
           };
         }
@@ -3019,10 +3027,10 @@ const App = {
           all_probs: {
             'Base_Normativa_Visoespacial': 0.70,
             'Disociacion_Ejecutiva_MT': 0.06,
-            'Deficit_Primario_ParietoOccipital': 0.06,
+            'Retencion_Visoespacial_Inicial': 0.06,
             'Fatiga_Agotamiento_Cognitivo': 0.06,
             'Impulsividad_Visomotora': 0.06,
-            'Bradipsiquia_Enlentecimiento': 0.06
+            'Procesamiento_Pausado': 0.06
           }
         };
       }
@@ -3081,7 +3089,9 @@ const App = {
                 testType: 'CORSI',
                 fileType: 'video',
                 fileName: videoFilename,
-                blob: videoBlob
+                blob: videoBlob,
+                evalId: this.evalId,
+                sessionTag: this.sessionTag
               });
 
               this.metrics.video_path = videoFilename;
@@ -3909,6 +3919,24 @@ const App = {
               <div class="elbl">Tiempo Total</div>
             </div>
           </div>
+
+          <!-- Guía Pedagógica: Métricas Objetivas de Corsi -->
+          <div class="pedagogical-box" style="margin-top:18px;background:#F8FAFC;border:1px solid #E2E8F0;border-left:4px solid #1A237E;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#1A237E;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.92rem;">
+              <span>💡</span> ¿Cómo interpretar las métricas de Corsi de forma sencilla y pedagógica?
+            </div>
+            <div style="font-size:0.85rem;color:#475569;line-height:1.55;display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;">
+              <div><strong>• SPAN Visoespacial:</strong> Longitud máxima de cubos que el evaluado retiene y reproduce en orden estricto. Un Span de 2 o 3 describe una retención inmediata en niveles basales (útil para mapear umbrales iniciales de memoria de trabajo); un Span de 5 a 6 representa la media poblacional en adultos. Es un indicador puramente descriptivo de la amplitud del bucle visoespacial, no una etiqueta patológica.</div>
+              <div><strong>• DUDA Previa / Hesitation (ms):</strong> Milisegundos que transcurren entre el final del patrón presentado y el primer toque táctil del evaluado. Refleja el tiempo de consolidación en el buffer visoespacial y la planificación motora previa a la ejecución.</div>
+              <div><strong>• TR Medio (ms):</strong> Velocidad de procesamiento psicomotor y cadencia entre toques sucesivos de cubos. Permite distinguir entre ejecución fluida vs. vacilación intermedia.</div>
+              <div><strong>• PUNT Compuesto (Block-Product Score):</strong> Multiplica el Span alcanzado por el total de ensayos correctos (Span × Aciertos). Refleja la estabilidad global y consistencia a lo largo de toda la prueba.</div>
+              <div><strong>• Modalidad Directa vs. Inversa:</strong> La prueba directa mide el almacenamiento pasivo del bucle visoespacial; la inversa involucra manipulación activa en la memoria de trabajo y control del ejecutivo central (rotación mental).</div>
+              <div><strong>• Precisión Global (%):</strong> Porcentaje de ensayos resueltos exitosamente sobre el total administrado. Refleja la tasa de efectividad general bajo incremento gradual de complejidad.</div>
+            </div>
+            <div style="margin-top:10px;font-size:0.78rem;color:#64748B;font-style:italic;">
+              * Esta información es puramente descriptiva y pedagógica del desempeño observado; no constituye por sí sola un diagnóstico clínico ni patológico.
+            </div>
+          </div>
         </div>
 
         <!-- A.2) Baremos Normativos de Kessels (2000, 2008) & Tipología de Errores -->
@@ -4030,6 +4058,27 @@ const App = {
               </div>
             </div>
           </div>
+
+          <!-- Guía Pedagógica: Baremos de Kessels y Tipología de Errores -->
+          <div class="pedagogical-box" style="margin-top:16px;background:#FDF4FF;border:1px solid #F0ABFC;border-left:4px solid #A21CAF;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#701A75;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.92rem;">
+              <span>📖</span> Guía Pedagógica: ¿Cómo leer los Baremos y Percentiles de Corsi (Kessels et al.)?
+            </div>
+            <div style="font-size:0.85rem;color:#334155;line-height:1.55;">
+              <p style="margin-bottom:8px;">
+                <strong>¿Qué significa el Percentil (P)?</strong> Sitúa el rendimiento del evaluado frente a 100 personas de su mismo estrato etario cronológico. El <strong>Percentil 50 (P50)</strong> representa la media poblacional exacta. Percentiles entre P25 y P75 corresponden al intervalo normativo típico.
+              </p>
+              <p style="margin-bottom:8px;">
+                <strong>¿Cómo interpretar la Puntuación Z y Escalar (PE)?</strong> La Puntuación Z cuantifica cuántas desviaciones típicas se aleja el puntaje de la media (Z = 0.00 es la media; entre -1.0 y +1.0 es el rango típico). La Puntuación Escalar (PE 1-19, media=10, DE=3) ajusta por edad y nivel educativo según las tablas normativas de Kessels (2000, 2008).
+              </p>
+              <p style="margin:0;">
+                <strong>Tipología de Errores (Transposición vs. Intrusión):</strong> Los errores de <em>Transposición</em> indican que se recordaron los cubos correctos pero en orden alterado (falla en el secuenciamiento temporal). Los errores de <em>Intrusión</em> señalan la selección de cubos que no pertenecían a la secuencia (falla en el mapeo espacial o impulsividad). La <em>Desviación Euclidiana</em> mide la distancia espacial en pantalla al cubo diana previsto.
+              </p>
+            </div>
+            <div style="margin-top:10px;font-size:0.78rem;color:#64748B;font-style:italic;">
+              * Estandarización basada en Kessels RP, van Zandvoort MJ, Postma A, Kappelle LJ (2000, 2008). Enfoque descriptivo para apoyo a la toma de decisiones clínicas.
+            </div>
+          </div>
         </div>
 
         <!-- B) Gráficas de Rendimiento (4 Subplots Chart.js) -->
@@ -4040,6 +4089,19 @@ const App = {
             <div class="chart-box"><canvas id="chart-metrics"></canvas></div>
             <div class="chart-box"><canvas id="chart-errors"></canvas></div>
             <div class="chart-box"><canvas id="chart-normal"></canvas></div>
+          </div>
+
+          <!-- Guía Pedagógica: Gráficas de Rendimiento Visoespacial -->
+          <div class="pedagogical-box" style="margin-top:16px;background:#F0FDF4;border:1px solid #BBF7D0;border-left:4px solid #16A34A;border-radius:8px;padding:14px 18px;">
+            <div style="font-weight:700;color:#166534;display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.92rem;">
+              <span>📊</span> Guía de Lectura: ¿Qué revelan las Gráficas de Rendimiento Visoespacial?
+            </div>
+            <div style="font-size:0.85rem;color:#334155;line-height:1.55;display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;">
+              <div><strong>• Curva de Progresión Visoespacial:</strong> Grafica el nivel de dificultad (cantidad de bloques) en cada ensayo consecutivo. Los puntos verdes indican aciertos y los rojos errores; permite observar si el evaluado mantiene estabilidad o presenta claudicación al aumentar la longitud de la secuencia.</div>
+              <div><strong>• Cronometría (Duda Previa vs. TR Medio):</strong> Compara el tiempo de vacilación inicial (hesitation en ms antes de tocar el primer bloque) frente a la cadencia de respuesta por cubo. Tiempos de duda más amplios en niveles altos reflejan un despliegue adaptativo de autorregulación y repaso interno.</div>
+              <div><strong>• Precisión Global:</strong> Proporción visual directa entre ensayos superados con éxito y fallidos, ilustrando la tasa de rendimiento general de la sesión.</div>
+              <div><strong>• Campana Normativa de Gauss (Kessels):</strong> Muestra la curva de distribución poblacional del estrato etario del paciente y ubica su desempeño exacto sobre la campana (marca coloreada), facilitando una comprensión visual e intuitiva para el profesional y para explicar a familias.</div>
+            </div>
           </div>
         </div>
 
@@ -4099,6 +4161,64 @@ const App = {
               <br>Las métricas psicométricas crudas y baremos expuestos son plenamente válidos.
             </p>
           `}
+        </div>
+
+        <!-- B.3.b) Explicación Clínica y Pedagógica con IA (Gemini 2.0 Flash) & Copilot -->
+        <div class="card mb-4" style="border-left: 4px solid #4F46E5; background: linear-gradient(to right, #F8FAFC, #FFFFFF);">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4F46E5,#06B6D4);display:flex;align-items:center;justify-content:center;font-size:1.2rem;box-shadow:0 4px 10px rgba(79,70,229,0.3);">
+                🤖
+              </div>
+              <div>
+                <h3 style="margin:0;font-size:1.05rem;font-weight:800;color:#1E1B4B;">Explicación Clínica Descriptiva con IA (Google Gemini)</h3>
+                <span style="font-size:0.75rem;color:#4F46E5;font-weight:700;">Análisis Paraclínico Asistido · Enfoque Estrictamente Descriptivo</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" onclick="window.openMecaPsiCopilot ? window.openMecaPsiCopilot('Hola Copilot. Por favor explícame de manera detallada y pedagógica los resultados del Test de Corsi de este evaluado (Span, baremos Kessels, cronometría y biomarcadores), sin emitir diagnósticos patológicos.') : (window.MecaPsiCopilotInstance && window.MecaPsiCopilotInstance.openWithPrompt('Hola Copilot. Por favor explícame de manera detallada y pedagógica los resultados del Test de Corsi de este evaluado...'))" style="background:linear-gradient(135deg,#4F46E5,#06B6D4);color:#FFF;font-weight:700;border:none;border-radius:8px;padding:6px 14px;box-shadow:0 3px 8px rgba(79,70,229,0.3);cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                🧠 Abrir MecaPsi Copilot
+              </button>
+            </div>
+          </div>
+
+          <div style="background:#EEF2FF;border:1px solid #C7D2FE;border-radius:10px;padding:16px;margin-bottom:14px;">
+            <div style="font-weight:700;color:#3730A3;font-size:0.9rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+              <span>💡</span> Síntesis Descriptiva del Perfil Cognitivo:
+            </div>
+            <p style="font-size:0.88rem;color:#312E81;line-height:1.6;margin:0;">
+              ${ml?.profile_info?.desc || (
+                (m.corsi_span <= 3) 
+                ? 'El evaluado evidenció un <strong>Patrón de Retención Visoespacial Inicial</strong> (Span ' + (m.corsi_span || 2) + ' bloques), mostrando capacidad para retener y reproducir patrones directos en niveles basales. En secuencias de mayor carga se observó vacilación temprana sin errores de intrusión groseros, lo que describe un procesamiento cuidadoso pero con saturación precoz del buffer temporal inmediato.'
+                : 'El evaluado evidenció un <strong>Rendimiento Visoespacial Adaptativo</strong> (Span ' + (m.corsi_span || 4) + ' bloques), acorde con la distribución esperada para su grupo etario de referencia. Mantiene consistencia psicomotora y una adecuada tasa de aciertos.'
+              )}
+            </p>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;margin-bottom:12px;">
+            <div style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+              <div style="font-weight:700;color:#0F172A;font-size:0.82rem;margin-bottom:4px;">🎯 Estilo de Ejecución y Planificación:</div>
+              <div style="font-size:0.8rem;color:#475569;line-height:1.45;">
+                Tiempo de duda previa de ${Math.round(m.hesitation_time_avg_ms || 0)} ms antes del primer contacto táctil, con una latencia de movimiento entre bloques de ${Math.round(m.mean_reaction_time_ms || 0)} ms. ${Number(m.hesitation_time_avg_ms || 0) > Number(m.mean_reaction_time_ms || 0) ? 'Refleja una estrategia reflexiva donde se invierte más tiempo en la codificación previa que en la ejecución motora.' : 'Refleja una ejecución motora directa con rápida transición a la acción.'}
+              </div>
+            </div>
+            <div style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+              <div style="font-weight:700;color:#0F172A;font-size:0.82rem;margin-bottom:4px;">🔍 Tipología y Precisión del Mapeo:</div>
+              <div style="font-size:0.8rem;color:#475569;line-height:1.45;">
+                Registró ${m.transposition_count || 0} errores de transposición y ${m.intrusion_count || 0} errores de intrusión (${Number(m.accuracy_pct || 0).toFixed(1)}% precisión). ${Number(m.intrusion_count || 0) === 0 ? 'Ausencia total de intrusiones, demostrando reconocimiento exacto del territorio de cubos objetivo.' : 'Presencia de intrusiones que sugieren dispersión atencional en secuencias largas.'}
+              </div>
+            </div>
+            <div style="background:#FFF;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+              <div style="font-weight:700;color:#0F172A;font-size:0.82rem;margin-bottom:4px;">📈 Sugerencias Descriptivas para Devolución:</div>
+              <div style="font-size:0.8rem;color:#475569;line-height:1.45;">
+                Explicar que la memoria visoespacial inmediata es una habilidad dinámica sensible al estado atencional, fatiga visual y novedad de la tarea en pantalla. No asumir déficit estructural ante una evaluación única.
+              </div>
+            </div>
+          </div>
+
+          <div style="font-size:0.78rem;color:#64748B;font-style:italic;border-top:1px solid #F1F5F9;padding-top:8px;">
+            * Sistema de Apoyo a la Decisión Clínica (CDSS). Esta interpretación es estrictamente descriptiva y pedagógica para el profesional de la psicología; no sustituye el juicio clínico integral.
+          </div>
         </div>
 
         <!-- C) Biomarcadores Paraclínicos IA (3 Columnas) -->
@@ -5839,6 +5959,43 @@ const App = {
         this.user?.app_metadata?.role === 'superadmin' ||
         this.user?.email === 'dillanino05@gmail.com'
       );
+
+      // Prioridad 0: Si tenemos el video grabado localmente en memoria de la sesión actual, reproducirlo de forma instantánea
+      const isCurrentSession = (this.evalId && (Number(id) === Number(this.evalId))) || (!id && this.recordedVideoBlob);
+      const localBlob = isCurrentSession ? (this.recordedVideoBlob || window._mecapsiLastVideoBlob) : null;
+      if (localBlob) {
+        if (btn) {
+          btn.textContent = isSuperAdmin ? "🛡️ Visor IA Forense" : "🎥 Ver";
+          btn.disabled = false;
+        }
+        this.currentVideoId = id || this.evalId;
+        const localBlobUrl = URL.createObjectURL(localBlob);
+        this.currentVideoUrl = localBlobUrl;
+        this.currentVideoDownloadUrl = localBlobUrl;
+        this.currentVideoFilename = `Sesion_${this.sessionTag || id || 'grabacion'}.mp4`;
+        this.activeVideoEvalData = {
+          url: localBlobUrl,
+          download_url: localBlobUrl,
+          participant: {
+            name: this.participant?.name || 'Evaluado',
+            doc_id: this.participant?.id || 'P01',
+            test_type: this.testType || 'CORSI'
+          },
+          drive_url: this.metrics?.drive_video_url || ''
+        };
+
+        this.ensureVideoModal(isSuperAdmin);
+        const modal = document.getElementById('video-modal');
+        const player = document.getElementById('player-video');
+        const driveFrame = document.getElementById('player-drive-frame');
+        if (driveFrame) driveFrame.style.display = 'none';
+        if (player) {
+          player.style.display = 'block';
+          player.src = localBlobUrl;
+        }
+        modal.classList.add('active');
+        return;
+      }
 
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';

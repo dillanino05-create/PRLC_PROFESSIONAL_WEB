@@ -259,6 +259,8 @@ class UploadPdfRequest(BaseModel):
 
 
 class UploadVideoRequest(BaseModel):
+    eval_id: Optional[int] = None
+    session_tag: Optional[str] = None
     patient_id: Optional[str] = "PAC_ANONIMO"
     test_type: Optional[str] = "PLC"
     filename: str
