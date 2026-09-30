@@ -729,60 +729,60 @@ const App = window.App = {
         </div>
       </div>
 
-      <!-- Main Page Container Light Clinical -->
-      <div class="page fade-in" style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:28px 40px;box-sizing:border-box;background:var(--bg);min-height:calc(100vh - 80px);">
+      <!-- Main Page Container Luminous Dark Cockpit -->
+      <div class="page fade-in" style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:28px 40px;box-sizing:border-box;background:radial-gradient(circle at 50% 0%, #172554 0%, #0F172A 50%, #0A0F1D 100%);min-height:calc(100vh - 80px);color:#F8FAFC;">
         
         <div style="flex:1;display:flex;align-items:center;padding:10px 0;">
           <div style="display:grid;grid-template-columns:${isSuperAdmin ? 'repeat(auto-fit, minmax(310px, 1fr))' : 'repeat(auto-fit, minmax(380px, 1fr))'};gap:22px;width:100%;max-width:1380px;margin:0 auto;">
             
             <!-- Card 1: PLC (Test d2) -->
-            <div class="card" style="background:#FFFFFF;border:1.5px solid var(--border);border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 20px rgba(26,35,126,0.08);min-height:400px;">
+            <div class="card" style="background:rgba(15,23,42,0.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1.5px solid rgba(56,189,248,0.45);border-radius:18px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 30px -5px rgba(2,132,199,0.3), 0 0 20px rgba(56,189,248,0.15);min-height:400px;">
               <div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                  <span style="background:#E8F5E9;color:#2E7D32;padding:4px 12px;border-radius:14px;font-size:0.75rem;font-weight:700;border:1px solid #C8E6C9;">
+                  <span style="background:rgba(16,185,129,0.2);color:#34D399;padding:4px 12px;border-radius:14px;font-size:0.75rem;font-weight:700;border:1px solid rgba(52,211,153,0.4);">
                     Atención & Concentración
                   </span>
-                  <span style="color:#546E7A;font-size:0.8rem;font-weight:600;">14 Líneas · 20s/pág</span>
+                  <span style="color:#94A3B8;font-size:0.8rem;font-weight:600;">14 Líneas · 20s/pág</span>
                 </div>
-                <h3 style="font-family:'Playfair Display',serif;color:var(--primary);font-size:1.55rem;margin:6px 0 8px;font-weight:700;">
+                <h3 style="font-family:'Playfair Display',serif;color:#FFFFFF;font-size:1.6rem;margin:6px 0 8px;font-weight:700;text-shadow:0 2px 8px rgba(56,189,248,0.25);">
                   PLC — Test d2
                 </h3>
-                <p style="color:#546E7A;font-size:0.88rem;line-height:1.5;margin-bottom:14px;">
+                <p style="color:#CBD5E1;font-size:0.88rem;line-height:1.5;margin-bottom:14px;">
                   Cancelación psicométrica. Evalúa velocidad de procesamiento, control inhibitorio y fluctuación por fatiga ante distractores.
                 </p>
-                <div style="background:#E8EAF6;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;font-size:0.78rem;color:#1A237E;border:1px solid #C5CAE9;">
+                <div style="background:rgba(30,41,59,0.8);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;font-size:0.78rem;color:#7DD3FC;border:1px solid rgba(56,189,248,0.25);">
                   <div>⚡ <strong>Métricas:</strong> TA, O, COM, CP, IVR</div>
                   <div>🎯 <strong>Telemetría:</strong> Ojos + Tremor</div>
                 </div>
               </div>
 
               <div>
-                <button class="btn btn-primary" onclick="App.startTestSelection('PLC')" style="width:100%;justify-content:center;font-size:0.98rem;padding:12px;font-weight:700;border-radius:8px;box-shadow:0 4px 14px rgba(26,35,126,0.25);margin-bottom:8px;">
+                <button class="btn btn-primary" onclick="App.startTestSelection('PLC')" style="width:100%;justify-content:center;font-size:0.98rem;padding:12px;font-weight:700;border-radius:8px;background:linear-gradient(135deg,#0284C7,#2563EB);color:#FFF;border:none;box-shadow:0 4px 16px rgba(2,132,199,0.4);margin-bottom:8px;cursor:pointer;">
                   ▶ Iniciar Prueba PLC (Líneas Cruzadas)
                 </button>
                 ${isSuperAdmin ? `
-                <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('PLC', 'real')" style="width:100%;justify-content:center;font-size:0.82rem;padding:8px;color:#1565C0;border:1.5px dashed #90CAF9;border-radius:6px;cursor:pointer;background:#F0F7FF;font-weight:700;" title="Inicia la prueba en tu perfil con 1 solo clic">
+                <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('PLC', 'real')" style="width:100%;justify-content:center;font-size:0.82rem;padding:8px;color:#38BDF8;border:1.5px dashed rgba(56,189,248,0.5);border-radius:6px;cursor:pointer;background:rgba(56,189,248,0.1);font-weight:700;" title="Inicia la prueba en tu perfil con 1 solo clic">
                   🔬 Probar d2 en Mi Perfil (Dilan)
                 </button>` : ''}
               </div>
             </div>
 
             <!-- Card 2: Test de Bloques de Corsi -->
-            <div class="card" style="background:#FFFFFF;border:1.5px solid #E1BEE7;border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 20px rgba(123,31,162,0.08);min-height:400px;">
+            <div class="card" style="background:rgba(15,23,42,0.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1.5px solid rgba(192,132,252,0.45);border-radius:18px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 30px -5px rgba(147,51,234,0.3), 0 0 20px rgba(192,132,252,0.15);min-height:400px;">
               <div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                  <span style="background:#F3E5F5;color:#7B1FA2;padding:4px 12px;border-radius:14px;font-size:0.75rem;font-weight:700;border:1px solid #E1BEE7;">
+                  <span style="background:rgba(168,85,247,0.2);color:#C084FC;padding:4px 12px;border-radius:14px;font-size:0.75rem;font-weight:700;border:1px solid rgba(192,132,252,0.4);">
                     Memoria Visoespacial
                   </span>
-                  <span style="color:#546E7A;font-size:0.8rem;font-weight:600;">9 Bloques · Secuencia 2-9</span>
+                  <span style="color:#94A3B8;font-size:0.8rem;font-weight:600;">9 Bloques · Secuencia 2-9</span>
                 </div>
-                <h3 style="font-family:'Playfair Display',serif;color:#4A148C;font-size:1.55rem;margin:6px 0 8px;font-weight:700;">
+                <h3 style="font-family:'Playfair Display',serif;color:#FFFFFF;font-size:1.6rem;margin:6px 0 8px;font-weight:700;text-shadow:0 2px 8px rgba(192,132,252,0.25);">
                   Test de Corsi
                 </h3>
-                <p style="color:#546E7A;font-size:0.88rem;line-height:1.5;margin-bottom:14px;">
+                <p style="color:#CBD5E1;font-size:0.88rem;line-height:1.5;margin-bottom:14px;">
                   Paradigma de memoria de trabajo visomotora. Determina el Span visoespacial, tiempo de duda táctica y carga cognitiva.
                 </p>
-                <div style="background:#F3E5F5;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;font-size:0.78rem;color:#4A148C;border:1px solid #E1BEE7;">
+                <div style="background:rgba(30,41,59,0.8);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;font-size:0.78rem;color:#E9D5FF;border:1px solid rgba(192,132,252,0.25);">
                   <div>🧠 <strong>Span:</strong> Directo / Inverso</div>
                   <div>⚡ <strong>Batería:</strong> Dual Completa</div>
                 </div>
@@ -790,18 +790,18 @@ const App = window.App = {
 
               <div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-                  <button class="btn btn-primary" onclick="App.startTestSelection('CORSI', 'direct')" style="justify-content:center;font-size:0.86rem;padding:10px;background:linear-gradient(135deg,#5C6BC0,#3949AB);border-radius:8px;">
+                  <button class="btn btn-primary" onclick="App.startTestSelection('CORSI', 'direct')" style="justify-content:center;font-size:0.86rem;padding:10px;background:linear-gradient(135deg,#4F46E5,#6366F1);color:#FFF;border:none;border-radius:8px;font-weight:700;cursor:pointer;">
                     ▶ Modo Directo
                   </button>
-                  <button class="btn btn-ghost" onclick="App.startTestSelection('CORSI', 'reverse')" style="justify-content:center;font-size:0.86rem;padding:10px;background:#EDE7F6;border:1px solid #D1C4E9;color:#4527A0;font-weight:700;border-radius:8px;">
+                  <button class="btn btn-ghost" onclick="App.startTestSelection('CORSI', 'reverse')" style="justify-content:center;font-size:0.86rem;padding:10px;background:rgba(192,132,252,0.15);border:1px solid rgba(192,132,252,0.4);color:#E9D5FF;font-weight:700;border-radius:8px;cursor:pointer;">
                     🔄 Modo Inverso
                   </button>
                 </div>
-                <button class="btn btn-primary" onclick="App.startTestSelection('CORSI', 'dual')" style="width:100%;justify-content:center;font-size:0.9rem;padding:10px;background:linear-gradient(135deg,#7B1FA2,#4A148C);box-shadow:0 3px 10px rgba(123,31,162,0.25);border-radius:8px;margin-bottom:${isSuperAdmin ? '8px' : '0'};">
+                <button class="btn btn-primary" onclick="App.startTestSelection('CORSI', 'dual')" style="width:100%;justify-content:center;font-size:0.9rem;padding:10px;background:linear-gradient(135deg,#9333EA,#6B21A8);color:#FFF;border:none;box-shadow:0 4px 16px rgba(147,51,234,0.4);border-radius:8px;font-weight:700;cursor:pointer;margin-bottom:${isSuperAdmin ? '8px' : '0'};">
                   ⚡ Batería Dual Completa
                 </button>
                 ${isSuperAdmin ? `
-                <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('CORSI', 'direct')" style="width:100%;justify-content:center;font-size:0.82rem;padding:8px;color:#7B1FA2;border:1.5px dashed #CE93D8;border-radius:6px;cursor:pointer;background:#FDF4FF;font-weight:700;" title="Inicia Corsi en tu perfil con 1 solo clic">
+                <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('CORSI', 'direct')" style="width:100%;justify-content:center;font-size:0.82rem;padding:8px;color:#C084FC;border:1.5px dashed rgba(192,132,252,0.5);border-radius:6px;cursor:pointer;background:rgba(192,132,252,0.1);font-weight:700;" title="Inicia Corsi en tu perfil con 1 solo clic">
                   🧊 Probar Corsi en Mi Perfil (Dilan)
                 </button>` : ''}
               </div>
@@ -809,37 +809,37 @@ const App = window.App = {
 
             ${isSuperAdmin ? `
             <!-- Card 3: Laboratorio de IA (Exclusivo SuperAdmin) -->
-            <div class="card" style="background:#FFFFFF;border:2px solid #C7D2FE;border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 24px rgba(99,102,241,0.12);min-height:400px;">
+            <div class="card" style="background:rgba(15,23,42,0.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1.5px solid rgba(250,204,21,0.45);border-radius:18px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 30px -5px rgba(234,179,8,0.25), 0 0 20px rgba(250,204,21,0.15);min-height:400px;">
               <div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                  <span style="background:#EDE7F6;color:#4338CA;padding:4px 12px;border-radius:14px;font-size:0.75rem;font-weight:800;border:1px solid #C7D2FE;">
+                  <span style="background:rgba(234,179,8,0.2);color:#FDE047;padding:4px 12px;border-radius:14px;font-size:0.75rem;font-weight:800;border:1px solid rgba(250,204,21,0.4);">
                     🛡️ EXCLUSIVO SUPERADMIN
                   </span>
-                  <span style="color:#6366F1;font-size:0.8rem;font-weight:700;">Calibración & Forense</span>
+                  <span style="color:#FDE047;font-size:0.8rem;font-weight:700;">Calibración & Forense</span>
                 </div>
-                <h3 style="font-family:'Playfair Display',serif;color:#312E81;font-size:1.55rem;margin:6px 0 8px;font-weight:700;">
+                <h3 style="font-family:'Playfair Display',serif;color:#FFFFFF;font-size:1.6rem;margin:6px 0 8px;font-weight:700;text-shadow:0 2px 8px rgba(250,204,21,0.25);">
                   🧬 Laboratorio de IA
                 </h3>
-                <p style="color:#546E7A;font-size:0.88rem;line-height:1.5;margin-bottom:14px;">
+                <p style="color:#CBD5E1;font-size:0.88rem;line-height:1.5;margin-bottom:14px;">
                   Auditoría de motores: Keras MLP v3, MediaPipe 468 landmarks, cinemática de temblor (>6.5 px/ms²) y videoteca en MP4.
                 </p>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;font-size:0.78rem;color:#1E293B;">
-                  <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px;">🧠 <strong>Keras MLP v3</strong></div>
-                  <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px;">👁️ <strong>MediaPipe Mesh</strong></div>
-                  <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px;">🖱️ <strong>Tremor &gt;6.5px</strong></div>
-                  <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px;">🎥 <strong>Descargas MP4</strong></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;font-size:0.78rem;color:#F1F5F9;">
+                  <div style="background:rgba(30,41,59,0.8);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 10px;">🧠 <strong>Keras MLP v3</strong></div>
+                  <div style="background:rgba(30,41,59,0.8);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 10px;">👁️ <strong>MediaPipe Mesh</strong></div>
+                  <div style="background:rgba(30,41,59,0.8);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 10px;">🖱️ <strong>Tremor &gt;6.5px</strong></div>
+                  <div style="background:rgba(30,41,59,0.8);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 10px;">🎥 <strong>Descargas MP4</strong></div>
                 </div>
               </div>
 
               <div>
-                <button class="btn btn-primary" onclick="App.nav('ailab')" style="width:100%;justify-content:center;font-size:0.98rem;padding:12px;background:linear-gradient(135deg,#6366F1,#9333EA);border:none;box-shadow:0 4px 14px rgba(99,102,241,0.35);font-weight:800;border-radius:8px;cursor:pointer;margin-bottom:8px;">
+                <button class="btn btn-primary" onclick="App.nav('ailab')" style="width:100%;justify-content:center;font-size:0.98rem;padding:12px;background:linear-gradient(135deg,#7C3AED,#4F46E5);border:none;box-shadow:0 4px 16px rgba(124,58,237,0.4);font-weight:800;border-radius:8px;cursor:pointer;margin-bottom:8px;color:#FFF;">
                   🚀 Abrir Laboratorio de IA
                 </button>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                  <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('PLC', 'real')" style="justify-content:center;font-size:0.8rem;padding:8px;background:#F5F3FF;border:1px solid #DDD6FE;color:#5B21B6;font-weight:700;border-radius:6px;cursor:pointer;">
+                  <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('PLC', 'real')" style="justify-content:center;font-size:0.8rem;padding:8px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.4);color:#DDD6FE;font-weight:700;border-radius:6px;cursor:pointer;">
                     🔬 d2 Mi Perfil
                   </button>
-                  <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('CORSI', 'direct')" style="justify-content:center;font-size:0.8rem;padding:8px;background:#F5F3FF;border:1px solid #DDD6FE;color:#5B21B6;font-weight:700;border-radius:6px;cursor:pointer;">
+                  <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('CORSI', 'direct')" style="justify-content:center;font-size:0.8rem;padding:8px;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.4);color:#DDD6FE;font-weight:700;border-radius:6px;cursor:pointer;">
                     🧊 Corsi Mi Perfil
                   </button>
                 </div>
@@ -848,8 +848,8 @@ const App = window.App = {
           </div>
         </div>
 
-        <!-- Sleek Bottom Footer Bar Light -->
-        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding:14px 4px 4px;font-size:0.82rem;color:var(--t-lite);flex-wrap:wrap;gap:8px;">
+        <!-- Sleek Bottom Footer Bar Luminous Dark -->
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.1);padding:14px 4px 4px;font-size:0.82rem;color:#94A3B8;flex-wrap:wrap;gap:8px;">
           <div>
             PLC Professional v3.4.0 &nbsp;&middot;&nbsp; MecaPsi SaaS &nbsp;&middot;&nbsp; Protocolo Clínico & Biomarcadores (RedCOLSI)
           </div>

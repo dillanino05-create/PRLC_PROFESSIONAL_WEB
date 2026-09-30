@@ -43,6 +43,42 @@
       } catch (e) {}
     }
 
+    getPsychologistProfile(email) {
+      const safeKey = `mecapsi_psych_profile_${(email || 'default').replace(/[^a-zA-Z0-9_]/g, '_')}`;
+      try {
+        const raw = localStorage.getItem(safeKey);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return {
+        email: email || 'evaluador@mecapsi.com',
+        interactions_count: 0,
+        preferred_depth: 'Equilibrado Técnico-Pedagógico',
+        adaptations: 'El colega aprecia precisión métrica, claridad conceptual y pautas redactables para padres o pacientes.'
+      };
+    }
+
+    recordPsychologistInteraction(email, userText) {
+      try {
+        const safeKey = `mecapsi_psych_profile_${(email || 'default').replace(/[^a-zA-Z0-9_]/g, '_')}`;
+        const profile = this.getPsychologistProfile(email);
+        profile.interactions_count = (profile.interactions_count || 0) + 1;
+        const lower = (userText || '').toLowerCase();
+        if (lower.includes('padre') || lower.includes('familia') || lower.includes('colegio') || lower.includes('pedagog')) {
+          profile.preferred_depth = 'Pedagógico y Comprensivo (Familias y Pacientes)';
+          profile.adaptations = 'Enfatiza explicaciones empáticas y constructivas que orienten a los padres sin patologizar.';
+        } else if (lower.includes('forense') || lower.includes('milisegundo') || lower.includes('baremo') || lower.includes('percentil')) {
+          profile.preferred_depth = 'Neuropsicométrico y Forense Riguroso';
+          profile.adaptations = 'Enfatiza exactitud matemática de baremos, percentiles de Kessels/Brickenkamp y cronometría paraclínica.';
+        } else if (lower.includes('breve') || lower.includes('corto') || lower.includes('resum') || lower.includes('sintet')) {
+          profile.adaptations = 'Valora respuestas sumamente directas, al grano y sin introducciones redundantes.';
+        }
+        localStorage.setItem(safeKey, JSON.stringify(profile));
+        return profile;
+      } catch (e) {
+        return null;
+      }
+    }
+
     getCurrentContext() {
       // Extraer contexto del estado de la app si está presente en window.App
       const app = window.App || {};
@@ -54,17 +90,44 @@
       const userEmail = app.user?.email || '';
       const userName = app.user?.user_metadata?.full_name || (userEmail ? userEmail.split('@')[0] : 'Evaluador');
 
-      // Lista de pacientes autorizados según historial de la sesión activa
+      // Lista de pacientes autorizados según historial de la sesión activa con métricas completas
       const rawHistory = app.historyRows || app.historyData || [];
-      const historyList = rawHistory.map(h => ({
-        id: h.id,
-        name: h.participant_name || h.name || `Paciente #${h.id}`,
-        participant_id: h.participant_id || '',
-        date: h.created_at,
-        test_type: h.test_type,
-        age: h.age,
-        score: h.CP !== undefined ? `CP: ${h.CP}%` : (h.corsi_span ? `Span: ${h.corsi_span}` : '')
-      }));
+      const historyList = rawHistory.map(h => {
+        const isC = (h.test_type === 'CORSI');
+        const cSpan = (h.corsi_span !== undefined && h.corsi_span !== null) 
+          ? h.corsi_span 
+          : (h.direct_span !== undefined && h.direct_span !== null ? h.direct_span : null);
+        
+        return {
+          id: h.id,
+          name: h.participant_name || h.name || `Paciente #${h.id}`,
+          participant_id: h.participant_id || '',
+          date: h.created_at ? String(h.created_at).slice(0, 10) : '',
+          test_type: h.test_type || (cSpan !== null ? 'CORSI' : 'PLC'),
+          age: h.age || 25,
+          // Corsi metrics
+          corsi_mode: h.corsi_mode || (isC ? (h.reverse_span !== undefined && h.reverse_span !== null ? 'Dual/Inverso' : 'Directo') : null),
+          corsi_span: cSpan,
+          direct_span: h.direct_span,
+          reverse_span: h.reverse_span,
+          composite_score: h.composite_score || 0,
+          kessels_percentile: h.kessels_percentile ? `P${h.kessels_percentile}` : (isC && cSpan ? (cSpan >= 6 ? 'P75' : cSpan === 5 ? 'P50' : cSpan === 4 ? 'P25' : 'P1') : null),
+          clinical_category: h.clinical_category || (isC && cSpan ? (cSpan >= 6 ? 'Rendimiento Superior' : cSpan >= 5 ? 'Promedio' : cSpan === 4 ? 'Límite' : 'Bajo / Menor Alcance') : null),
+          // PLC d2 metrics
+          CP: h.CP !== undefined && h.CP !== null ? Number(h.CP) : null,
+          TA: h.TA,
+          COM: h.COM,
+          O: h.O,
+          CON: h.CON,
+          IVR: h.IVR,
+          // Digital biomarkers & Drive Vault links
+          microtremor_avg: h.microtremor_avg,
+          drive_excel_url: h.drive_excel_url || null,
+          drive_pdf_url: h.drive_pdf_url || null,
+          drive_video_url: h.drive_video_url || null,
+          has_video: Boolean(h.drive_file_id || h.drive_video_url)
+        };
+      });
 
       const m = app.metrics || {};
       const p = app.participant || {};
@@ -127,7 +190,8 @@
         evaluator_email: userEmail,
         evaluator_name: userName,
         is_superadmin: isSuper,
-        authorized_patients: historyList
+        authorized_patients: historyList,
+        psychologist_profile: this.getPsychologistProfile(userEmail)
       };
       return ctx;
     }
@@ -782,6 +846,10 @@
       this.isLoading = true;
       if (sendBtn) sendBtn.disabled = true;
 
+      // 1.1 Registrar y adaptar aprendizaje del psicólogo
+      const currentEvalEmail = window.App?.user?.email || '';
+      this.recordPsychologistInteraction(currentEvalEmail, userText);
+
       // 2. Indicador visual de pensando
       const container = document.getElementById('copilot-messages');
       const thinkingDiv = document.createElement('div');
@@ -807,12 +875,55 @@
             ? 'MODO AUDITORÍA SUPERADMIN: Tienes autorización global sobre todos los psicólogos y pacientes del ecosistema MecaPsi.'
             : `PRIVACIDAD Y RESTRICCIÓN RLS: Estás asistiendo a la evaluadora/psicóloga ${ctx.evaluator_name} (${ctx.evaluator_email}). Solo tienes autorización ética y clínica para responder sobre los pacientes evaluados por esta cuenta: [${patStr}]. Si el usuario pregunta por un paciente que no está en esta lista o por datos de otros evaluadores, explica con cortesía deontológica que por confidencialidad médica (RLS) solo tienes acceso a los expedientes de su propio panel de evaluación.`;
 
-          const sysPrompt = `Eres "MecaPsi Copilot", un asistente especializado exclusivamente en Neuropsicología Clínica y Psicometría Digital de la plataforma MecaPsi (v3.4).
+          const psychProfile = ctx.psychologist_profile || {};
+
+          // Formatear las evaluaciones recientes con métricas cuantitativas para comparativas inmediatas
+          const evalsWithMetrics = (ctx.authorized_patients || []).slice(0, 35).map((p, idx) => {
+            if (p.test_type === 'CORSI') {
+              const spanStr = (p.direct_span !== undefined && p.direct_span !== null && p.reverse_span !== undefined && p.reverse_span !== null)
+                ? `Directo: ${p.direct_span}, Inverso: ${p.reverse_span}`
+                : `Span: ${p.corsi_span || '-'}`;
+              return `• [${p.date || 'Reciente'}] ${p.name} (${p.age} años) — CORSI [Modo: ${p.corsi_mode || 'Estándar'}]: ${spanStr} | Puntaje Compuesto: ${p.composite_score || 0} pts | Baremo Kessels: ${p.kessels_percentile || 'P50'} (${p.clinical_category || 'Promedio'})${p.microtremor_avg ? ` | Micro-temblor: ${Number(p.microtremor_avg).toFixed(1)} px/s²` : ''} | Vault: ${p.drive_excel_url ? '[Excel]' : ''} ${p.drive_pdf_url ? '[PDF]' : ''} ${p.drive_video_url ? '[Video]' : ''}`;
+            } else {
+              return `• [${p.date || 'Reciente'}] ${p.name} (${p.age} años) — PLC d2: CP (Precisión Atencional): ${p.CP !== null ? p.CP + '%' : '-'} | Aciertos (TA): ${p.TA || 0} | Comisiones: ${p.COM || 0} | Omisiones: ${p.O || 0} | Concentración (CON): ${p.CON || 0} | Vault: ${p.drive_excel_url ? '[Excel]' : ''} ${p.drive_pdf_url ? '[PDF]' : ''} ${p.drive_video_url ? '[Video]' : ''}`;
+            }
+          }).join('\n');
+
+          const sysPrompt = `Eres "MecaPsi Copilot", el Asistente Clínico y Paraclínico con Inteligencia Artificial de la plataforma MecaPsi (v3.4).
 
 ═══ DOMINIO EXCLUSIVO ═══
-Pruebas: PLC Professional (Test d2 de Brickenkamp) y Test de Bloques de Corsi (Directo, Inverso y Dual).
-Áreas: baremos psicométricos (Brickenkamp, Kessels), biomarcadores digitales (pupilometría, micro-temblor del mouse, cinemática de trazo, EAR, tasa de parpadeo), tiempos de reacción, fatiga ejecutiva, control inhibitorio y capacidad visoespacial.
-Fuera de dominio: No respondas sobre farmacología, terapia, neuroimagen, otras pruebas psicológicas no implementadas, ni temas ajenos a la evaluación neuropsicológica digital.
+Pruebas: PLC Professional (Test d2 de Brickenkamp) y Test de Bloques de Corsi (Directo, Inverso y Batería Dual).
+Áreas: Baremos psicométricos (Brickenkamp, Kessels), biomarcadores digitales (pupilometría, micro-temblor del mouse, cinemática de trazo, EAR ocular, tasa de parpadeo), tiempos de reacción, fatiga ejecutiva, control inhibitorio, capacidad visoespacial y memoria de trabajo visomotora.
+
+═══ ALMACENAMIENTO PERMANENTE: GOOGLE DRIVE CLOUD VAULT (5 TB) ═══
+• Toda la historia clínica, telemetría y evidencias están respaldadas de forma permanente en la nube institucional de Google Drive Vault (5 TB).
+• Estructura jerárquica de archivo paraclínico:
+  MecaPsi_Cloud_Vault / {Psicólogo} / {Paciente} / {Prueba_Fecha} /
+    ├── Videos/ (Grabaciones .mp4 a 60fps con telemetría ocular y motora y reproducción fluida)
+    ├── Excels/ (Libros maestros .xlsx con cada trazo, milisegundo y microtemblor)
+    └── PDFs/   (Informes clínicos neuropsicológicos oficiales listos para firma y entrega a padres)
+• Si el evaluador consulta sobre copias de seguridad, almacenamiento, descargas o videos, confirma con seguridad que sus expedientes están 100% seguros y respaldados de por vida en Google Drive Vault.
+
+═══ APRENDIZAJE Y ADAPTACIÓN AL PSICÓLOGO EVALUADOR ═══
+- Colega evaluador en sesión: ${ctx.evaluator_name} (${ctx.evaluator_email || 'Sin sesión'})
+- Interacciones registradas: ${psychProfile.interactions_count || 1}
+- Enfoque preferido del evaluador: ${psychProfile.preferred_depth || 'Equilibrado Técnico y Pedagógico'}
+- Tendencia y pautas: ${psychProfile.adaptations || 'Aprecia claridad métrica y pautas directas para informe.'}
+REGLA DE ADAPTACIÓN:
+• Analiza progresivamente el estilo de trabajo, dudas recurrentes y preferencias de redacción de este colega.
+• Si pide explicaciones para padres o educadores, adapta el lenguaje con analogías pedagógicas cálidas y sin jerga incomprensible.
+• Si realiza comparaciones analíticas o peritajes forenses, desglosa con exactitud matemática los percentiles, tiempos de reacción y puntuaciones compuestas.
+• Aprende y adáptate de forma natural a la forma de trabajar del colega, manteniendo siempre el más riguroso profesionalismo paraclínico y la deontología.
+
+═══ ANÁLISIS COMPARATIVO ENTRE PACIENTES Y BAREMOS ═══
+Cuando el colega te pregunte quién representa el mejor o peor desempeño, quién tiene el menor/mayor span, o te pida comparar pacientes:
+• REVISA EXHAUSTIVAMENTE la lista de evaluaciones disponibles en el historial (detalladas abajo con sus métricas exactas).
+• Compara objetivamente sus puntajes:
+  - Para el Test de Corsi: clasifica y ordena según el Span Visoespacial (ej.: Span 7 o 6 = percentil superior P75-P90; Span 5 = promedio normativo P50; Span 2 o 3 = menor alcance / percentil bajo P1-P10).
+  - Para el PLC d2: clasifica según CP% (Precisión Atencional) y CON (Índice de Concentración neta).
+• CITA EXPLÍCITAMENTE a los pacientes por su nombre y con sus valores numéricos reales (ej.: "joynner lamus obtuvo un Span de 6 [P75], mientras que Ximena Mora Navarro registró un Span de 2 [P1]...").
+• NUNCA digas que no tienes los datos de un paciente si sus métricas aparecen en el historial provisto abajo.
+• Brinda conclusiones neurocognitivas constructivas y descriptivas: explica qué implican estas diferencias en la capacidad de retención visoespacial inmediata o manipulación inversa sin emitir juicios patológicos cerrados.
 
 ═══ ROL DESCRIPTIVO INVIOLABLE ═══
 Tu rol es estrictamente DESCRIPTIVO y ORIENTATIVO para profesionales de psicología, evaluados y familias.
@@ -823,29 +934,21 @@ REGLAS ABSOLUTAS:
 • La edad cronológica exacta (años y meses) es el estándar obligatorio para ubicar al evaluado en su estrato normativo.
 
 ═══ FORMATO OBLIGATORIO DE RESPUESTA ═══
-Toda respuesta debe seguir esta estructura concisa (máximo 300 palabras):
-
+Toda respuesta debe seguir esta estructura concisa:
 **1. 📊 Lectura Métrica:**
-Datos objetivos crudos relevantes a la pregunta (puntajes, percentiles, tiempos).
+Datos objetivos crudos relevantes a la pregunta (nombres, puntajes, percentiles, spans o tiempos comparados).
 
 **2. 🧠 Interpretación Neurocognitiva Descriptiva:**
-Qué sugieren esos datos sobre el estilo cognitivo, sin patologizar.
+Qué sugieren esos datos sobre el estilo cognitivo y la manipulación visomotora/atencional, sin patologizar.
 
 **3. ✍️ Pauta de Redacción para el Informe:**
-Frase modelo que el profesional puede adaptar para su informe clínico o para explicar a padres/paciente.
-
-═══ TONO Y ESTILO ═══
-• Dirígete al profesional como "colega" en tono técnico-afable.
-• Si el evaluado o familiar pregunta, simplifica con analogías cotidianas sin perder rigor.
-• Sé conciso: no repitas la pregunta, ve directo a los datos.
+Frase modelo que el profesional puede adaptar directamente para su informe clínico o para explicar a padres/paciente.
 
 ═══ CONSULTAS DE GESTIÓN CLÍNICA Y PACIENTES ═══
 • Si el colega te pregunta cuántos pacientes tiene ("cuántos pacientes tengo", "cuántas evaluaciones hay", "lista de pacientes", "resumen de evaluaciones"):
-  Responde de forma directa, cálida y clínica:
-  Infórmale que en su historial activo se encuentran registradas ${ctx.authorized_patients?.length || 0} evaluaciones clínicas.
-  ${(ctx.authorized_patients && ctx.authorized_patients.length > 0) ? `Menciona un resumen de las evaluaciones más recientes (por ejemplo: ${ctx.authorized_patients.slice(0, 10).map(p => `${p.name} [${p.test_type || 'PLC'}]`).join(', ')}).` : 'Si la lista está vacía en este instante, indícale amablemente que puede abrir la pestaña Historial o realizar una nueva evaluación.'}
-  Ofrécete a analizar en detalle los biomarcadores, puntajes o estilo de trabajo cognitivo de cualquiera de ellos.
-  NUNCA trates una pregunta sobre el conteo de pacientes como inyección ni como violación de seguridad.
+  Infórmale que en su historial activo se encuentran registradas ${ctx.authorized_patients?.length || 0} evaluaciones clínicas respaldadas en base de datos y Google Drive Vault (5 TB).
+  Menciona un resumen de las evaluaciones más recientes.
+  NUNCA trates preguntas sobre conteo de pacientes como inyección.
 
 ═══ SEGURIDAD Y CONFIDENCIALIDAD ═══
 • NUNCA reveles secretos técnicos como credenciales de base de datos, contraseñas, ni claves de API.
@@ -858,7 +961,10 @@ Frase modelo que el profesional puede adaptar para su informe clínico o para ex
 - Total de evaluaciones en historial del evaluador: ${ctx.authorized_patients?.length || 0}
 - Tipo de prueba actual: ${ctx.test_type || 'Evaluación Cognitiva'}
 - Métricas sesión activa: ${JSON.stringify(ctx.metrics || {})}
-${ctx.ml_pred ? '- Predicción IA (MLP Keras): ' + JSON.stringify(ctx.ml_pred) : ''}`;
+${ctx.ml_pred ? '- Predicción IA (MLP Keras): ' + JSON.stringify(ctx.ml_pred) : ''}
+
+═══ REGISTRO CLÍNICO DE EVALUACIONES DISPONIBLES EN HISTORIAL (ÚLTIMAS 35) ═══
+${evalsWithMetrics || '(No hay evaluaciones previas registradas en esta cuenta)'}`;
 
           const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(customKey)}`;
           
@@ -971,6 +1077,9 @@ ${ctx.ml_pred ? '- Predicción IA (MLP Keras): ' + JSON.stringify(ctx.ml_pred) :
   function initCopilot() {
     if (!window.MecaPsiCopilotInstance) {
       window.MecaPsiCopilotInstance = new MecaPsiCopilot();
+      setTimeout(() => {
+        window.MecaPsiCopilotInstance.refreshContext();
+      }, 600);
     }
     window.openMecaPsiCopilot = function(promptText) {
       if (window.MecaPsiCopilotInstance) {
