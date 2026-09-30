@@ -123,6 +123,27 @@ const App = window.App = {
       setTimeout(() => ripple.remove(), 500);
     });
 
+    // Listener global para cerrar modales al hacer clic en el fondo oscuro (backdrop)
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('modal-overlay')) {
+        e.target.classList.remove('active');
+        if (e.target.id === 'video-notice-modal' || e.target.id === 'camera-choice-modal') {
+          e.target.remove();
+        }
+      }
+    });
+
+    // Tecla Escape para salir de modales y restaurar pantalla limpia
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (typeof this.closeVideoModal === 'function') this.closeVideoModal();
+        document.querySelectorAll('.modal-overlay').forEach(m => {
+          m.classList.remove('active');
+          if (m.id === 'video-notice-modal') m.remove();
+        });
+      }
+    });
+
     // Si hay usuario logueado -> menú + heartbeat, si no -> login
     if (this.user) {
       this.startSessionHeartbeat();
@@ -526,6 +547,14 @@ const App = window.App = {
   },
 
   render() {
+    // Limpieza integral y proactiva de cualquier modal o backdrop residual que oscurezca la pantalla
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.classList.remove('active');
+      if (el.id === 'video-notice-modal' || el.id === 'camera-choice-modal' || el.id === 'mandatory-screen-modal' || el.parentElement === document.body) {
+        el.remove();
+      }
+    });
+
     const app = document.getElementById('app');
     app.innerHTML = '';
     app.className = 'fade-in';
@@ -5251,9 +5280,26 @@ const App = window.App = {
      PANTALLA 6: HISTORIAL
   ══════════════════════════════════════════════════════════════════════ */
   async renderHistory(app) {
+    // Garantizar remoción inmediata de cualquier velo oscuro o modal residual
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    const oldNotice = document.getElementById('video-notice-modal');
+    if (oldNotice) oldNotice.remove();
+
+    const isSuperAdmin = Boolean(
+      this.user?.user_metadata?.role === 'superadmin' ||
+      this.user?.app_metadata?.role === 'superadmin' ||
+      this.user?.email === 'dillanino05@gmail.com'
+    );
+
     app.innerHTML = `
       <div class="plc-header">
-        <div><h1>Historial de Evaluaciones</h1></div>
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <h1 style="margin:0;">Historial de Evaluaciones</h1>
+            ${isSuperAdmin ? `<span style="background:#FFD700;color:#000;font-size:0.7rem;font-weight:900;padding:2px 8px;border-radius:12px;letter-spacing:0.5px;">SUPERADMIN GLOBAL</span>` : ''}
+          </div>
+          <div class="sub">${isSuperAdmin ? 'Base de datos global multiclínica y sincronización Google Drive Vault' : 'Registro de evaluaciones clínicas y respaldos'}</div>
+        </div>
         <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')">← Menú</button>
       </div>
 
@@ -5313,24 +5359,70 @@ const App = window.App = {
 
       <div class="page fade-in">
         <div class="card" id="history-card">
-          <div style="text-align:center;padding:20px;color:#546E7A;">Cargando...</div>
+          <div style="text-align:center;padding:28px;color:#546E7A;font-weight:600;">
+            <div class="spinner" style="margin:0 auto 12px;width:28px;height:28px;"></div>
+            Sincronizando evaluaciones con el servidor...
+          </div>
         </div>
       </div>`;
 
     let rows = [];
+    let fetchError = null;
     try {
       const sess = await this.supabase.auth.getSession();
-      const token = sess.data.session ? sess.data.session.access_token : '';
+      let token = sess?.data?.session ? sess.data.session.access_token : '';
+      if (!token) {
+        const { data: refData } = await this.supabase.auth.refreshSession();
+        if (refData?.session) token = refData.session.access_token;
+      }
       const r = await fetch(API_BASE + '/api/history', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!r.ok) {
+        const errJson = await r.json().catch(() => ({}));
+        throw new Error(errJson.detail || `Error HTTP ${r.status} en la API de historial`);
+      }
       rows = await r.json();
+      if (!Array.isArray(rows)) {
+        throw new Error(rows.detail || "Formato de datos no reconocido");
+      }
       this.historyRows = rows;
-    } catch (e) { }
+    } catch (e) {
+      console.error("[HISTORY-FETCH-ERROR]", e);
+      fetchError = e.message;
+    }
 
     const card = document.getElementById('history-card');
+    if (!card) return;
+
+    if (fetchError) {
+      card.innerHTML = `
+        <div style="text-align:center;padding:40px 20px;">
+          <div style="font-size:2.4rem;margin-bottom:12px;">⚠️</div>
+          <h3 style="color:#C62828;margin-bottom:8px;">Error al Cargar Historial</h3>
+          <p style="color:#546E7A;font-size:0.9rem;max-width:500px;margin:0 auto 20px;line-height:1.5;">
+            ${fetchError}
+          </p>
+          <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="App.renderHistory(document.getElementById('app'))">🔄 Reintentar</button>
+            <button class="btn btn-secondary" onclick="App.nav('login')">🔑 Iniciar Sesión de Nuevo</button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
     if (!rows || !rows.length) {
-      card.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px;">No hay evaluaciones guardadas.</p>';
+      card.innerHTML = `
+        <div style="text-align:center;padding:50px 20px;">
+          <div style="font-size:2.5rem;margin-bottom:12px;">📂</div>
+          <h3 style="color:#455A64;margin-bottom:8px;">No hay evaluaciones guardadas</h3>
+          <p style="color:#90A4AE;font-size:0.9rem;max-width:460px;margin:0 auto 20px;line-height:1.5;">
+            ${isSuperAdmin ? 'No se encontraron registros en la base de datos o aún no se han sincronizado evaluaciones.' : 'Aún no has registrado ninguna evaluación con tu cuenta.'}
+          </p>
+          <button class="btn btn-primary" onclick="App.nav('form')">🚀 Realizar Evaluación</button>
+        </div>
+      `;
       return;
     }
 
@@ -6260,6 +6352,14 @@ const App = window.App = {
     }
   },
 
+  closeNoticeModal() {
+    const modal = document.getElementById('video-notice-modal');
+    if (modal) {
+      modal.classList.remove('active');
+      modal.remove();
+    }
+  },
+
   showVideoNoticeModal(message) {
     let modal = document.getElementById('video-notice-modal');
     if (!modal) {
@@ -6268,9 +6368,12 @@ const App = window.App = {
       modal.className = 'modal-overlay';
       document.body.appendChild(modal);
     }
+    modal.onclick = (e) => {
+      if (e.target === modal) this.closeNoticeModal();
+    };
     modal.innerHTML = `
       <div style="background:#0F172A;border:1px solid #334155;border-radius:16px;max-width:540px;width:92%;padding:28px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);color:#F8FAFC;font-family:'Inter',sans-serif;position:relative;">
-        <button onclick="document.getElementById('video-notice-modal').classList.remove('active')" style="position:absolute;top:16px;right:18px;background:none;border:none;color:#94A3B8;font-size:1.5rem;cursor:pointer;line-height:1;">×</button>
+        <button onclick="App.closeNoticeModal()" style="position:absolute;top:16px;right:18px;background:none;border:none;color:#94A3B8;font-size:1.5rem;cursor:pointer;line-height:1;">×</button>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
           <div style="width:44px;height:44px;border-radius:12px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">
             📹
@@ -6291,7 +6394,7 @@ const App = window.App = {
           <a href="https://drive.google.com" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#1E293B;color:#38BDF8;border:1px solid #0284C7;font-size:0.82rem;font-weight:700;text-decoration:none;">
             📂 Explorar Drive Vault
           </a>
-          <button onclick="document.getElementById('video-notice-modal').classList.remove('active')" style="padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#0284C7,#2563EB);color:#FFF;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;">
+          <button onclick="App.closeNoticeModal()" style="padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#0284C7,#2563EB);color:#FFF;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;">
             Entendido
           </button>
         </div>
@@ -7098,7 +7201,12 @@ const App = window.App = {
 
   closeVideoModal() {
     this.stopAIHUDLoop();
-    const modal = document.getElementById('video-modal');
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+      modal.classList.remove('active');
+      if (modal.id === 'video-notice-modal' || modal.parentElement === document.body) {
+        modal.remove();
+      }
+    });
     const player = document.getElementById('player-video');
     const driveFrame = document.getElementById('player-drive-frame');
     if (driveFrame) {
@@ -7109,9 +7217,6 @@ const App = window.App = {
       player.pause();
       player.src = "";
       player.style.display = 'block';
-    }
-    if (modal) {
-      modal.classList.remove('active');
     }
     this.activeVideoEvalData = null;
   },
