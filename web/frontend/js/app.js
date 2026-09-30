@@ -3860,6 +3860,11 @@ const App = window.App = {
         <div class="flex gap-2" style="align-items:center;">
           <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')">🏠 Menú</button>
           <button class="btn btn-ghost btn-sm" onclick="App.nav('form')">🔄 Nueva eval.</button>
+          ${(this.recordedVideoBlob || window._mecapsiLastVideoBlob || m.drive_video_url || this.evalId) ? `
+            <button class="btn btn-sm" onclick="App.playVideo(App.evalId, this)" style="background:linear-gradient(135deg,#0284C7,#2563EB);color:#FFF;font-weight:700;display:inline-flex;align-items:center;gap:5px;border:none;border-radius:6px;box-shadow:0 2px 5px rgba(2,132,199,0.3);cursor:pointer;" title="Reproducir grabación audiovisual de la sesión">
+              🎥 Ver Grabación
+            </button>
+          ` : ''}
           <button class="btn btn-primary btn-sm" onclick="ReportPDF.downloadReport('corsi')" style="background:#7B1FA2;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 5px rgba(123,31,162,0.3);">📄 Descargar Informe PDF</button>
           ${this.evalId ? `<button class="btn btn-success btn-sm" onclick="App.downloadExcel()">📊 Descargar Excel</button>` : ''}
         </div>
@@ -4554,6 +4559,11 @@ const App = window.App = {
         <div class="flex gap-2" style="align-items:center;">
           <button class="btn btn-ghost btn-sm" onclick="App.nav('menu')">🏠 Menú</button>
           <button class="btn btn-ghost btn-sm" onclick="App.validateForm ? App.nav('form') : App.nav('form')">🔄 Nueva eval.</button>
+          ${(this.recordedVideoBlob || window._mecapsiLastVideoBlob || m.drive_video_url || this.evalId) ? `
+            <button class="btn btn-sm" onclick="App.playVideo(App.evalId, this)" style="background:linear-gradient(135deg,#0284C7,#2563EB);color:#FFF;font-weight:700;display:inline-flex;align-items:center;gap:5px;border:none;border-radius:6px;box-shadow:0 2px 5px rgba(2,132,199,0.3);cursor:pointer;" title="Reproducir grabación audiovisual de la sesión">
+              🎥 Ver Grabación
+            </button>
+          ` : ''}
           <button class="btn btn-primary btn-sm" onclick="ReportPDF.downloadReport('plc')" style="background:#1565C0;color:#fff;font-weight:700;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 5px rgba(21,101,192,0.3);">📄 Descargar Informe PDF</button>
           ${this.evalId ? `<button class="btn btn-success btn-sm" onclick="App.downloadExcel()">📊 Descargar Excel</button>` : ''}
         </div>
@@ -6061,14 +6071,20 @@ const App = window.App = {
       );
 
       // Prioridad 0: Si tenemos el video grabado localmente en memoria de la sesión actual, reproducirlo de forma instantánea
-      const isCurrentSession = (this.evalId && (Number(id) === Number(this.evalId))) || (!id && this.recordedVideoBlob);
+      const hasLocalBlob = Boolean(this.recordedVideoBlob || window._mecapsiLastVideoBlob);
+      const isCurrentSession = hasLocalBlob && (
+        (!id) ||
+        (this.evalId && Number(id) === Number(this.evalId)) ||
+        (this.historyRows && this.historyRows.length > 0 && Number(this.historyRows[0]?.id) === Number(id)) ||
+        (this.screen === 'results' || this.screen === 'completion')
+      );
       const localBlob = isCurrentSession ? (this.recordedVideoBlob || window._mecapsiLastVideoBlob) : null;
       if (localBlob) {
         if (btn) {
           btn.textContent = isSuperAdmin ? "🛡️ Visor IA Forense" : "🎥 Ver";
           btn.disabled = false;
         }
-        this.currentVideoId = id || this.evalId;
+        this.currentVideoId = id || this.evalId || 'local';
         const localBlobUrl = URL.createObjectURL(localBlob);
         this.currentVideoUrl = localBlobUrl;
         this.currentVideoDownloadUrl = localBlobUrl;
@@ -6207,9 +6223,44 @@ const App = window.App = {
         this.showVideoNoticeModal(d.detail || "No se pudo recuperar la grabación de esta sesión.");
       }
     } catch (e) {
+      // Fallback resiliente: Si la red falló o devolvió 404, pero tenemos el video en memoria de la sesión local activa
+      if (this.recordedVideoBlob || window._mecapsiLastVideoBlob) {
+        console.info("Fallback a video en memoria tras aviso de red:", e.message);
+        const fallbackBlob = this.recordedVideoBlob || window._mecapsiLastVideoBlob;
+        const localBlobUrl = URL.createObjectURL(fallbackBlob);
+        this.currentVideoId = id || this.evalId || 'local';
+        this.currentVideoUrl = localBlobUrl;
+        this.currentVideoDownloadUrl = localBlobUrl;
+        this.currentVideoFilename = `Sesion_${this.sessionTag || id || 'reciente'}.mp4`;
+        this.activeVideoEvalData = {
+          url: localBlobUrl,
+          download_url: localBlobUrl,
+          participant: {
+            name: this.participant?.name || 'Evaluado',
+            doc_id: this.participant?.id || 'P01',
+            test_type: this.testType || 'CORSI'
+          },
+          drive_url: this.metrics?.drive_video_url || ''
+        };
+        this.ensureVideoModal(isSuperAdmin);
+        const modal = document.getElementById('video-modal');
+        const player = document.getElementById('player-video');
+        const driveFrame = document.getElementById('player-drive-frame');
+        if (driveFrame) driveFrame.style.display = 'none';
+        if (player) {
+          player.style.display = 'block';
+          player.src = localBlobUrl;
+        }
+        modal.classList.add('active');
+        if (btn) {
+          btn.textContent = isSuperAdmin ? "🛡️ Visor IA Forense" : "🎥 Ver";
+          btn.disabled = false;
+        }
+        return;
+      }
       this.showVideoNoticeModal(e.message);
       if (btn) {
-        btn.textContent = "🎥 Ver";
+        btn.textContent = isSuperAdmin ? "🛡️ Visor IA Forense" : "🎥 Ver";
         btn.disabled = false;
       }
     }

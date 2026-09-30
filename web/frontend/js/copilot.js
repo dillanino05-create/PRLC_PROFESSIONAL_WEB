@@ -797,19 +797,34 @@ Contexto activo:
 - Resumen de métricas: ${JSON.stringify(ctx.metrics || {})}`;
 
           const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(customKey)}`;
+          
+          // Formatear historial conversacional multi-turno para mantener hilo contextual
+          const contents = [];
+          const recentHistory = (this.history || []).slice(-8);
+          for (const item of recentHistory) {
+            if (!item.content) continue;
+            contents.push({
+              role: item.role === 'user' ? 'user' : 'model',
+              parts: [{ text: item.content }]
+            });
+          }
+          contents.push({
+            role: 'user',
+            parts: [{ text: userText }]
+          });
+
           const gRes = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [
-                {
-                  role: 'user',
-                  parts: [{ text: `${sysPrompt}\n\nPregunta del profesional:\n${userText}` }]
-                }
-              ],
+              systemInstruction: {
+                parts: [{ text: sysPrompt }]
+              },
+              contents: contents,
               generationConfig: {
                 temperature: 0.6,
-                maxOutputTokens: 1000
+                maxOutputTokens: 2500,
+                thinkingConfig: { thinkingBudget: 0 }
               }
             })
           });
@@ -864,7 +879,7 @@ Contexto activo:
         this.addMessage("bot", reply);
       } else {
         // Prioridad 3: Fallback clínico heurístico local garantizado
-        this.addMessage("bot", `🤖 **MecaPsi Copilot (Asistencia Paraclínica Descriptiva):**\n\nEn relación a tu consulta sobre **${ctx.test_type || 'la evaluación'}** para **${ctx.participant_name || 'el paciente'}**:\n\n• **Explicación Pedagógica (Sin Patologizar):** Al comunicar este reporte a los padres o al paciente, es fundamental encuadrar los hallazgos en términos de *estilo de trabajo atencional* (ritmo, precisión y autorregulación) y no como un "déficit irreversible". Explica que las fluctuaciones entre líneas reflejan el esfuerzo cognitivo natural y los tiempos necesarios de recuperación.\n• **Telemetría y Biomarcadores:** Los tiempos de reacción y la cinemática del ratón ofrecen evidencia objetiva de si hubo vacilación, fatiga al final de la prueba o impulsividad en los primeros compases.\n\n💡 *El modelo Gemini 2.0 Flash se encuentra listo para profundizar en cualquier baremo o métrica.*`);
+        this.addMessage("bot", `🤖 **MecaPsi Copilot (Asistencia Paraclínica Descriptiva):**\n\nEn relación a tu consulta sobre **${ctx.test_type || 'la evaluación'}** para **${ctx.participant_name || 'el paciente'}**:\n\n• **Explicación Pedagógica (Sin Patologizar):** Al comunicar este reporte a los padres o al paciente, es fundamental encuadrar los hallazgos en términos de *estilo de trabajo atencional* (ritmo, precisión y autorregulación) y no como un "déficit irreversible". Explica que las fluctuaciones entre líneas reflejan el esfuerzo cognitivo natural y los tiempos necesarios de recuperación.\n• **Telemetría y Biomarcadores:** Los tiempos de reacción y la cinemática del ratón ofrecen evidencia objetiva de si hubo vacilación, fatiga al final de la prueba o impulsividad en los primeros compases.\n\n💡 *El motor de Gemini 2.5 Flash se encuentra activo para responder sobre cualquier métrica o baremo.*`);
       }
     } catch (errGlobal) {
       if (document.getElementById('copilot-thinking-indicator')) {

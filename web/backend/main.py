@@ -888,6 +888,119 @@ def transcode_webm_to_mp4(webm_bytes: bytes) -> bytes:
             except Exception:
                 pass
 
+@app.post("/api/vault/upload-video")
+async def vault_upload_video(req: UploadVideoRequest, auth_ctx: dict = Depends(get_supabase)):
+    """Proxy resiliente de carga de video a Google Drive Vault (5 TB) con actualización de BD."""
+    sb = auth_ctx["client"]
+    user_email = auth_ctx.get("email", "")
+    user = auth_ctx.get("user")
+    user_meta = getattr(user, "user_metadata", {}) or {}
+    
+    # Resolver nombre de carpeta del psicólogo
+    psych_folder = "Psicologo_General"
+    u_lower = (user_email + " " + (user_meta.get("full_name") or "")).lower()
+    if "ximena" in u_lower or "jimena" in u_lower:
+        psych_folder = "Dra_Ximena"
+    elif "andrea" in u_lower:
+        psych_folder = "Dra_Andrea"
+    elif "edgar" in u_lower:
+        psych_folder = "Dr_Edgar"
+    elif "dillan" in u_lower or "dilan" in u_lower:
+        psych_folder = "Ingeniero_Dilan"
+    else:
+        psych_folder = (user_meta.get("full_name") or user_email.split("@")[0] or "Psicologo_General").replace(" ", "_")
+
+    fname = req.filename or f"PLC_Sesion_{req.eval_id or 'reciente'}.mp4"
+    if not fname.lower().endswith(".mp4") and not fname.lower().endswith(".webm"):
+        fname += ".mp4"
+
+    payload = {
+        "token": DRIVE_VAULT_TOKEN,
+        "psychologist": psych_folder,
+        "patient_id": req.patient_id or "PAC_ANONIMO",
+        "test_type": req.test_type or "PLC",
+        "file_type": "video",
+        "file_name": fname,
+        "file_base64": req.video_base64,
+        "mime_type": req.mime_type or "video/mp4"
+    }
+
+    drive_res = None
+    try:
+        async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+            headers = {"Content-Type": "text/plain;charset=utf-8"}
+            r = await client.post(DRIVE_WEBHOOK_URL, json=payload, headers=headers)
+            if r.status_code == 200:
+                drive_res = r.json()
+    except Exception as up_err:
+        print(f"[DRIVE-VAULT-BACKEND-WARN] Error subiendo video a Drive Webhook: {up_err}")
+
+    # Si se sincronizó con Google Drive y tenemos eval_id, actualizar metrics_json en Supabase
+    if drive_res and drive_res.get("success") and req.eval_id:
+        try:
+            row_res = sb.table("evaluations").select("metrics_json").eq("id", req.eval_id).execute()
+            if row_res.data:
+                m = row_res.data[0].get("metrics_json") or {}
+                m["drive_video_url"] = drive_res.get("file_url")
+                m["drive_file_id"] = drive_res.get("file_id")
+                m["drive_folder"] = drive_res.get("folder_path")
+                m["video_path"] = fname
+                sb.table("evaluations").update({"metrics_json": m}).eq("id", req.eval_id).execute()
+        except Exception as db_err:
+            print(f"[DRIVE-VAULT-DB-WARN] Error actualizando Supabase con datos de video Drive: {db_err}")
+
+    if drive_res and drive_res.get("success"):
+        return drive_res
+
+    return {
+        "success": False,
+        "error": "No se pudo sincronizar el video con Google Drive Vault desde el backend"
+    }
+
+@app.post("/api/vault/upload-pdf")
+async def vault_upload_pdf(req: UploadPdfRequest, auth_ctx: dict = Depends(get_supabase)):
+    """Proxy de respaldo de informes clínicos PDF a Google Drive Vault."""
+    user_email = auth_ctx.get("email", "")
+    user = auth_ctx.get("user")
+    user_meta = getattr(user, "user_metadata", {}) or {}
+    
+    psych_folder = "Psicologo_General"
+    u_lower = (user_email + " " + (user_meta.get("full_name") or "")).lower()
+    if "ximena" in u_lower or "jimena" in u_lower:
+        psych_folder = "Dra_Ximena"
+    elif "andrea" in u_lower:
+        psych_folder = "Dra_Andrea"
+    elif "edgar" in u_lower:
+        psych_folder = "Dr_Edgar"
+    elif "dillan" in u_lower or "dilan" in u_lower:
+        psych_folder = "Ingeniero_Dilan"
+
+    fname = req.filename or f"Informe_Clinico_{req.patient_id or 'paciente'}.pdf"
+    if not fname.lower().endswith(".pdf"):
+        fname += ".pdf"
+
+    payload = {
+        "token": DRIVE_VAULT_TOKEN,
+        "psychologist": psych_folder,
+        "patient_id": req.patient_id or "PAC_ANONIMO",
+        "test_type": req.test_type or "PLC",
+        "file_type": "pdf",
+        "file_name": fname,
+        "file_base64": req.pdf_base64,
+        "mime_type": "application/pdf"
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            headers = {"Content-Type": "text/plain;charset=utf-8"}
+            r = await client.post(DRIVE_WEBHOOK_URL, json=payload, headers=headers)
+            if r.status_code == 200:
+                return r.json()
+    except Exception as up_err:
+        print(f"[DRIVE-VAULT-PDF-WARN] Error subiendo PDF a Drive Webhook: {up_err}")
+
+    return {"success": False, "error": "No se pudo respaldar el PDF en Drive Vault"}
+
 @app.get('/api/video/{eval_id}/stream')
 async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
     sb = auth_ctx["client"]
@@ -1799,7 +1912,11 @@ async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None
             payload = {
                 "system_instruction": {"parts": [{"text": system_instruction}]},
                 "contents": contents,
-                "generationConfig": {"temperature": 0.4, "maxOutputTokens": 1000}
+                "generationConfig": {
+                    "temperature": 0.4,
+                    "maxOutputTokens": 2500,
+                    "thinkingConfig": {"thinkingBudget": 0}
+                }
             }
 
             async with httpx.AsyncClient(timeout=25.0) as client:
