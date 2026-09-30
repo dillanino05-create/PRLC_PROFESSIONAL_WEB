@@ -391,6 +391,7 @@
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                   body: JSON.stringify({
+                    eval_id: app.evalId || null,
                     patient_id: payload.patient_id,
                     test_type: payload.test_type,
                     filename: payload.file_name,

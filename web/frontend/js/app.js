@@ -682,110 +682,107 @@ const App = window.App = {
     );
 
     app.innerHTML = `
-      <div id="test-screen" style="background:linear-gradient(135deg,#0D1322 0%,#151C38 50%,#1A237E 100%);min-height:100vh;display:flex;flex-direction:column;justify-content:space-between;padding:16px 28px;box-sizing:border-box;">
-        
-        <!-- Top Executive Navbar -->
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:12px;">
-          <div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <span style="font-family:'Playfair Display',serif;font-size:1.85rem;font-weight:800;color:#FFF;letter-spacing:-0.5px;line-height:1;">
-                PLC Professional
-              </span>
-              <span style="background:rgba(79,70,229,0.25);color:#A5B4FC;border:1px solid rgba(165,180,252,0.3);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:12px;letter-spacing:0.5px;">
-                MecaPsi v3.4 (RedCOLSI)
-              </span>
-            </div>
-            <div style="font-size:0.84rem;color:#9FA8DA;margin-top:2px;">
-              Plataforma Multi-Test de Evaluación Neurocognitiva y Biomarcadores Digitales
-            </div>
+      <div class="plc-header">
+        <div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <h1 style="margin:0;font-size:1.75rem;">PLC Professional</h1>
+            <span style="background:rgba(255,255,255,0.18);color:#FFF;border:1px solid rgba(255,255,255,0.35);font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:14px;letter-spacing:0.5px;">
+              MecaPsi v3.4 (RedCOLSI)
+            </span>
           </div>
-
-          <!-- Top Status & Actions Bar -->
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            
-            <!-- Model Status Pill -->
-            <div class="model-badge ${this.modelWakingUp ? 'off' : this.modelOk ? 'ok' : 'off'}" style="margin:0;padding:4px 10px;font-size:0.75rem;border-radius:20px;display:flex;align-items:center;gap:6px;">
-              <span class="dot" style="margin:0;width:7px;height:7px;"></span>
-              ${this.modelWakingUp ? '⏳ IA Conectando...' : this.modelOk ? '● IA Activa' : '○ Modo Local'}
-            </div>
-
-            <!-- User Pill -->
-            <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);padding:4px 12px;border-radius:20px;font-size:0.8rem;color:#E0E7FF;display:flex;align-items:center;gap:6px;">
-              <span>👤 <strong>${this.user ? this.user.email : 'Profesional'}</strong></span>
-              ${isSuperAdmin ? `<span style="background:#FFD700;color:#000;font-size:0.65rem;font-weight:900;padding:1px 6px;border-radius:10px;">SUPERADMIN</span>` : ''}
-            </div>
-
-            <!-- Quick Action Buttons -->
-            <button class="btn btn-ghost btn-sm" onclick="App.nav('history')" style="color:#C5CAE9;border:1px solid rgba(255,255,255,0.2);padding:5px 12px;font-size:0.8rem;border-radius:8px;cursor:pointer;">
-              📋 Historial
-            </button>
-            
-            ${isSuperAdmin ? `
-            <button class="btn btn-ghost btn-sm" onclick="App.nav('superadmin')" style="background:rgba(255,215,0,0.12);color:#FFD700;border:1px solid rgba(255,215,0,0.4);padding:5px 12px;font-size:0.8rem;font-weight:700;border-radius:8px;cursor:pointer;">
-              🛡️ Admin
-            </button>
-            <button class="btn btn-primary btn-sm" onclick="App.nav('ailab')" style="background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#FFF;border:none;padding:5px 12px;font-size:0.8rem;font-weight:800;border-radius:8px;box-shadow:0 2px 8px rgba(99,102,241,0.4);cursor:pointer;">
-              🧬 Lab IA
-            </button>` : ''}
-
-            <button class="btn btn-ghost btn-sm" onclick="App.doLogout()" style="color:#FFCDD2;border:1px solid rgba(244,67,54,0.3);padding:5px 10px;font-size:0.8rem;border-radius:8px;cursor:pointer;" title="Cerrar Sesión">
-              🚪 Salir
-            </button>
+          <div class="sub" style="margin-top:3px;">
+            Plataforma Multi-Test de Evaluación Neurocognitiva y Biomarcadores Digitales
           </div>
         </div>
 
-        <!-- Main Bento Grid (3 Columnas Equilibradas para que TODO quepa en la pantalla) -->
-        <div style="flex:1;display:flex;align-items:center;padding:14px 0;">
-          <div style="display:grid;grid-template-columns:${isSuperAdmin ? 'repeat(auto-fit, minmax(290px, 1fr))' : 'repeat(auto-fit, minmax(360px, 1fr))'};gap:18px;width:100%;max-width:1380px;margin:0 auto;">
+        <!-- Top Status & Actions Bar -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          
+          <!-- Model Status Pill -->
+          <div class="model-badge ${this.modelWakingUp ? 'off' : this.modelOk ? 'ok' : 'off'}" style="margin:0;padding:5px 12px;font-size:0.75rem;border-radius:20px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#FFF;">
+            <span class="dot" style="margin:0;width:7px;height:7px;"></span>
+            ${this.modelWakingUp ? '⏳ IA Conectando...' : this.modelOk ? '● IA Activa' : '○ Modo Local'}
+          </div>
+
+          <!-- User Pill -->
+          <div style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);padding:5px 12px;border-radius:20px;font-size:0.8rem;color:#FFF;display:flex;align-items:center;gap:6px;">
+            <span>👤 <strong>${this.user ? this.user.email : 'Profesional'}</strong></span>
+            ${isSuperAdmin ? `<span style="background:#FFD700;color:#000;font-size:0.65rem;font-weight:900;padding:1px 6px;border-radius:10px;">SUPERADMIN</span>` : ''}
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <button class="btn btn-ghost btn-sm" onclick="App.nav('history')" style="color:#FFF;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.08);padding:6px 14px;font-size:0.82rem;font-weight:600;border-radius:8px;cursor:pointer;">
+            📋 Historial
+          </button>
+          
+          ${isSuperAdmin ? `
+          <button class="btn btn-ghost btn-sm" onclick="App.nav('superadmin')" style="background:rgba(255,215,0,0.2);color:#FFD700;border:1px solid rgba(255,215,0,0.5);padding:6px 14px;font-size:0.82rem;font-weight:800;border-radius:8px;cursor:pointer;">
+            🛡️ Admin
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="App.nav('ailab')" style="background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#FFF;border:none;padding:6px 14px;font-size:0.82rem;font-weight:800;border-radius:8px;box-shadow:0 2px 8px rgba(99,102,241,0.4);cursor:pointer;">
+            🧬 Lab IA
+          </button>` : ''}
+
+          <button class="btn btn-ghost btn-sm" onclick="App.doLogout()" style="color:#FFCDD2;border:1px solid rgba(244,67,54,0.4);background:rgba(244,67,54,0.15);padding:6px 12px;font-size:0.82rem;font-weight:600;border-radius:8px;cursor:pointer;" title="Cerrar Sesión">
+            🚪 Salir
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Page Container Light Clinical -->
+      <div class="page fade-in" style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:28px 40px;box-sizing:border-box;background:var(--bg);min-height:calc(100vh - 80px);">
+        
+        <div style="flex:1;display:flex;align-items:center;padding:10px 0;">
+          <div style="display:grid;grid-template-columns:${isSuperAdmin ? 'repeat(auto-fit, minmax(310px, 1fr))' : 'repeat(auto-fit, minmax(380px, 1fr))'};gap:22px;width:100%;max-width:1380px;margin:0 auto;">
             
             <!-- Card 1: PLC (Test d2) -->
-            <div style="background:rgba(255,255,255,0.06);backdrop-filter:blur(14px);border:1px solid rgba(144,202,249,0.25);border-radius:16px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 8px 24px rgba(0,0,0,0.2);min-height:390px;">
+            <div class="card" style="background:#FFFFFF;border:1.5px solid var(--border);border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 20px rgba(26,35,126,0.08);min-height:400px;">
               <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                  <span style="background:rgba(33,150,243,0.2);color:#90CAF9;padding:3px 10px;border-radius:14px;font-size:0.72rem;font-weight:700;border:1px solid rgba(144,202,249,0.3);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                  <span style="background:#E8F5E9;color:#2E7D32;padding:4px 12px;border-radius:14px;font-size:0.75rem;font-weight:700;border:1px solid #C8E6C9;">
                     Atención & Concentración
                   </span>
-                  <span style="color:#B0BEC5;font-size:0.78rem;">14 Líneas · 20s/pág</span>
+                  <span style="color:#546E7A;font-size:0.8rem;font-weight:600;">14 Líneas · 20s/pág</span>
                 </div>
-                <h3 style="font-family:'Playfair Display',serif;color:#FFF;font-size:1.45rem;margin:4px 0 6px;font-weight:700;">
+                <h3 style="font-family:'Playfair Display',serif;color:var(--primary);font-size:1.55rem;margin:6px 0 8px;font-weight:700;">
                   PLC — Test d2
                 </h3>
-                <p style="color:#C5CAE9;font-size:0.85rem;line-height:1.45;margin-bottom:12px;">
+                <p style="color:#546E7A;font-size:0.88rem;line-height:1.5;margin-bottom:14px;">
                   Cancelación psicométrica. Evalúa velocidad de procesamiento, control inhibitorio y fluctuación por fatiga ante distractores.
                 </p>
-                <div style="background:rgba(0,0,0,0.22);border-radius:8px;padding:8px 12px;margin-bottom:14px;display:flex;justify-content:space-between;font-size:0.76rem;color:#E8EAF6;">
+                <div style="background:#E8EAF6;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;font-size:0.78rem;color:#1A237E;border:1px solid #C5CAE9;">
                   <div>⚡ <strong>Métricas:</strong> TA, O, COM, CP, IVR</div>
                   <div>🎯 <strong>Telemetría:</strong> Ojos + Tremor</div>
                 </div>
               </div>
 
               <div>
-                <button class="btn btn-primary" onclick="App.startTestSelection('PLC')" style="width:100%;justify-content:center;font-size:0.95rem;padding:11px;font-weight:700;border-radius:8px;box-shadow:0 4px 14px rgba(40,53,147,0.4);margin-bottom:8px;">
+                <button class="btn btn-primary" onclick="App.startTestSelection('PLC')" style="width:100%;justify-content:center;font-size:0.98rem;padding:12px;font-weight:700;border-radius:8px;box-shadow:0 4px 14px rgba(26,35,126,0.25);margin-bottom:8px;">
                   ▶ Iniciar Prueba PLC (Líneas Cruzadas)
                 </button>
                 ${isSuperAdmin ? `
-                <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('PLC', 'real')" style="width:100%;justify-content:center;font-size:0.8rem;padding:7px;color:#90CAF9;border:1px dashed rgba(144,202,249,0.4);border-radius:6px;cursor:pointer;background:rgba(33,150,243,0.06);" title="Inicia la prueba en tu perfil con 1 solo clic">
+                <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('PLC', 'real')" style="width:100%;justify-content:center;font-size:0.82rem;padding:8px;color:#1565C0;border:1.5px dashed #90CAF9;border-radius:6px;cursor:pointer;background:#F0F7FF;font-weight:700;" title="Inicia la prueba en tu perfil con 1 solo clic">
                   🔬 Probar d2 en Mi Perfil (Dilan)
                 </button>` : ''}
               </div>
             </div>
 
             <!-- Card 2: Test de Bloques de Corsi -->
-            <div style="background:rgba(255,255,255,0.06);backdrop-filter:blur(14px);border:1px solid rgba(206,147,216,0.25);border-radius:16px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 8px 24px rgba(0,0,0,0.2);min-height:390px;">
+            <div class="card" style="background:#FFFFFF;border:1.5px solid #E1BEE7;border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 20px rgba(123,31,162,0.08);min-height:400px;">
               <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                  <span style="background:rgba(156,39,176,0.2);color:#CE93D8;padding:3px 10px;border-radius:14px;font-size:0.72rem;font-weight:700;border:1px solid rgba(206,147,216,0.3);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                  <span style="background:#F3E5F5;color:#7B1FA2;padding:4px 12px;border-radius:14px;font-size:0.75rem;font-weight:700;border:1px solid #E1BEE7;">
                     Memoria Visoespacial
                   </span>
-                  <span style="color:#B0BEC5;font-size:0.78rem;">9 Bloques · Secuencia 2-9</span>
+                  <span style="color:#546E7A;font-size:0.8rem;font-weight:600;">9 Bloques · Secuencia 2-9</span>
                 </div>
-                <h3 style="font-family:'Playfair Display',serif;color:#FFF;font-size:1.45rem;margin:4px 0 6px;font-weight:700;">
+                <h3 style="font-family:'Playfair Display',serif;color:#4A148C;font-size:1.55rem;margin:6px 0 8px;font-weight:700;">
                   Test de Corsi
                 </h3>
-                <p style="color:#C5CAE9;font-size:0.85rem;line-height:1.45;margin-bottom:12px;">
+                <p style="color:#546E7A;font-size:0.88rem;line-height:1.5;margin-bottom:14px;">
                   Paradigma de memoria de trabajo visomotora. Determina el Span visoespacial, tiempo de duda táctica y carga cognitiva.
                 </p>
-                <div style="background:rgba(0,0,0,0.22);border-radius:8px;padding:8px 12px;margin-bottom:14px;display:flex;justify-content:space-between;font-size:0.76rem;color:#E8EAF6;">
+                <div style="background:#F3E5F5;border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;font-size:0.78rem;color:#4A148C;border:1px solid #E1BEE7;">
                   <div>🧠 <strong>Span:</strong> Directo / Inverso</div>
                   <div>⚡ <strong>Batería:</strong> Dual Completa</div>
                 </div>
@@ -793,18 +790,18 @@ const App = window.App = {
 
               <div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-                  <button class="btn btn-primary" onclick="App.startTestSelection('CORSI', 'direct')" style="justify-content:center;font-size:0.84rem;padding:9px;background:linear-gradient(135deg,#5C6BC0,#3949AB);border-radius:8px;">
+                  <button class="btn btn-primary" onclick="App.startTestSelection('CORSI', 'direct')" style="justify-content:center;font-size:0.86rem;padding:10px;background:linear-gradient(135deg,#5C6BC0,#3949AB);border-radius:8px;">
                     ▶ Modo Directo
                   </button>
-                  <button class="btn btn-ghost" onclick="App.startTestSelection('CORSI', 'reverse')" style="justify-content:center;font-size:0.84rem;padding:9px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#FFF;border-radius:8px;">
+                  <button class="btn btn-ghost" onclick="App.startTestSelection('CORSI', 'reverse')" style="justify-content:center;font-size:0.86rem;padding:10px;background:#EDE7F6;border:1px solid #D1C4E9;color:#4527A0;font-weight:700;border-radius:8px;">
                     🔄 Modo Inverso
                   </button>
                 </div>
-                <button class="btn btn-primary" onclick="App.startTestSelection('CORSI', 'dual')" style="width:100%;justify-content:center;font-size:0.86rem;padding:9px;background:linear-gradient(135deg,#7B1FA2,#4A148C);box-shadow:0 3px 10px rgba(123,31,162,0.3);border-radius:8px;margin-bottom:${isSuperAdmin ? '8px' : '0'};">
+                <button class="btn btn-primary" onclick="App.startTestSelection('CORSI', 'dual')" style="width:100%;justify-content:center;font-size:0.9rem;padding:10px;background:linear-gradient(135deg,#7B1FA2,#4A148C);box-shadow:0 3px 10px rgba(123,31,162,0.25);border-radius:8px;margin-bottom:${isSuperAdmin ? '8px' : '0'};">
                   ⚡ Batería Dual Completa
                 </button>
                 ${isSuperAdmin ? `
-                <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('CORSI', 'direct')" style="width:100%;justify-content:center;font-size:0.8rem;padding:7px;color:#CE93D8;border:1px dashed rgba(206,147,216,0.4);border-radius:6px;cursor:pointer;background:rgba(156,39,176,0.06);" title="Inicia Corsi en tu perfil con 1 solo clic">
+                <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('CORSI', 'direct')" style="width:100%;justify-content:center;font-size:0.82rem;padding:8px;color:#7B1FA2;border:1.5px dashed #CE93D8;border-radius:6px;cursor:pointer;background:#FDF4FF;font-weight:700;" title="Inicia Corsi en tu perfil con 1 solo clic">
                   🧊 Probar Corsi en Mi Perfil (Dilan)
                 </button>` : ''}
               </div>
@@ -812,37 +809,37 @@ const App = window.App = {
 
             ${isSuperAdmin ? `
             <!-- Card 3: Laboratorio de IA (Exclusivo SuperAdmin) -->
-            <div style="background:linear-gradient(145deg,rgba(79,70,229,0.18) 0%,rgba(147,51,234,0.14) 100%);backdrop-filter:blur(14px);border:1.5px solid rgba(192,132,252,0.4);border-radius:16px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 8px 30px rgba(124,58,237,0.25);min-height:390px;">
+            <div class="card" style="background:#FFFFFF;border:2px solid #C7D2FE;border-radius:16px;padding:24px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 24px rgba(99,102,241,0.12);min-height:400px;">
               <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                  <span style="background:rgba(147,51,234,0.3);color:#F3E8FF;padding:3px 10px;border-radius:14px;font-size:0.72rem;font-weight:800;border:1px solid rgba(192,132,252,0.4);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                  <span style="background:#EDE7F6;color:#4338CA;padding:4px 12px;border-radius:14px;font-size:0.75rem;font-weight:800;border:1px solid #C7D2FE;">
                     🛡️ EXCLUSIVO SUPERADMIN
                   </span>
-                  <span style="color:#E9D5FF;font-size:0.78rem;font-weight:600;">Calibración & Forense</span>
+                  <span style="color:#6366F1;font-size:0.8rem;font-weight:700;">Calibración & Forense</span>
                 </div>
-                <h3 style="font-family:'Playfair Display',serif;color:#FFF;font-size:1.45rem;margin:4px 0 6px;font-weight:700;">
+                <h3 style="font-family:'Playfair Display',serif;color:#312E81;font-size:1.55rem;margin:6px 0 8px;font-weight:700;">
                   🧬 Laboratorio de IA
                 </h3>
-                <p style="color:#E0E7FF;font-size:0.85rem;line-height:1.45;margin-bottom:12px;">
+                <p style="color:#546E7A;font-size:0.88rem;line-height:1.5;margin-bottom:14px;">
                   Auditoría de motores: Keras MLP v3, MediaPipe 468 landmarks, cinemática de temblor (>6.5 px/ms²) y videoteca en MP4.
                 </p>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;font-size:0.75rem;color:#E0E7FF;">
-                  <div style="background:rgba(0,0,0,0.25);border-radius:6px;padding:6px 8px;">🧠 <strong>Keras MLP v3</strong></div>
-                  <div style="background:rgba(0,0,0,0.25);border-radius:6px;padding:6px 8px;">👁️ <strong>MediaPipe Mesh</strong></div>
-                  <div style="background:rgba(0,0,0,0.25);border-radius:6px;padding:6px 8px;">🖱️ <strong>Tremor &gt;6.5px</strong></div>
-                  <div style="background:rgba(0,0,0,0.25);border-radius:6px;padding:6px 8px;">🎥 <strong>Descargas MP4</strong></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;font-size:0.78rem;color:#1E293B;">
+                  <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px;">🧠 <strong>Keras MLP v3</strong></div>
+                  <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px;">👁️ <strong>MediaPipe Mesh</strong></div>
+                  <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px;">🖱️ <strong>Tremor &gt;6.5px</strong></div>
+                  <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:8px 10px;">🎥 <strong>Descargas MP4</strong></div>
                 </div>
               </div>
 
               <div>
-                <button class="btn btn-primary" onclick="App.nav('ailab')" style="width:100%;justify-content:center;font-size:0.95rem;padding:11px;background:linear-gradient(135deg,#6366F1,#9333EA);border:none;box-shadow:0 4px 14px rgba(99,102,241,0.45);font-weight:800;border-radius:8px;cursor:pointer;margin-bottom:8px;">
+                <button class="btn btn-primary" onclick="App.nav('ailab')" style="width:100%;justify-content:center;font-size:0.98rem;padding:12px;background:linear-gradient(135deg,#6366F1,#9333EA);border:none;box-shadow:0 4px 14px rgba(99,102,241,0.35);font-weight:800;border-radius:8px;cursor:pointer;margin-bottom:8px;">
                   🚀 Abrir Laboratorio de IA
                 </button>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                  <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('PLC', 'real')" style="justify-content:center;font-size:0.76rem;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#FFF;border-radius:6px;cursor:pointer;">
+                  <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('PLC', 'real')" style="justify-content:center;font-size:0.8rem;padding:8px;background:#F5F3FF;border:1px solid #DDD6FE;color:#5B21B6;font-weight:700;border-radius:6px;cursor:pointer;">
                     🔬 d2 Mi Perfil
                   </button>
-                  <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('CORSI', 'direct')" style="justify-content:center;font-size:0.76rem;padding:7px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#FFF;border-radius:6px;cursor:pointer;">
+                  <button class="btn btn-ghost" onclick="App.startTestAsSuperAdmin('CORSI', 'direct')" style="justify-content:center;font-size:0.8rem;padding:8px;background:#F5F3FF;border:1px solid #DDD6FE;color:#5B21B6;font-weight:700;border-radius:6px;cursor:pointer;">
                     🧊 Corsi Mi Perfil
                   </button>
                 </div>
@@ -851,8 +848,8 @@ const App = window.App = {
           </div>
         </div>
 
-        <!-- Sleek Bottom Footer Bar -->
-        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.08);padding:10px 4px 4px;font-size:0.78rem;color:rgba(197,202,233,0.7);flex-wrap:wrap;gap:8px;">
+        <!-- Sleek Bottom Footer Bar Light -->
+        <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding:14px 4px 4px;font-size:0.82rem;color:var(--t-lite);flex-wrap:wrap;gap:8px;">
           <div>
             PLC Professional v3.4.0 &nbsp;&middot;&nbsp; MecaPsi SaaS &nbsp;&middot;&nbsp; Protocolo Clínico & Biomarcadores (RedCOLSI)
           </div>
@@ -5527,14 +5524,17 @@ const App = window.App = {
         <td><strong>${escapeHTML(r.participant_name)}</strong></td>
         <td>${r.age}</td>
         <td>${scoreHtml}</td>
-        <td class="flex gap-2" style="align-items:center;">
-          <button class="btn btn-ghost btn-sm" style="background:#E8EAF6;color:#1A237E;" onclick="App.openWebReport(${r.id}, this)">👁️ Ver Web</button>
+        <td class="flex gap-2" style="align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" style="background:#E8EAF6;color:#1A237E;" onclick="App.openWebReport(${r.id}, this)" title="Ver dashboard paraclínico completo">👁️ Web</button>
+          <button class="btn btn-ghost btn-sm" style="background:#FFF1F2;color:#BE123C;padding:2px 7px;font-size:0.75rem;font-weight:700;border-radius:4px;border:1px solid #FECDD3;" onclick="App.downloadPdfById(${r.id}, this)" title="Compilar y descargar informe PDF clínico">📄 PDF</button>
           ${videoBadgeHtml}
           ${r.status === 'processing' || r.status === 'pending' ?
             `<button class="btn btn-secondary btn-sm" disabled>⏳ Generando</button>` :
             `<button class="btn btn-primary btn-sm" onclick="App.downloadById(${r.id}, this)" title="Descargar Excel clínico completo">📥 Excel</button>`
           }
-          ${r.drive_excel_url ? `<a href="${r.drive_excel_url}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="background:#E8F5E9;color:#2E7D32;padding:2px 7px;font-size:0.75rem;font-weight:700;text-decoration:none;border-radius:4px;border:1px solid #C8E6C9;" title="Abrir Excel en Google Drive">↗️ Drive</a>` : ''}
+          ${r.drive_excel_url ? `<a href="${r.drive_excel_url}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="background:#E8F5E9;color:#2E7D32;padding:2px 7px;font-size:0.75rem;font-weight:700;text-decoration:none;border-radius:4px;border:1px solid #C8E6C9;" title="Abrir Excel en Google Drive">📊 Drive Excel</a>` : ''}
+          ${r.drive_pdf_url ? `<a href="${r.drive_pdf_url}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="background:#FFFBEB;color:#B45309;padding:2px 7px;font-size:0.75rem;font-weight:700;text-decoration:none;border-radius:4px;border:1px solid #FDE68A;" title="Abrir Informe PDF en Google Drive">📄 Drive PDF</a>` : ''}
+          ${r.drive_video_url ? `<a href="${r.drive_video_url}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="background:#EFF6FF;color:#1D4ED8;padding:2px 7px;font-size:0.75rem;font-weight:700;text-decoration:none;border-radius:4px;border:1px solid #BFDBFE;" title="Abrir Video en Google Drive">🎥 Drive Video</a>` : ''}
           <button class="btn btn-danger btn-sm" onclick="App.deleteEval(${r.id}, this)">🗑</button>
         </td>
       </tr>`;
@@ -5597,6 +5597,70 @@ const App = window.App = {
     } finally {
       if (btn) {
         btn.textContent = "📥 Excel";
+        btn.disabled = false;
+      }
+    }
+  },
+
+  async downloadPdfById(id, btn) {
+    if (btn) {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = "⏳ Generando PDF...";
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('evaluations')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error || !data) {
+        throw new Error("No se pudo obtener la información clínica del paciente.");
+      }
+
+      const metrics = data.metrics_json || {};
+      const participant = {
+        name: data.participant_name || metrics.participant_name || 'Paciente',
+        id: data.participant_id || metrics.participant_id || `PAC-${id}`,
+        age: data.age || metrics.age || 25,
+        chronological_age: metrics.chronological_age || `${data.age || 25} años`,
+        gender: data.gender || metrics.gender || 'No especificado',
+        education: data.education || metrics.education || 'Universitario / Profesional'
+      };
+
+      const prevPart = this.participant;
+      const prevMet = this.metrics;
+      const prevMl = this.mlPrediction;
+      const prevEvalId = this.evalId;
+      const prevTestType = this.testType;
+      const prevCorsiMode = this.corsiMode;
+
+      this.participant = participant;
+      this.metrics = metrics;
+      this.mlPrediction = data.ml_json || {};
+      this.evalId = id;
+      this.testType = data.test_type || (metrics.test_type === 'CORSI' ? 'CORSI' : 'PLC');
+      this.corsiMode = data.corsi_mode || metrics.corsi_mode || (this.testType === 'CORSI' ? 'direct' : null);
+
+      if (window.ReportPDF && typeof window.ReportPDF.downloadReport === 'function') {
+        await window.ReportPDF.downloadReport(this.testType === 'CORSI' ? 'corsi' : 'plc');
+      } else {
+        alert("El módulo generador de PDF no se encuentra disponible.");
+      }
+
+      this.participant = prevPart;
+      this.metrics = prevMet;
+      this.mlPrediction = prevMl;
+      this.evalId = prevEvalId;
+      this.testType = prevTestType;
+      this.corsiMode = prevCorsiMode;
+
+    } catch (e) {
+      console.error("[DOWNLOAD-PDF-ERROR]", e);
+      alert("Error al generar informe PDF: " + e.message);
+    } finally {
+      if (btn) {
+        btn.textContent = "📄 PDF";
         btn.disabled = false;
       }
     }
@@ -6372,29 +6436,29 @@ const App = window.App = {
       if (e.target === modal) this.closeNoticeModal();
     };
     modal.innerHTML = `
-      <div style="background:#0F172A;border:1px solid #334155;border-radius:16px;max-width:540px;width:92%;padding:28px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.85);color:#F8FAFC;font-family:'Inter',sans-serif;position:relative;">
-        <button onclick="App.closeNoticeModal()" style="position:absolute;top:16px;right:18px;background:none;border:none;color:#94A3B8;font-size:1.5rem;cursor:pointer;line-height:1;">×</button>
+      <div style="background:#FFFFFF;border:1.5px solid #CBD5E1;border-radius:16px;max-width:540px;width:92%;padding:28px;box-shadow:0 20px 45px rgba(26,35,126,0.18);color:#1E293B;font-family:'Inter',sans-serif;position:relative;">
+        <button onclick="App.closeNoticeModal()" style="position:absolute;top:16px;right:18px;background:none;border:none;color:#64748B;font-size:1.5rem;cursor:pointer;line-height:1;">×</button>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-          <div style="width:44px;height:44px;border-radius:12px;background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">
+          <div style="width:44px;height:44px;border-radius:12px;background:#EBF5FF;border:1px solid #BFDBFE;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">
             📹
           </div>
           <div>
-            <h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#F8FAFC;">Estado de Grabación Audiovisual</h3>
-            <span style="font-size:0.75rem;color:#38BDF8;font-weight:700;">Google Drive Vault (5 TB) & Telemetría MecaPsi</span>
+            <h3 style="margin:0;font-size:1.1rem;font-weight:800;color:#1A237E;">Estado de Grabación Audiovisual</h3>
+            <span style="font-size:0.75rem;color:#1565C0;font-weight:700;">Google Drive Vault (5 TB) & Telemetría MecaPsi</span>
           </div>
         </div>
-        <p style="font-size:0.88rem;color:#CBD5E1;line-height:1.6;margin-bottom:16px;">
+        <p style="font-size:0.88rem;color:#475569;line-height:1.6;margin-bottom:16px;">
           ${message || 'La grabación audiovisual de esta sesión no se encuentra disponible.'}
         </p>
-        <div style="background:#1E293B;border-radius:10px;padding:12px 14px;border-left:3px solid #10B981;margin-bottom:20px;">
-          <div style="font-size:0.8rem;font-weight:700;color:#34D399;margin-bottom:3px;">✅ Integridad Psicométrica Garantizada:</div>
-          <div style="font-size:0.76rem;color:#94A3B8;line-height:1.4;">Todos los tiempos de reacción (ms), aciertos, comisiones, omisiones, baremos y curvas de rendimiento están 100% seguros y respaldados en la base de datos y reportes descargables.</div>
+        <div style="background:#F0FDF4;border-radius:10px;padding:12px 14px;border-left:4px solid #10B981;border:1px solid #BBF7D0;margin-bottom:20px;">
+          <div style="font-size:0.8rem;font-weight:700;color:#166534;margin-bottom:3px;">✅ Integridad Psicométrica Garantizada:</div>
+          <div style="font-size:0.76rem;color:#334155;line-height:1.4;">Todos los tiempos de reacción (ms), aciertos, comisiones, omisiones, baremos y curvas de rendimiento están 100% seguros y respaldados en la base de datos y reportes descargables.</div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;">
-          <a href="https://drive.google.com" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#1E293B;color:#38BDF8;border:1px solid #0284C7;font-size:0.82rem;font-weight:700;text-decoration:none;">
+          <a href="https://drive.google.com" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:#F8FAFC;color:#1E293B;border:1px solid #CBD5E1;font-size:0.82rem;font-weight:700;text-decoration:none;">
             📂 Explorar Drive Vault
           </a>
-          <button onclick="App.closeNoticeModal()" style="padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#0284C7,#2563EB);color:#FFF;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;">
+          <button onclick="App.closeNoticeModal()" style="padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,#1A237E,#283593);color:#FFF;border:none;font-size:0.82rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(26,35,126,0.25);">
             Entendido
           </button>
         </div>
