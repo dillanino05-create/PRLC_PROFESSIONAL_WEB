@@ -721,9 +721,7 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 corsi_mode = 'dual'
             corsi_span = m.get('corsi_span')
             composite_score = m.get('composite_score')
-            accuracy_rate = m.get('accuracy_rate') or m.get('accuracy_pct')
-
-            has_vid = bool(d_vid_url or d_file_id or vpath)
+            has_vid = bool(d_file_id or (d_vid_url and len(d_vid_url) > 10))
 
             result.append({
                 'id': r['id'],
@@ -802,7 +800,7 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     secure_url = f"https://drive.google.com/file/d/{drive_id}/preview" if drive_id else drive_url
     if secure_url and "drive.google.com" in secure_url and "/view" in secure_url:
         secure_url = secure_url.split("/view")[0] + "/preview"
-    download_url = f"https://drive.google.com/uc?export=download&id={drive_id}" if drive_id else drive_url
+    download_url = f"https://drive.google.com/file/d/{drive_id}/view" if drive_id else drive_url
 
     # Fallback si no hay enlace Drive pero hay video_path en storage
     if not secure_url and video_path:
@@ -1107,8 +1105,8 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
                     )
         except Exception as de:
             print(f"Aviso streaming desde Drive: {de}")
-        # Redirigir a enlace de descarga directa de Google Drive
-        return RedirectResponse(url=f"https://drive.google.com/uc?export=download&id={drive_id}", status_code=307)
+        # Redirigir a enlace oficial de vista de Google Drive (evita 403 de Google)
+        return RedirectResponse(url=f"https://drive.google.com/file/d/{drive_id}/view", status_code=307)
 
     # 2. Fallback a Supabase Storage si aún existiera
     try:

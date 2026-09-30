@@ -5356,7 +5356,7 @@ const App = window.App = {
   generateHistoryRowsHTML(rows) {
     if (!rows.length) return `<tr><td colspan="8" style="text-align:center;color:#789;">No se encontraron resultados</td></tr>`;
     return rows.map(r => {
-      const hasVideo = Boolean(r.drive_video_url || r.drive_file_id || r.has_video || r.video_path);
+      const hasVideo = Boolean(r.drive_file_id || (r.drive_video_url && r.drive_video_url.length > 10));
 
       let videoBadgeHtml = '';
       if (hasVideo) {
@@ -5369,6 +5369,8 @@ const App = window.App = {
             <span style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:4px;background:#E8F5E9;color:#2E7D32;border:1px solid #C8E6C9;" title="Almacenado de forma permanente en Google Drive Vault (5 TB)">🟢 Drive Vault</span>
           </div>
         `;
+      } else {
+        videoBadgeHtml = `<span style="font-size:0.72rem;color:#94A3B8;padding:2px 6px;border-radius:4px;background:#F8FAFC;border:1px solid #E2E8F0;" title="No se grabó video en esta sesión">⚪ Sin video</span>`;
       }
 
       const isCorsi = (r.test_type === 'CORSI');
@@ -7679,7 +7681,7 @@ const App = window.App = {
     if (!tableEl) return;
 
     if (countEl) {
-      const withVideo = rows.filter(r => r.drive_video_url || r.drive_file_id || r.has_video || r.video_path).length;
+      const withVideo = rows.filter(r => r.drive_file_id || (r.drive_video_url && r.drive_video_url.length > 10)).length;
       countEl.textContent = `${withVideo} videos disponibles · ${rows.length} evaluaciones`;
     }
 
@@ -7703,7 +7705,7 @@ const App = window.App = {
         </thead>
         <tbody>
           ${rows.map(r => {
-            const hasVideo = Boolean(r.drive_video_url || r.drive_file_id || r.has_video || r.video_path);
+            const hasVideo = Boolean(r.drive_file_id || (r.drive_video_url && r.drive_video_url.length > 10));
             const isSuperAdminTest = (r.participant_name && r.participant_name.includes('SuperAdmin')) || (r.participant_id && r.participant_id.includes('SUPERADMIN'));
             const dateStr = r.created_at ? new Date(r.created_at).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' }) : '—';
             const testLabel = r.test_type === 'CORSI'
