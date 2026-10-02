@@ -3140,28 +3140,26 @@ const App = window.App = {
 
           if (videoBlob && this.evalId) {
             try {
-              const psychName = this.getPsychologistFolderName();
-              
-              // 1. Respaldo directo a Google Drive Vault (5 TB)
-              const driveRes = await this.uploadToDriveVault({
-                psychologist: psychName,
-                patientId: this.participant?.id || 'PAC_ANONIMO',
-                testType: 'CORSI',
-                fileType: 'video',
-                fileName: videoFilename,
-                blob: videoBlob,
-                evalId: this.evalId,
-                sessionTag: this.sessionTag
-              });
+              // 1. ETAPA INMEDIATA: Subida instantánea a Supabase Storage (bucket 'exports')
+              // Garantiza disponibilidad inmediata para ver y descargar desde la plataforma sin demoras
+              try {
+                console.log("📦 [STAGE 1] Subiendo video inmediato a Supabase Storage...", videoFilename);
+                const { error: supaUpErr } = await this.supabase.storage
+                  .from('exports')
+                  .upload(videoFilename, videoBlob, { contentType: 'video/mp4', upsert: true });
+                if (!supaUpErr) {
+                  console.log("✅ [STAGE 1] Video guardado inmediatamente en Supabase Storage:", videoFilename);
+                } else {
+                  console.warn("Aviso al subir a Supabase Storage:", supaUpErr);
+                }
+              } catch (sErr) {
+                console.warn("Excepción subiendo video a Supabase Storage:", sErr);
+              }
 
               this.metrics.video_path = videoFilename;
               this.metrics.has_video = true;
               this.metrics.session_tag = this.sessionTag;
-              if (driveRes && driveRes.success) {
-                this.metrics.drive_video_url = driveRes.file_url;
-                this.metrics.drive_folder = driveRes.folder_path;
-                this.metrics.drive_file_id = driveRes.file_id;
-              }
+              this.metrics.storage_stage = 'supabase_ready';
 
               await this.supabase
                 .from('evaluations')
@@ -3170,8 +3168,35 @@ const App = window.App = {
                   metrics_json: this.metrics
                 })
                 .eq('id', this.evalId);
+
+              // 2. ETAPA FONDO (GOOGLE DRIVE VAULT 5 TB): Enviar a Drive Vault en segundo plano sin congelar la UI
+              const psychName = this.getPsychologistFolderName();
+              this.uploadToDriveVault({
+                psychologist: psychName,
+                patientId: this.participant?.id || 'PAC_ANONIMO',
+                testType: 'CORSI',
+                fileType: 'video',
+                fileName: videoFilename,
+                blob: videoBlob,
+                evalId: this.evalId,
+                sessionTag: this.sessionTag
+              }).then(async (driveRes) => {
+                if (driveRes && driveRes.success) {
+                  console.log("✅ [STAGE 2 - DRIVE VAULT] Video respaldado en Drive:", driveRes.file_url);
+                  this.metrics.drive_video_url = driveRes.file_url;
+                  this.metrics.drive_folder = driveRes.folder_path;
+                  this.metrics.drive_file_id = driveRes.file_id;
+                  this.metrics.storage_stage = 'dual_vault_active';
+                  try {
+                    await this.supabase
+                      .from('evaluations')
+                      .update({ metrics_json: this.metrics })
+                      .eq('id', this.evalId);
+                  } catch (e) {}
+                }
+              }).catch(e => console.warn("Aviso subida a Drive Vault:", e));
             } catch (upErr) {
-              console.warn("Aviso al procesar video:", upErr);
+              console.warn("Aviso al procesar video Corsi:", upErr);
             }
           }
         }
@@ -3659,20 +3684,24 @@ const App = window.App = {
       const excelFilename = sd.excel_filename || `${this.sessionTag}.xlsx`;
       this.evalFilename = excelFilename;
 
-      // 2. Si se grabó video, respaldar en Google Drive Vault (5 TB) y opcionalmente en Supabase
+      // 2. Si se grabó video, almacenar de inmediato en Supabase Storage (Etapa 1) y en segundo plano a Drive Vault (Etapa 2)
       if (videoBlob && this.evalId) {
         try {
-          const psychName = this.getPsychologistFolderName();
-          
-          // 1. Respaldo directo a Google Drive Vault (5 TB)
-          const driveRes = await this.uploadToDriveVault({
-            psychologist: psychName,
-            patientId: this.participant?.id || 'PAC_ANONIMO',
-            testType: this.testType || 'PLC',
-            fileType: 'video',
-            fileName: videoFilename,
-            blob: videoBlob
-          });
+          // 1. ETAPA INMEDIATA: Subida instantánea a Supabase Storage (bucket 'exports')
+          // Permite que el video esté disponible de inmediato para ver y descargar sin errores
+          try {
+            console.log("📦 [STAGE 1] Subiendo video inmediato a Supabase Storage...", videoFilename);
+            const { error: supaUpErr } = await this.supabase.storage
+              .from('exports')
+              .upload(videoFilename, videoBlob, { contentType: 'video/mp4', upsert: true });
+            if (!supaUpErr) {
+              console.log("✅ [STAGE 1] Video guardado inmediatamente en Supabase Storage:", videoFilename);
+            } else {
+              console.warn("Aviso al subir a Supabase Storage:", supaUpErr);
+            }
+          } catch (sErr) {
+            console.warn("Excepción subiendo video a Supabase Storage:", sErr);
+          }
 
           const updatedMetrics = {
             TA: this.metrics.TA, O: this.metrics.O, COM: this.metrics.COM,
@@ -3720,9 +3749,10 @@ const App = window.App = {
             session_uid: timestampStr,
             video_path: videoFilename,
             has_video: true,
-            drive_video_url: (driveRes && driveRes.success) ? driveRes.file_url : "",
-            drive_folder: (driveRes && driveRes.success) ? driveRes.folder_path : "",
-            drive_file_id: (driveRes && driveRes.success) ? driveRes.file_id : ""
+            storage_stage: 'supabase_ready',
+            drive_video_url: "",
+            drive_folder: "",
+            drive_file_id: ""
           };
           
           await this.supabase
@@ -3735,6 +3765,33 @@ const App = window.App = {
             
           this.metrics = updatedMetrics;
           this.metrics._linesDataRef = this.linesData;
+
+          // 2. ETAPA FONDO (GOOGLE DRIVE VAULT 5 TB): Enviar a Drive Vault en segundo plano sin congelar la UI
+          const psychName = this.getPsychologistFolderName();
+          this.uploadToDriveVault({
+            psychologist: psychName,
+            patientId: this.participant?.id || 'PAC_ANONIMO',
+            testType: this.testType || 'PLC',
+            fileType: 'video',
+            fileName: videoFilename,
+            blob: videoBlob,
+            evalId: this.evalId,
+            sessionTag: this.sessionTag
+          }).then(async (driveRes) => {
+            if (driveRes && driveRes.success) {
+              console.log("✅ [STAGE 2 - DRIVE VAULT] Video respaldado en Drive:", driveRes.file_url);
+              this.metrics.drive_video_url = driveRes.file_url;
+              this.metrics.drive_folder = driveRes.folder_path;
+              this.metrics.drive_file_id = driveRes.file_id;
+              this.metrics.storage_stage = 'dual_vault_active';
+              try {
+                await this.supabase
+                  .from('evaluations')
+                  .update({ metrics_json: this.metrics })
+                  .eq('id', this.evalId);
+              } catch (e) {}
+            }
+          }).catch(e => console.warn("Aviso subida fondo a Drive Vault:", e));
         } catch (procErr) {
           console.warn("Aviso al procesar video PLC:", procErr);
         }
@@ -6348,7 +6405,15 @@ const App = window.App = {
           }
         }
 
-        if (d.url.includes('drive.google.com')) {
+        if (d.in_supabase_storage && d.supabase_url) {
+          // Fase 1 Inmediata: Reproducir con el reproductor HTML5 nativo desde Supabase Storage
+          // (permite reproducción ultra-rápida sin esperar el procesamiento de Google Drive)
+          const driveFrame = document.getElementById('player-drive-frame');
+          if (driveFrame) driveFrame.style.display = 'none';
+          player.style.display = 'block';
+          player.src = d.supabase_url;
+        } else if (d.url && d.url.includes('drive.google.com')) {
+          // Fase 2 Migrada (Switcheo ejecutado): Reproducir en visor oficial de Google Drive
           player.style.display = 'none';
           let driveFrame = document.getElementById('player-drive-frame');
           if (!driveFrame) {
@@ -7243,7 +7308,20 @@ const App = window.App = {
         filename = filename.replace(/\.webm$/i, '.mp4');
       }
 
-      // Prioridad 1: Descarga directa desde Google Drive Vault (5 TB) a máxima velocidad
+      // Prioridad 1: Descarga directa desde Supabase Storage si aún reside en almacenamiento temporal (Fase Inmediata)
+      if (d.in_supabase_storage && d.supabase_url) {
+        const a = document.createElement('a');
+        a.href = d.supabase_url;
+        a.download = filename;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return;
+      }
+
+      // Prioridad 2: Descarga directa desde Google Drive Vault (5 TB) a máxima velocidad (Fase Switcheo)
       if (d.drive_id || (d.download_url && d.download_url.includes('drive.google.com'))) {
         const driveDownloadUrl = d.drive_id 
           ? `https://drive.google.com/uc?export=download&id=${d.drive_id}` 
@@ -7259,7 +7337,7 @@ const App = window.App = {
         return;
       }
 
-      // Prioridad 2: Enlace firmado de Supabase Storage
+      // Prioridad 3: Enlace firmado de Supabase Storage (fallback)
       if (d.url && (d.url.includes('supabase.co') || d.url.startsWith('http://') || d.url.startsWith('https://')) && !d.url.includes('/api/video/')) {
         const a = document.createElement('a');
         a.href = d.url;

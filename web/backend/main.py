@@ -105,11 +105,13 @@ async def sequential_worker():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Encender worker en 2do plano al arrancar la app
+    # Encender workers en 2do plano al arrancar la app
     worker_task = asyncio.create_task(sequential_worker())
+    switcheo_task = asyncio.create_task(switcheo_auto_worker())
     yield
-    # Apagar worker en shutdown
+    # Apagar workers en shutdown
     worker_task.cancel()
+    switcheo_task.cancel()
 
 app = FastAPI(title='PLC Professional Web', version='3.3', lifespan=lifespan)
 
@@ -414,7 +416,8 @@ async def upload_pdf_to_vault(req: UploadPdfRequest, auth_ctx: dict = Depends(ge
 
 @app.post('/api/vault/upload-video')
 async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depends(get_supabase)):
-    """Respalda un video clínico/forense en el Google Drive Vault (5 TB) del psicólogo con alta resiliencia y actualiza Supabase."""
+    """Respalda un video clínico/forense con arquitectura dual-stage: 
+    Etapa 1 Inmediata en Supabase Storage (disponibilidad instantánea) + Etapa 2 Google Drive Vault (5 TB)."""
     if not DRIVE_WEBHOOK_URL:
         return {"success": False, "detail": "Drive Vault webhook no configurado"}
     try:
@@ -427,8 +430,10 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
         if not fname.lower().endswith((".mp4", ".webm")):
             fname += ".mp4"
 
-        # Transcodificar a MP4 seekable con tabla de búsqueda e I-frames regulares antes de subir a Drive
+        # Transcodificar a MP4 seekable con tabla de búsqueda e I-frames regulares
         video_b64 = req.video_base64
+        seekable_bytes = None
+        raw_bytes = None
         if video_b64:
             try:
                 import base64
@@ -439,6 +444,59 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
             except Exception as te:
                 print(f"[TRANSCODE-PRE-VAULT-WARN] {te}")
 
+        sb = auth_ctx.get("client")
+        uid = auth_ctx.get("user_id")
+
+        # Localizar ID de evaluación en Supabase
+        target_id = req.eval_id
+        if sb and uid and not target_id:
+            try:
+                q = sb.table("evaluations").select("id, metrics_json, excel_path").eq("user_id", uid).order("id", desc=True).limit(6)
+                rows = q.execute().data or []
+                for r in rows:
+                    m_cur = r.get("metrics_json") or {}
+                    ep = str(r.get("excel_path") or "")
+                    if req.session_tag and (m_cur.get("session_tag") == req.session_tag or req.session_tag in ep):
+                        target_id = r["id"]
+                        break
+                    if req.filename and (m_cur.get("video_path") == req.filename or req.filename.replace('.mp4','.xlsx') in ep or req.filename.replace('.webm','.xlsx') in ep):
+                        target_id = r["id"]
+                        break
+                if not target_id and rows:
+                    target_id = rows[0]["id"]
+            except Exception as find_err:
+                print(f"Aviso localizando evaluación: {find_err}")
+
+        # ETAPA 1 (INMEDIATA): Guardar el video binario inmediatamente en Supabase Storage (bucket 'exports')
+        # con Service Role Key para evitar cualquier fallo de RLS y garantizar disponibilidad instantánea
+        target_payload = seekable_bytes if (seekable_bytes and len(seekable_bytes) > 50) else raw_bytes
+        if SUPABASE_SERVICE_KEY and target_payload and len(target_payload) > 10:
+            try:
+                admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=60.0))
+                sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+                sb_admin.storage.from_("exports").upload(
+                    path=fname,
+                    file=target_payload,
+                    file_options={"content-type": "video/mp4", "upsert": "true"}
+                )
+                print(f"✅ [STAGE 1 - SUPABASE STORAGE] Video guardado inmediatamente en bucket 'exports': {fname}")
+            except Exception as sb_up_err:
+                print(f"⚠️ Aviso subiendo video a Supabase Storage: {sb_up_err}")
+
+        if target_id and sb:
+            try:
+                cur_res = sb.table("evaluations").select("metrics_json").eq("id", target_id).execute()
+                if cur_res.data:
+                    cur_m = cur_res.data[0].get("metrics_json") or {}
+                    cur_m["video_path"] = fname
+                    cur_m["has_video"] = True
+                    cur_m["storage_stage"] = "supabase_ready"
+                    cur_m["video_saved_at"] = datetime.utcnow().isoformat()
+                    sb.table("evaluations").update({"metrics_json": cur_m}).eq("id", target_id).execute()
+            except Exception as pre_sync_err:
+                print(f"Aviso actualizando etapa inmediata en Supabase: {pre_sync_err}")
+
+        # ETAPA 2 (FONDO GOOGLE DRIVE VAULT 5TB): Enviar a Google Apps Script Webhook
         drive_payload = {
             "token": DRIVE_VAULT_TOKEN,
             "psychologist": psych_name,
@@ -463,40 +521,22 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
                 file_id = d_res.get("file_id") or ""
                 folder_path = d_res.get("folder_path") or ""
                 
-                sb = auth_ctx.get("client")
-                uid = auth_ctx.get("user_id")
-                if sb and uid:
-                    target_id = req.eval_id
+                if sb and target_id:
                     try:
-                        if not target_id:
-                            # Localizar evaluación reciente por session_tag, filename o id de paciente
-                            q = sb.table("evaluations").select("id, metrics_json, excel_path").eq("user_id", uid).order("id", desc=True).limit(6)
-                            rows = q.execute().data or []
-                            for r in rows:
-                                m_cur = r.get("metrics_json") or {}
-                                ep = str(r.get("excel_path") or "")
-                                if req.session_tag and (m_cur.get("session_tag") == req.session_tag or req.session_tag in ep):
-                                    target_id = r["id"]
-                                    break
-                                if req.filename and (m_cur.get("video_path") == req.filename or req.filename.replace('.mp4','.xlsx') in ep or req.filename.replace('.webm','.xlsx') in ep):
-                                    target_id = r["id"]
-                                    break
-                            if not target_id and rows:
-                                target_id = rows[0]["id"]
-                        
-                        if target_id:
-                            cur_res = sb.table("evaluations").select("metrics_json").eq("id", target_id).execute()
-                            if cur_res.data:
-                                cur_m = cur_res.data[0].get("metrics_json") or {}
-                                cur_m["drive_video_url"] = file_url
-                                cur_m["drive_file_id"] = file_id
-                                cur_m["drive_folder"] = folder_path
-                                cur_m["video_path"] = req.filename
-                                cur_m["has_video"] = True
-                                cur_m["video_expired"] = False
-                                sb.table("evaluations").update({"metrics_json": cur_m}).eq("id", target_id).execute()
-                                d_res["synced_eval_id"] = target_id
-                                print(f"✅ [VAULT SYNC] Video vinculado a evaluación #{target_id} en Supabase")
+                        cur_res = sb.table("evaluations").select("metrics_json").eq("id", target_id).execute()
+                        if cur_res.data:
+                            cur_m = cur_res.data[0].get("metrics_json") or {}
+                            cur_m["drive_video_url"] = file_url
+                            cur_m["drive_file_id"] = file_id
+                            cur_m["drive_folder"] = folder_path
+                            cur_m["drive_synced_at"] = datetime.utcnow().isoformat()
+                            cur_m["storage_stage"] = "dual_vault_active"
+                            cur_m["video_path"] = req.filename or fname
+                            cur_m["has_video"] = True
+                            cur_m["video_expired"] = False
+                            sb.table("evaluations").update({"metrics_json": cur_m}).eq("id", target_id).execute()
+                            d_res["synced_eval_id"] = target_id
+                            print(f"✅ [VAULT SYNC] Video vinculado a evaluación #{target_id} en Supabase (Etapa dual activa)")
                     except Exception as sync_err:
                         print(f"⚠️ Aviso sincronizando video con Supabase: {sync_err}")
             
@@ -823,24 +863,43 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     session_tag = compute_session_tag(row)
     download_filename = f"{session_tag}.mp4"
 
-    # Enlace optimizado desde Google Drive Vault (5 TB)
-    secure_url = f"https://drive.google.com/file/d/{drive_id}/preview" if drive_id else drive_url
-    if secure_url and "drive.google.com" in secure_url and "/view" in secure_url:
-        secure_url = secure_url.split("/view")[0] + "/preview"
-    download_url = f"https://drive.google.com/uc?export=download&id={drive_id}" if drive_id else (drive_url or "")
+    # Comprobar si el archivo reside en Supabase Storage (Fase Inmediata del Switcheo)
+    in_supabase_storage = False
+    supabase_signed_url = ""
+    admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=15.0))
+    sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts) if SUPABASE_SERVICE_KEY else sb
 
-    # Fallback si no hay enlace Drive pero hay video_path en storage
-    if not secure_url and video_path:
+    if video_path and sb_admin:
         try:
-            signed_res = sb.storage.from_("exports").create_signed_url(
-                video_path, 600, options={"download": download_filename}
+            signed_res = sb_admin.storage.from_("exports").create_signed_url(
+                video_path, 3600, options={"download": download_filename}
             )
-            secure_url = signed_res.get("signedURL") or signed_res.get("signedUrl")
-            download_url = secure_url
-        except Exception:
-            pass
+            s_url = signed_res.get("signedURL") or signed_res.get("signedUrl") or ""
+            if s_url:
+                supabase_signed_url = s_url
+                in_supabase_storage = True
+        except Exception as sup_e:
+            print(f"Aviso firmado Supabase Storage: {sup_e}")
 
-    if not secure_url:
+    # Enlaces de Google Drive Vault (5 TB)
+    drive_preview_url = f"https://drive.google.com/file/d/{drive_id}/preview" if drive_id else drive_url
+    if drive_preview_url and "drive.google.com" in drive_preview_url and "/view" in drive_preview_url:
+        drive_preview_url = drive_preview_url.split("/view")[0] + "/preview"
+    drive_download_url = f"https://drive.google.com/uc?export=download&id={drive_id}" if drive_id else (drive_url or "")
+
+    # Decidir prioridad:
+    # 1. Si está en Supabase Storage (fase inmediata): utilizar URL firmada para reproducción nativa HTML5 instantánea
+    # 2. Si ya no está en Supabase Storage pero tiene Drive Vault: utilizar enlace de Google Drive
+    if in_supabase_storage and supabase_signed_url:
+        secure_url = supabase_signed_url
+        download_url = supabase_signed_url
+    elif drive_preview_url or drive_download_url:
+        secure_url = drive_preview_url
+        download_url = drive_download_url
+    elif video_path:
+        secure_url = f"/api/video/{eval_id}/stream"
+        download_url = secure_url
+    else:
         raise HTTPException(
             status_code=404,
             detail="La grabación audiovisual de esta sesión no se encuentra disponible en la bóveda en la nube."
@@ -875,7 +934,10 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     return {
         "url": secure_url,
         "download_url": download_url,
-        "drive_url": drive_url or secure_url,
+        "supabase_url": supabase_signed_url,
+        "in_supabase_storage": in_supabase_storage,
+        "storage_stage": "supabase_ready" if in_supabase_storage else "drive_vault_migrated",
+        "drive_url": drive_preview_url or drive_url,
         "drive_id": drive_id,
         "drive_folder": metrics.get("drive_folder") or "",
         "filename": download_filename,
@@ -1822,6 +1884,160 @@ async def clean_purge_storage(auth_key: str = ""):
         "final_supabase_storage_mb": round(remaining_bytes / (1024 * 1024), 2),
         "errors": errors
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PROTOCOLO DE SWITCHEO: Supabase Storage Temporal (15 min) -> Google Drive Vault (5 TB)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def run_switcheo_process(grace_minutes: float = 15.0) -> dict:
+    """Protocolo de Switcheo Inteligente:
+    1. Si un video ya cuenta con drive_file_id en Google Drive Vault y pasaron >= grace_minutes:
+       lo purga de Supabase Storage para liberar espacio (dejar bucket en 0 MB).
+    2. Si un video en Supabase Storage aún no tiene drive_file_id (fallo previo o red):
+       lo migra a Google Drive Vault, guarda drive_file_id y drive_video_url en Supabase,
+       y si cumple la antigüedad requerida, lo purga.
+    """
+    if not SUPABASE_SERVICE_KEY:
+        return {"success": False, "detail": "SUPABASE_SERVICE_KEY no configurado"}
+
+    admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=60.0))
+    sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+
+    objs = sb_admin.storage.from_("exports").list(path="", options={"limit": 500}) or []
+    video_objs = [o for o in objs if (o.get("name") or "").lower().endswith((".mp4", ".webm"))]
+    
+    if not video_objs:
+        return {"success": True, "message": "No hay videos temporales pendientes de switcheo en Supabase Storage", "purged": [], "migrated": []}
+
+    res_evals = sb_admin.table("evaluations").select("id, created_at, metrics_json, participant_id, user_id").order("id", desc=True).limit(300).execute()
+    evals_list = res_evals.data or []
+
+    users_map = {}
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            r_users = client.get(
+                f"{SUPABASE_URL}/auth/v1/admin/users?per_page=100",
+                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
+            )
+            if r_users.status_code == 200:
+                for u in r_users.json().get("users", []):
+                    users_map[u.get("id")] = map_user_to_psychologist(u.get("email", ""), (u.get("user_metadata") or {}).get("full_name", ""))
+    except Exception:
+        pass
+
+    now = datetime.utcnow()
+    purged = []
+    migrated = []
+    errors = []
+
+    for v_obj in video_objs:
+        f_name = v_obj.get("name")
+        if not f_name:
+            continue
+
+        matched_ev = None
+        for ev in evals_list:
+            m = ev.get("metrics_json") or {}
+            if m.get("video_path") == f_name or (m.get("session_tag") and m.get("session_tag") in f_name):
+                matched_ev = ev
+                break
+
+        d_id = None
+        ev_id = None
+        age_minutes = 999.0
+        m = {}
+
+        if matched_ev:
+            ev_id = matched_ev["id"]
+            m = matched_ev.get("metrics_json") or {}
+            d_id = m.get("drive_file_id")
+            sync_time_str = m.get("drive_synced_at") or m.get("video_saved_at") or matched_ev.get("created_at")
+            dt = parse_iso_datetime(sync_time_str)
+            if dt:
+                age_minutes = max((now - dt).total_seconds() / 60.0, 0.0)
+
+        # Si aún no tiene respaldo en Drive Vault, migrarlo primero
+        if not d_id:
+            try:
+                vid_bytes = sb_admin.storage.from_("exports").download(f_name)
+                if vid_bytes and len(vid_bytes) > 0:
+                    opt_bytes = compress_video_for_vault(vid_bytes)
+                    uid = matched_ev.get("user_id") if matched_ev else None
+                    psych_name = users_map.get(uid, "Perfil_de_Prueba")
+                    pat_id = str((matched_ev.get("participant_id") if matched_ev else None) or f"PAC_{ev_id or 'reciente'}")
+                    test_type = m.get("test_type") or ("CORSI" if "CORSI" in f_name.upper() else "PLC")
+
+                    drive_payload = {
+                        "token": DRIVE_VAULT_TOKEN,
+                        "psychologist": psych_name,
+                        "patient_id": pat_id,
+                        "test_type": test_type,
+                        "file_type": "video",
+                        "file_name": f_name if f_name.endswith(".mp4") else f_name.rsplit(".", 1)[0] + ".mp4",
+                        "file_base64": base64.b64encode(opt_bytes).decode("utf-8"),
+                        "mime_type": "video/mp4"
+                    }
+                    async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as d_client:
+                        d_resp = await d_client.post(
+                            DRIVE_WEBHOOK_URL,
+                            content=json.dumps(drive_payload),
+                            headers={"Content-Type": "text/plain;charset=utf-8"}
+                        )
+                        d_res = d_resp.json()
+                        if d_res.get("success"):
+                            d_id = d_res.get("file_id")
+                            migrated.append(f_name)
+                            if ev_id:
+                                m["drive_video_url"] = d_res.get("file_url")
+                                m["drive_folder"] = d_res.get("folder_path")
+                                m["drive_file_id"] = d_id
+                                m["drive_synced_at"] = now.isoformat()
+                                m["storage_stage"] = "dual_vault_active"
+                                sb_admin.table("evaluations").update({"metrics_json": m}).eq("id", ev_id).execute()
+            except Exception as up_err:
+                errors.append(f"Error migrando {f_name} a Drive: {up_err}")
+
+        # Si ya cuenta con respaldo en Drive y superó el período de gracia de revisión inmediata (>= grace_minutes)
+        if d_id and age_minutes >= grace_minutes:
+            try:
+                sb_admin.storage.from_("exports").remove([f_name])
+                purged.append(f_name)
+                if ev_id:
+                    m["storage_stage"] = "drive_vault_migrated"
+                    m["supabase_purged_at"] = now.isoformat()
+                    sb_admin.table("evaluations").update({"metrics_json": m}).eq("id", ev_id).execute()
+                print(f"🗑️ [SWITCHEO] Video '{f_name}' (Eval #{ev_id}) purgado de Supabase Storage tras {round(age_minutes, 1)} min.")
+            except Exception as rm_err:
+                errors.append(f"Error purgando {f_name}: {rm_err}")
+
+    return {
+        "success": True,
+        "purged_count": len(purged),
+        "purged_files": purged,
+        "migrated_count": len(migrated),
+        "migrated_files": migrated,
+        "errors": errors
+    }
+
+async def switcheo_auto_worker():
+    """Worker en segundo plano que vigila Supabase Storage y ejecuta el switcheo a Google Drive periódicamente."""
+    await asyncio.sleep(45)  # Espera inicial 45s tras el inicio de la app
+    while True:
+        try:
+            await run_switcheo_process(grace_minutes=15.0)
+        except asyncio.CancelledError:
+            break
+        except Exception as loop_e:
+            print(f"[SWITCHEO-WORKER-WARN] {loop_e}")
+        await asyncio.sleep(300)  # Chequear cada 5 minutos
+
+@app.post('/api/vault/switcheo-run')
+async def trigger_switcheo_run(auth_key: str = "", grace_minutes: float = 15.0):
+    """Ejecuta el protocolo de switcheo de forma manual o forzada."""
+    if auth_key != "mecapsi_clinical_audit_2026":
+        raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
+    return await run_switcheo_process(grace_minutes=grace_minutes)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
