@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 
 import matplotlib.pyplot as plt
 
-from fastapi import FastAPI, HTTPException, Header, Depends, Request
+from fastapi import FastAPI, HTTPException, Header, Depends, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response, RedirectResponse
@@ -827,7 +827,7 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
     secure_url = f"https://drive.google.com/file/d/{drive_id}/preview" if drive_id else drive_url
     if secure_url and "drive.google.com" in secure_url and "/view" in secure_url:
         secure_url = secure_url.split("/view")[0] + "/preview"
-    download_url = f"https://drive.google.com/file/d/{drive_id}/view" if drive_id else drive_url
+    download_url = f"https://drive.google.com/uc?export=download&id={drive_id}" if drive_id else (drive_url or "")
 
     # Fallback si no hay enlace Drive pero hay video_path en storage
     if not secure_url and video_path:
@@ -840,15 +840,10 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
         except Exception:
             pass
 
-    # Fallback definitivo al endpoint de streaming local
-    if not secure_url and video_path:
-        secure_url = f"/api/video/{eval_id}/stream"
-        download_url = f"/api/video/{eval_id}/stream"
-
     if not secure_url:
         raise HTTPException(
             status_code=404,
-            detail="La grabación de esta sesión no se encuentra disponible (el participante no activó la cámara o no se completó la grabación)."
+            detail="La grabación audiovisual de esta sesión no se encuentra disponible en la bóveda en la nube."
         )
 
     lines_val = row.get("lines_json")
@@ -1099,21 +1094,45 @@ async def sync_vault_evaluations(auth_key: str = "", limit: int = 200, sync_exce
     }
 
 @app.get('/api/video/{eval_id}/stream')
-async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
-    sb = auth_ctx["client"]
-    uid = auth_ctx["user_id"]
-    user = auth_ctx.get("user")
-    user_email = auth_ctx.get("email", "")
-    user_meta = getattr(user, "user_metadata", {}) or {}
-    app_meta = getattr(user, "app_metadata", {}) or {}
-    is_superadmin = (
-        user_email == "dillanino05@gmail.com" 
-        or user_meta.get("role") == "superadmin" 
-        or app_meta.get("role") == "superadmin"
-    )
+async def stream_video(eval_id: int, token: Optional[str] = Query(None), authorization: Optional[str] = Header(None)):
+    effective_token = None
+    if authorization and authorization.startswith("Bearer "):
+        effective_token = authorization.split(" ")[1]
+    elif token:
+        effective_token = token.strip()
+
+    sb = None
+    uid = None
+    is_superadmin = False
+
+    if effective_token:
+        opts = ClientOptions(headers={'Authorization': f'Bearer {effective_token}'}, httpx_client=httpx.Client(http2=False))
+        sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
+        try:
+            res = sb.auth.get_user(effective_token)
+            if res and res.user:
+                uid = res.user.id
+                user_email = (res.user.email or "").strip().lower()
+                user_meta = getattr(res.user, "user_metadata", {}) or {}
+                app_meta = getattr(res.user, "app_metadata", {}) or {}
+                is_superadmin = (
+                    user_email == "dillanino05@gmail.com" 
+                    or user_meta.get("role") == "superadmin" 
+                    or app_meta.get("role") == "superadmin"
+                )
+        except Exception:
+            pass
+
+    if not sb:
+        if SUPABASE_SERVICE_KEY:
+            sb = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+            is_superadmin = True
+        else:
+            opts = ClientOptions(httpx_client=httpx.Client(http2=False))
+            sb = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
 
     query = sb.table("evaluations").select("id, metrics_json, created_at, participant_name, participant_id, excel_path").eq("id", eval_id)
-    if not is_superadmin:
+    if not is_superadmin and uid:
         query = query.eq("user_id", uid)
     res = query.execute()
 
@@ -1160,23 +1179,24 @@ async def stream_video(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
         return RedirectResponse(url=f"https://drive.google.com/file/d/{drive_id}/view", status_code=307)
 
     # 2. Fallback a Supabase Storage si aún existiera
-    try:
-        file_bytes = sb.storage.from_("exports").download(video_path)
-        file_bytes = transcode_to_seekable_mp4(file_bytes)
+    if video_path:
+        try:
+            file_bytes = sb.storage.from_("exports").download(video_path)
+            file_bytes = transcode_to_seekable_mp4(file_bytes)
 
-        return Response(
-            content=file_bytes,
-            media_type="video/mp4",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Access-Control-Expose-Headers": "Content-Disposition",
-                "Accept-Ranges": "bytes"
-            }
-        )
-    except Exception as e:
-        if drive_id:
-            return RedirectResponse(url=f"https://drive.google.com/uc?export=download&id={drive_id}", status_code=307)
-        raise HTTPException(status_code=500, detail=f"Error al descargar stream de video: {str(e)}")
+            return Response(
+                content=file_bytes,
+                media_type="video/mp4",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Access-Control-Expose-Headers": "Content-Disposition",
+                    "Accept-Ranges": "bytes"
+                }
+            )
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=f"No se encontró el archivo de video en almacenamiento en la nube: {str(e)}")
+
+    raise HTTPException(status_code=404, detail="No se encontró grabación audiovisual para esta sesión.")
 
 @app.delete('/api/history/{eval_id}')
 def delete_eval(eval_id: int, auth_ctx: dict = Depends(get_supabase)):
@@ -1417,142 +1437,6 @@ def map_user_to_psychologist(user_email: str, user_name: str = "") -> str:
     elif any(k in s for k in ["prueba", "test"]):
         return "Perfil_de_Prueba"
     return "Perfil_de_Prueba"
-
-
-@app.post('/api/vault/upload-pdf')
-async def upload_pdf_to_vault(req: UploadPdfRequest, auth_ctx: dict = Depends(get_supabase)):
-    """Respalda un informe PDF clínico en el Google Drive Vault (5 TB) del psicólogo."""
-    if not DRIVE_WEBHOOK_URL:
-        return {"success": False, "detail": "Drive Vault webhook no configurado"}
-    try:
-        user_email = auth_ctx.get("email") or ""
-        user = auth_ctx.get("user")
-        user_meta = getattr(user, "user_metadata", {}) or {}
-        psych_name = map_user_to_psychologist(user_email, user_meta.get("full_name", ""))
-
-        drive_payload = {
-            "token": DRIVE_VAULT_TOKEN,
-            "psychologist": psych_name,
-            "patient_id": req.patient_id or "PAC_ANONIMO",
-            "test_type": req.test_type or "PLC",
-            "file_type": "pdf",
-            "file_name": req.filename,
-            "file_base64": req.pdf_base64,
-            "mime_type": "application/pdf"
-        }
-        async with httpx.AsyncClient(timeout=45.0, follow_redirects=True) as d_client:
-            d_resp = await d_client.post(
-                DRIVE_WEBHOOK_URL,
-                content=json.dumps(drive_payload),
-                headers={"Content-Type": "text/plain;charset=utf-8"}
-            )
-            d_res = d_resp.json()
-            if d_res.get("success") and req.eval_id:
-                sb = auth_ctx.get("client")
-                cur_res = sb.table("evaluations").select("metrics_json").eq("id", req.eval_id).execute()
-                if cur_res.data:
-                    m = cur_res.data[0].get("metrics_json") or {}
-                    m["drive_pdf_url"] = d_res.get("file_url")
-                    m["drive_pdf_id"] = d_res.get("file_id")
-                    sb.table("evaluations").update({"metrics_json": m}).eq("id", req.eval_id).execute()
-            return d_res
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-@app.post('/api/vault/upload-video')
-async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depends(get_supabase)):
-    """Respalda un video clínico/forense en el Google Drive Vault (5 TB) del psicólogo con alta resiliencia y actualiza Supabase."""
-    if not DRIVE_WEBHOOK_URL:
-        return {"success": False, "detail": "Drive Vault webhook no configurado"}
-    try:
-        user_email = auth_ctx.get("email") or ""
-        user = auth_ctx.get("user")
-        user_meta = getattr(user, "user_metadata", {}) or {}
-        psych_name = map_user_to_psychologist(user_email, user_meta.get("full_name", ""))
-
-        fname = req.filename or f"PLC_Sesion_{req.eval_id or 'reciente'}.mp4"
-        if not fname.lower().endswith((".mp4", ".webm")):
-            fname += ".mp4"
-
-        # Transcodificar a MP4 seekable si es posible
-        video_b64 = req.video_base64
-        mtype = req.mime_type or "video/mp4"
-        try:
-            raw_vbytes = base64.b64decode(video_b64)
-            seekable_vbytes = transcode_to_seekable_mp4(raw_vbytes)
-            if seekable_vbytes and len(seekable_vbytes) > 100:
-                video_b64 = base64.b64encode(seekable_vbytes).decode("utf-8")
-                mtype = "video/mp4"
-        except Exception as tc_e:
-            print(f"[TRANSCODE-UPLOAD-NOTICE] {tc_e}")
-
-        drive_payload = {
-            "token": DRIVE_VAULT_TOKEN,
-            "psychologist": psych_name,
-            "patient_id": req.patient_id or "PAC_ANONIMO",
-            "test_type": req.test_type or "PLC",
-            "file_type": "video",
-            "file_name": fname,
-            "file_base64": video_b64,
-            "mime_type": mtype
-        }
-        async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as d_client:
-            d_resp = await d_client.post(
-                DRIVE_WEBHOOK_URL,
-                content=json.dumps(drive_payload),
-                headers={"Content-Type": "text/plain;charset=utf-8"}
-            )
-            d_res = d_resp.json()
-            
-            # Si el respaldo en Google Drive fue exitoso, persistir inmediatamente en Supabase
-            if d_res.get("success"):
-                file_url = d_res.get("file_url") or ""
-                file_id = d_res.get("file_id") or ""
-                folder_path = d_res.get("folder_path") or ""
-                
-                sb = auth_ctx.get("client")
-                uid = auth_ctx.get("user_id")
-                if sb and uid:
-                    target_id = req.eval_id
-                    try:
-                        if not target_id:
-                            # Localizar evaluación reciente por session_tag, filename o id de paciente
-                            q = sb.table("evaluations").select("id, metrics_json, excel_path").eq("user_id", uid).order("id", desc=True).limit(6)
-                            rows = q.execute().data or []
-                            for r in rows:
-                                m_cur = r.get("metrics_json") or {}
-                                ep = str(r.get("excel_path") or "")
-                                if req.session_tag and (m_cur.get("session_tag") == req.session_tag or req.session_tag in ep):
-                                    target_id = r["id"]
-                                    break
-                                if req.filename and (m_cur.get("video_path") == req.filename or req.filename.replace('.mp4','.xlsx') in ep or req.filename.replace('.webm','.xlsx') in ep):
-                                    target_id = r["id"]
-                                    break
-                            if not target_id and rows:
-                                target_id = rows[0]["id"]
-                        
-                        if target_id:
-                            cur_res = sb.table("evaluations").select("metrics_json").eq("id", target_id).execute()
-                            if cur_res.data:
-                                cur_m = cur_res.data[0].get("metrics_json") or {}
-                                cur_m["drive_video_url"] = file_url
-                                cur_m["drive_file_id"] = file_id
-                                cur_m["drive_folder"] = folder_path
-                                cur_m["video_path"] = fname
-                                cur_m["has_video"] = True
-                                cur_m["video_expired"] = False
-                                sb.table("evaluations").update({
-                                    "metrics_json": cur_m
-                                }).eq("id", target_id).execute()
-                                print(f"[VAULT-SYNC-OK] Sincronizado video de eval #{target_id} a Drive Vault: {file_id}")
-                    except Exception as db_sync_err:
-                        print(f"[VAULT-SYNC-WARN] Error actualizando Supabase con video: {db_sync_err}")
-
-            return d_res
-    except Exception as e:
-        print(f"[VAULT-UPLOAD-ERROR] {e}")
-        return {"success": False, "error": str(e)}
 
 
 @app.get('/api/admin/users-mapping')

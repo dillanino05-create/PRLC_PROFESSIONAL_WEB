@@ -234,33 +234,22 @@ const App = window.App = {
           };
           
           let data = null;
-          // Estrategia 1: Envío directo al webhook de Google Apps Script con timeout de seguridad
-          try {
-            const ctrl = new AbortController();
-            const tid = setTimeout(() => ctrl.abort(), 65000);
-            const res = await fetch(DRIVE_WEBHOOK_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify(payload),
-              signal: ctrl.signal
-            });
-            clearTimeout(tid);
-            if (res.ok) {
-              data = await res.json();
-            }
-          } catch (directErr) {
-            console.warn('⚠️ Intento directo a Drive Vault falló o dio timeout, intentando vía backend proxy:', directErr);
-          }
 
-          // Estrategia 2: Fallback resiliente vía backend proxy /api/vault/upload-video
-          if (!data || !data.success) {
-            try {
-              const sess = await this.supabase?.auth?.getSession();
-              const token = sess?.data?.session?.access_token || '';
-              const bRes = await fetch(`${API_BASE}/api/vault/upload-video`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({
+          // Estrategia 1 (Prioridad Máxima): Backend Proxy con transcodificación MP4 seekable y enlace a Drive Vault
+          try {
+            const sess = await this.supabase?.auth?.getSession();
+            const token = sess?.data?.session?.access_token || '';
+            const ep = (fileType === 'pdf') ? '/api/vault/upload-pdf' : '/api/vault/upload-video';
+            const bodyPayload = (fileType === 'pdf')
+              ? {
+                  eval_id: evalId || this.evalId || null,
+                  session_tag: sessionTag || this.sessionTag || null,
+                  patient_id: payload.patient_id,
+                  test_type: payload.test_type,
+                  filename: payload.file_name,
+                  pdf_base64: base64Data
+                }
+              : {
                   eval_id: evalId || this.evalId || null,
                   session_tag: sessionTag || this.sessionTag || null,
                   patient_id: payload.patient_id,
@@ -268,13 +257,41 @@ const App = window.App = {
                   filename: payload.file_name,
                   video_base64: base64Data,
                   mime_type: payload.mime_type
-                })
+                };
+
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 65000);
+            const bRes = await fetch(`${API_BASE}${ep}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify(bodyPayload),
+              signal: ctrl.signal
+            });
+            clearTimeout(tid);
+            if (bRes.ok) {
+              data = await bRes.json();
+            }
+          } catch (proxyErr) {
+            console.warn('⚠️ Fallo en backend proxy para Drive Vault, intentando webhook directo:', proxyErr);
+          }
+
+          // Estrategia 2: Fallback directo al webhook de Google Apps Script
+          if (!data || !data.success) {
+            try {
+              const ctrl2 = new AbortController();
+              const tid2 = setTimeout(() => ctrl2.abort(), 35000);
+              const res = await fetch(DRIVE_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload),
+                signal: ctrl2.signal
               });
-              if (bRes.ok) {
-                data = await bRes.json();
+              clearTimeout(tid2);
+              if (res.ok) {
+                data = await res.json();
               }
-            } catch (proxyErr) {
-              console.warn('⚠️ Fallo en backend proxy para Drive Vault:', proxyErr);
+            } catch (directErr) {
+              console.warn('⚠️ Intento directo a Drive Vault falló:', directErr);
             }
           }
 
@@ -2520,6 +2537,11 @@ const App = window.App = {
       this.mouseTrackPerLine[0].push({ x: e.clientX, y: e.clientY, t: _now });
     };
     window.addEventListener('mousemove', this._mouseMoveHandler, { passive: true });
+
+    if ((this.screenStream || this.cameraStream) && !this.recordingActive) {
+      console.log("🎥 [CORSI] Iniciando grabación sincronizada de la prueba real...");
+      this.startRecording();
+    }
 
     if (!window.CorsiRunner) {
       console.error("CorsiRunner no está cargado.");
@@ -6352,7 +6374,9 @@ const App = window.App = {
           const driveFrame = document.getElementById('player-drive-frame');
           if (driveFrame) driveFrame.style.display = 'none';
           player.style.display = 'block';
-          player.src = d.url;
+          const fullVideoUrl = d.url.startsWith('http') ? d.url : `${API_BASE}${d.url}`;
+          const sep = fullVideoUrl.includes('?') ? '&' : '?';
+          player.src = token ? `${fullVideoUrl}${sep}token=${encodeURIComponent(token)}` : fullVideoUrl;
         }
         modal.classList.add('active');
 
@@ -7198,26 +7222,65 @@ const App = window.App = {
       if (btn.disabled) return;
       btn.disabled = true;
       var prevHtml = btn.innerHTML;
-      btn.innerHTML = "⏳ Procesando MP4...";
+      btn.innerHTML = "⏳ Preparando MP4...";
     }
     try {
       const sess = await this.supabase.auth.getSession();
       const token = sess.data.session ? sess.data.session.access_token : '';
-      
-      // 1. Prioridad: Backend Streaming Endpoint con transcodificación WebM -> MP4 garantizada
-      let downloadedViaStream = false;
-      try {
-        const streamResp = await fetch(`${API_BASE}/api/video/${id}/stream`, {
+
+      // 1. Consultar metadatos oficiales del video en la bóveda
+      const r = await fetch(`${API_BASE}/api/video/${id}?download=true`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!r.ok) {
+        const errJson = await r.json().catch(() => ({}));
+        throw new Error(errJson.detail || "La grabación audiovisual de esta sesión no se encuentra disponible en la bóveda en la nube.");
+      }
+      const d = await r.json();
+
+      let filename = d.download_filename || d.filename || `PLC_Sesion_${id}.mp4`;
+      if (filename.toLowerCase().endsWith('.webm')) {
+        filename = filename.replace(/\.webm$/i, '.mp4');
+      }
+
+      // Prioridad 1: Descarga directa desde Google Drive Vault (5 TB) a máxima velocidad
+      if (d.drive_id || (d.download_url && d.download_url.includes('drive.google.com'))) {
+        const driveDownloadUrl = d.drive_id 
+          ? `https://drive.google.com/uc?export=download&id=${d.drive_id}` 
+          : d.download_url;
+        const a = document.createElement('a');
+        a.href = driveDownloadUrl;
+        a.download = filename;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return;
+      }
+
+      // Prioridad 2: Enlace firmado de Supabase Storage
+      if (d.url && (d.url.includes('supabase.co') || d.url.startsWith('http://') || d.url.startsWith('https://')) && !d.url.includes('/api/video/')) {
+        const a = document.createElement('a');
+        a.href = d.url;
+        a.download = filename;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return;
+      }
+
+      // Prioridad 3: Descarga asistida vía backend stream con token
+      const targetUrl = d.download_url || d.url;
+      if (targetUrl) {
+        const fullStreamUrl = targetUrl.startsWith('http') ? targetUrl : `${API_BASE}${targetUrl}`;
+        const streamResp = await fetch(fullStreamUrl, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (streamResp.ok) {
           const rawBlob = await streamResp.blob();
-          const dispHeader = streamResp.headers.get('Content-Disposition') || '';
-          let matchName = dispHeader.match(/filename="?([^";]+)"?/i);
-          let filename = (matchName && matchName[1]) ? matchName[1] : `PLC_Sesion_${id}.mp4`;
-          if (!filename.toLowerCase().endsWith('.mp4')) {
-            filename = filename.replace(/\.[a-z0-9]+$/i, '') + '.mp4';
-          }
           const mp4Blob = new Blob([rawBlob], { type: 'video/mp4' });
           const objUrl = window.URL.createObjectURL(mp4Blob);
           const a = document.createElement('a');
@@ -7227,39 +7290,14 @@ const App = window.App = {
           a.click();
           a.remove();
           setTimeout(() => window.URL.revokeObjectURL(objUrl), 60000);
-          downloadedViaStream = true;
+          return;
         }
-      } catch (streamErr) {
-        console.warn("Transcodificación/Stream directo falló, intentando enlace firmado:", streamErr);
       }
 
-      // 2. Fallback: Obtener URL firmada desde Supabase si el stream falló
-      if (!downloadedViaStream) {
-        const r = await fetch(`${API_BASE}/api/video/${id}?download=true`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const d = await r.json();
-        if (!r.ok || (!d.url && !d.download_url)) {
-          throw new Error(d.detail || "No se encontró el video o ha expirado.");
-        }
-        const targetUrl = d.download_url || d.url;
-        let filename = d.download_filename || d.filename || `PLC_Sesion_${id}.mp4`;
-        if (filename.toLowerCase().endsWith('.webm')) {
-          filename = filename.replace(/\.webm$/i, '.mp4');
-        }
-        const a = document.createElement('a');
-        a.href = targetUrl;
-        a.download = filename;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-
+      throw new Error("No se pudo descargar el archivo de video de esta evaluación.");
     } catch (e) {
       console.error("Error al descargar video:", e);
-      alert("Error al descargar el video: " + e.message);
+      this.showVideoNoticeModal(e.message);
     } finally {
       if (btn) {
         btn.innerHTML = prevHtml;
