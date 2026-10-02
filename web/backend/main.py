@@ -709,7 +709,7 @@ def history(auth_ctx: dict = Depends(get_supabase)):
             try:
                 with httpx.Client(timeout=25.0) as client:
                     r_sb = client.get(
-                        f"{SUPABASE_URL}/rest/v1/evaluations?select=id,created_at,participant_id,participant_name,age,metrics_json,status,excel_path&order=id.desc&limit=500",
+                        f"{SUPABASE_URL}/rest/v1/evaluations?select=id,created_at,participant_id,participant_name,age,metrics_json,status,excel_path,video_path&order=id.desc&limit=500",
                         headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
                     )
                     if r_sb.status_code == 200:
@@ -719,14 +719,14 @@ def history(auth_ctx: dict = Depends(get_supabase)):
         
         if not data:
             res = sb.table("evaluations").select(
-                "id, created_at, participant_id, participant_name, age, metrics_json, status, excel_path"
+                "id, created_at, participant_id, participant_name, age, metrics_json, status, excel_path, video_path"
             ).order("id", desc=True).execute()
             data = res.data or []
         
         result = []
         for r in data:
             m = r.get("metrics_json") or {}
-            vpath = m.get("video_path", "")
+            vpath = m.get("video_path") or r.get("video_path") or ""
             d_vid_url = m.get("drive_video_url", "")
             d_file_id = m.get("drive_file_id", "")
             if not d_file_id and d_vid_url:
@@ -747,7 +747,7 @@ def history(auth_ctx: dict = Depends(get_supabase)):
                 corsi_mode = 'dual'
             corsi_span = m.get('corsi_span')
             composite_score = m.get('composite_score')
-            has_vid = bool(d_file_id or (d_vid_url and len(d_vid_url) > 10))
+            has_vid = bool(d_file_id or (d_vid_url and len(d_vid_url) > 10) or (vpath and len(vpath) > 4) or r.get('has_video') or m.get('has_video'))
 
             result.append({
                 'id': r['id'],
@@ -839,6 +839,11 @@ async def get_video(eval_id: int, download: bool = False, auth_ctx: dict = Depen
             download_url = secure_url
         except Exception:
             pass
+
+    # Fallback definitivo al endpoint de streaming local
+    if not secure_url and video_path:
+        secure_url = f"/api/video/{eval_id}/stream"
+        download_url = f"/api/video/{eval_id}/stream"
 
     if not secure_url:
         raise HTTPException(
@@ -1414,6 +1419,143 @@ def map_user_to_psychologist(user_email: str, user_name: str = "") -> str:
     return "Perfil_de_Prueba"
 
 
+@app.post('/api/vault/upload-pdf')
+async def upload_pdf_to_vault(req: UploadPdfRequest, auth_ctx: dict = Depends(get_supabase)):
+    """Respalda un informe PDF clínico en el Google Drive Vault (5 TB) del psicólogo."""
+    if not DRIVE_WEBHOOK_URL:
+        return {"success": False, "detail": "Drive Vault webhook no configurado"}
+    try:
+        user_email = auth_ctx.get("email") or ""
+        user = auth_ctx.get("user")
+        user_meta = getattr(user, "user_metadata", {}) or {}
+        psych_name = map_user_to_psychologist(user_email, user_meta.get("full_name", ""))
+
+        drive_payload = {
+            "token": DRIVE_VAULT_TOKEN,
+            "psychologist": psych_name,
+            "patient_id": req.patient_id or "PAC_ANONIMO",
+            "test_type": req.test_type or "PLC",
+            "file_type": "pdf",
+            "file_name": req.filename,
+            "file_base64": req.pdf_base64,
+            "mime_type": "application/pdf"
+        }
+        async with httpx.AsyncClient(timeout=45.0, follow_redirects=True) as d_client:
+            d_resp = await d_client.post(
+                DRIVE_WEBHOOK_URL,
+                content=json.dumps(drive_payload),
+                headers={"Content-Type": "text/plain;charset=utf-8"}
+            )
+            d_res = d_resp.json()
+            if d_res.get("success") and req.eval_id:
+                sb = auth_ctx.get("client")
+                cur_res = sb.table("evaluations").select("metrics_json").eq("id", req.eval_id).execute()
+                if cur_res.data:
+                    m = cur_res.data[0].get("metrics_json") or {}
+                    m["drive_pdf_url"] = d_res.get("file_url")
+                    m["drive_pdf_id"] = d_res.get("file_id")
+                    sb.table("evaluations").update({"metrics_json": m}).eq("id", req.eval_id).execute()
+            return d_res
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post('/api/vault/upload-video')
+async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depends(get_supabase)):
+    """Respalda un video clínico/forense en el Google Drive Vault (5 TB) del psicólogo con alta resiliencia y actualiza Supabase."""
+    if not DRIVE_WEBHOOK_URL:
+        return {"success": False, "detail": "Drive Vault webhook no configurado"}
+    try:
+        user_email = auth_ctx.get("email") or ""
+        user = auth_ctx.get("user")
+        user_meta = getattr(user, "user_metadata", {}) or {}
+        psych_name = map_user_to_psychologist(user_email, user_meta.get("full_name", ""))
+
+        fname = req.filename or f"PLC_Sesion_{req.eval_id or 'reciente'}.mp4"
+        if not fname.lower().endswith((".mp4", ".webm")):
+            fname += ".mp4"
+
+        # Transcodificar a MP4 seekable si es posible
+        video_b64 = req.video_base64
+        mtype = req.mime_type or "video/mp4"
+        try:
+            raw_vbytes = base64.b64decode(video_b64)
+            seekable_vbytes = transcode_to_seekable_mp4(raw_vbytes)
+            if seekable_vbytes and len(seekable_vbytes) > 100:
+                video_b64 = base64.b64encode(seekable_vbytes).decode("utf-8")
+                mtype = "video/mp4"
+        except Exception as tc_e:
+            print(f"[TRANSCODE-UPLOAD-NOTICE] {tc_e}")
+
+        drive_payload = {
+            "token": DRIVE_VAULT_TOKEN,
+            "psychologist": psych_name,
+            "patient_id": req.patient_id or "PAC_ANONIMO",
+            "test_type": req.test_type or "PLC",
+            "file_type": "video",
+            "file_name": fname,
+            "file_base64": video_b64,
+            "mime_type": mtype
+        }
+        async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as d_client:
+            d_resp = await d_client.post(
+                DRIVE_WEBHOOK_URL,
+                content=json.dumps(drive_payload),
+                headers={"Content-Type": "text/plain;charset=utf-8"}
+            )
+            d_res = d_resp.json()
+            
+            # Si el respaldo en Google Drive fue exitoso, persistir inmediatamente en Supabase
+            if d_res.get("success"):
+                file_url = d_res.get("file_url") or ""
+                file_id = d_res.get("file_id") or ""
+                folder_path = d_res.get("folder_path") or ""
+                
+                sb = auth_ctx.get("client")
+                uid = auth_ctx.get("user_id")
+                if sb and uid:
+                    target_id = req.eval_id
+                    try:
+                        if not target_id:
+                            # Localizar evaluación reciente por session_tag, filename o id de paciente
+                            q = sb.table("evaluations").select("id, metrics_json, excel_path").eq("user_id", uid).order("id", desc=True).limit(6)
+                            rows = q.execute().data or []
+                            for r in rows:
+                                m_cur = r.get("metrics_json") or {}
+                                ep = str(r.get("excel_path") or "")
+                                if req.session_tag and (m_cur.get("session_tag") == req.session_tag or req.session_tag in ep):
+                                    target_id = r["id"]
+                                    break
+                                if req.filename and (m_cur.get("video_path") == req.filename or req.filename.replace('.mp4','.xlsx') in ep or req.filename.replace('.webm','.xlsx') in ep):
+                                    target_id = r["id"]
+                                    break
+                            if not target_id and rows:
+                                target_id = rows[0]["id"]
+                        
+                        if target_id:
+                            cur_res = sb.table("evaluations").select("metrics_json").eq("id", target_id).execute()
+                            if cur_res.data:
+                                cur_m = cur_res.data[0].get("metrics_json") or {}
+                                cur_m["drive_video_url"] = file_url
+                                cur_m["drive_file_id"] = file_id
+                                cur_m["drive_folder"] = folder_path
+                                cur_m["video_path"] = fname
+                                cur_m["has_video"] = True
+                                cur_m["video_expired"] = False
+                                sb.table("evaluations").update({
+                                    "metrics_json": cur_m,
+                                    "video_path": fname
+                                }).eq("id", target_id).execute()
+                                print(f"[VAULT-SYNC-OK] Sincronizado video de eval #{target_id} a Drive Vault: {file_id}")
+                    except Exception as db_sync_err:
+                        print(f"[VAULT-SYNC-WARN] Error actualizando Supabase con video: {db_sync_err}")
+
+            return d_res
+    except Exception as e:
+        print(f"[VAULT-UPLOAD-ERROR] {e}")
+        return {"success": False, "error": str(e)}
+
+
 @app.get('/api/admin/users-mapping')
 async def get_users_mapping(auth_key: str = ""):
     """Retorna la lista de usuarios y cómo están mapeados a las carpetas de los psicólogos."""
@@ -1656,6 +1798,44 @@ def compress_video_for_vault(video_bytes: bytes) -> bytes:
                 try: os.remove(p)
                 except Exception: pass
     return video_bytes
+
+
+@app.post('/api/admin/repair-video-records')
+async def repair_video_records(auth_key: str = ""):
+    """Sincroniza video_path y has_video desde metrics_json hacia las columnas principales de Supabase."""
+    if auth_key != "mecapsi_clinical_audit_2026":
+        raise HTTPException(status_code=403, detail="Clave de auditoría inválida")
+    if not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="SUPABASE_SERVICE_KEY no configurado")
+
+    admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=60.0))
+    sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
+
+    res = sb_admin.table("evaluations").select("id, metrics_json, video_path").order("id", desc=True).limit(500).execute()
+    rows = res.data or []
+    repaired = []
+    for r in rows:
+        m = r.get("metrics_json") or {}
+        vpath = m.get("video_path") or r.get("video_path") or ""
+        d_id = m.get("drive_file_id") or ""
+        d_url = m.get("drive_video_url") or ""
+        has_v = bool(d_id or d_url or (vpath and len(vpath) > 4))
+
+        needs_update = False
+        updates = {}
+        if vpath and not r.get("video_path"):
+            updates["video_path"] = vpath
+            needs_update = True
+        if has_v and not m.get("has_video"):
+            m["has_video"] = True
+            updates["metrics_json"] = m
+            needs_update = True
+
+        if needs_update:
+            sb_admin.table("evaluations").update(updates).eq("id", r["id"]).execute()
+            repaired.append(r["id"])
+
+    return {"success": True, "repaired_count": len(repaired), "repaired_ids": repaired}
 
 
 @app.post('/api/admin/clean-purge-storage')
@@ -1957,6 +2137,7 @@ async def copilot_chat(req: CopilotChatRequest, authorization: str = Header(None
         "es el estándar de oro para ubicar al paciente en el estrato normativo correspondiente (Brickenkamp para d2, Kessels para Corsi).\n"
         "6. CONSULTORÍA NEUROPSICOLÓGICA GENERAL: Además del paciente activo, eres un asistente experto en neuropsicología clínica para las pruebas PLC (Test d2) y Test de Bloques de Corsi (Directo, Inverso y Dual), así como en psicometría (baremos Brickenkamp, Kessels), tiempos de reacción, telemetría y biomarcadores.\n"
         f"7. {scope_instruction}\n"
+        "8. DIRECTO Y AL GRANO (MÁXIMO AHORRO DE TOKENS): Responde con precisión concisa y sin rodeos. En saludos o consultas breves, sé directo y cordial. Si preguntan qué significa una métrica, defínela directamente en 1 o 2 oraciones sin preámbulos solemnes. Si te piden conteos o comparativas, entrega el dato de inmediato. SOLO desglosa extensamente si el evaluador te pide explícitamente redactar un informe, profundizar o ampliar la explicación.\n"
         "Mantén un tono empático, riguroso, científico y colaborativo con el profesional de la salud."
     )
 

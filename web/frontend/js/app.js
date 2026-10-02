@@ -3133,6 +3133,7 @@ const App = window.App = {
               });
 
               this.metrics.video_path = videoFilename;
+              this.metrics.has_video = true;
               this.metrics.session_tag = this.sessionTag;
               if (driveRes && driveRes.success) {
                 this.metrics.drive_video_url = driveRes.file_url;
@@ -3144,6 +3145,7 @@ const App = window.App = {
                 .from('evaluations')
                 .update({
                   excel_path: excelFilename,
+                  video_path: videoFilename,
                   metrics_json: this.metrics
                 })
                 .eq('id', this.evalId);
@@ -3696,6 +3698,7 @@ const App = window.App = {
             session_tag: this.sessionTag,
             session_uid: timestampStr,
             video_path: videoFilename,
+            has_video: true,
             drive_video_url: (driveRes && driveRes.success) ? driveRes.file_url : "",
             drive_folder: (driveRes && driveRes.success) ? driveRes.folder_path : "",
             drive_file_id: (driveRes && driveRes.success) ? driveRes.file_id : ""
@@ -3705,6 +3708,7 @@ const App = window.App = {
             .from('evaluations')
             .update({ 
               excel_path: excelFilename,
+              video_path: videoFilename,
               metrics_json: updatedMetrics 
             })
             .eq('id', this.evalId);
@@ -5448,7 +5452,7 @@ const App = window.App = {
   generateHistoryRowsHTML(rows) {
     if (!rows.length) return `<tr><td colspan="8" style="text-align:center;color:#789;">No se encontraron resultados</td></tr>`;
     return rows.map(r => {
-      const hasVideo = Boolean(r.drive_file_id || (r.drive_video_url && r.drive_video_url.length > 10));
+      const hasVideo = Boolean(r.has_video || r.drive_file_id || (r.drive_video_url && r.drive_video_url.length > 10) || (r.video_path && r.video_path.length > 4));
 
       let videoBadgeHtml = '';
       if (hasVideo) {

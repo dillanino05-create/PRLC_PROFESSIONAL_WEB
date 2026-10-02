@@ -16,6 +16,7 @@
     : 'https://dalamus2405-plc-backend.hf.space';
 
   const STORAGE_KEY_CUSTOM_GEMINI = 'mecapsi_custom_gemini_key';
+  const STORAGE_KEY_SESSIONS = 'mecapsi_copilot_sessions_v1';
   // Clave activa de Google AI Studio (Gemini 2.0 Flash) ofuscada en base64 para evitar falsos positivos de escaneo de git
   const DEFAULT_GEMINI_KEY = atob('QVEuQWI4Uk42SW1MTFZKNi0tX0NWdlJiT3pYR3R1czlOZVdVRUlndkxRSHUyRFFFblFKNHc=');
 
@@ -25,7 +26,189 @@
       this.isMinimized = false;
       this.isLoading = false;
       this.history = [];
+      this.currentSessionId = null;
+      this.sessions = this.loadSessions();
       this.initUI();
+      this.initActiveSession();
+    }
+
+    loadSessions() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_SESSIONS);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    saveSessions() {
+      try {
+        localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(this.sessions.slice(0, 30)));
+      } catch (e) {}
+    }
+
+    initActiveSession() {
+      if (this.sessions && this.sessions.length > 0) {
+        const first = this.sessions[0];
+        this.currentSessionId = first.id;
+        this.history = [...(first.history || [])];
+        this.renderMessagesFromHistory();
+      } else {
+        this.startNewSession(false);
+      }
+    }
+
+    startNewSession(autoFocus = true) {
+      const newId = 'session_' + Date.now();
+      const newSess = {
+        id: newId,
+        title: 'Nueva Conversación',
+        timestamp: new Date().toISOString(),
+        history: []
+      };
+      this.sessions.unshift(newSess);
+      this.currentSessionId = newId;
+      this.history = [];
+      this.saveSessions();
+      this.renderMessagesFromHistory();
+      this.toggleHistoryDrawer(false);
+      if (autoFocus) {
+        setTimeout(() => document.getElementById('copilot-input')?.focus(), 100);
+      }
+    }
+
+    loadSession(sessionId) {
+      const sess = this.sessions.find(s => s.id === sessionId);
+      if (!sess) return;
+      this.currentSessionId = sess.id;
+      this.history = [...(sess.history || [])];
+      this.renderMessagesFromHistory();
+      this.toggleHistoryDrawer(false);
+      setTimeout(() => document.getElementById('copilot-input')?.focus(), 100);
+    }
+
+    deleteSession(sessionId, e) {
+      if (e) e.stopPropagation();
+      this.sessions = this.sessions.filter(s => s.id !== sessionId);
+      this.saveSessions();
+      if (this.currentSessionId === sessionId) {
+        if (this.sessions.length > 0) {
+          this.loadSession(this.sessions[0].id);
+        } else {
+          this.startNewSession(false);
+        }
+      } else {
+        this.renderSessionList();
+      }
+    }
+
+    syncCurrentSession() {
+      if (!this.currentSessionId) return;
+      let sess = this.sessions.find(s => s.id === this.currentSessionId);
+      if (!sess) {
+        sess = {
+          id: this.currentSessionId,
+          title: 'Conversación',
+          timestamp: new Date().toISOString(),
+          history: []
+        };
+        this.sessions.unshift(sess);
+      }
+      sess.history = [...this.history];
+      sess.timestamp = new Date().toISOString();
+
+      if (sess.title === 'Nueva Conversación' || !sess.title) {
+        const firstUser = this.history.find(m => m.role === 'user');
+        if (firstUser && firstUser.content) {
+          let clean = firstUser.content.trim().replace(/[\r\n]+/g, ' ');
+          if (clean.length > 32) clean = clean.slice(0, 32) + '...';
+          sess.title = clean;
+        }
+      }
+      this.saveSessions();
+    }
+
+    toggleHistoryDrawer(forceState) {
+      const drawer = document.getElementById('copilot-drawer');
+      const toggleBtn = document.getElementById('copilot-history-toggle-btn');
+      if (!drawer) return;
+      const shouldOpen = (forceState !== undefined) ? forceState : (drawer.style.display === 'none');
+      if (shouldOpen) {
+        this.renderSessionList();
+        drawer.style.display = 'flex';
+        if (toggleBtn) toggleBtn.style.background = 'rgba(99, 102, 241, 0.3)';
+      } else {
+        drawer.style.display = 'none';
+        if (toggleBtn) toggleBtn.style.background = '';
+      }
+    }
+
+    renderSessionList() {
+      const container = document.getElementById('copilot-session-list');
+      if (!container) return;
+      if (!this.sessions.length) {
+        container.innerHTML = `
+          <div style="text-align:center;color:#64748B;font-size:0.78rem;padding:24px 10px;">
+            No hay conversaciones previas guardadas.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = this.sessions.map(s => {
+        const isActive = (s.id === this.currentSessionId);
+        const dateObj = new Date(s.timestamp || Date.now());
+        const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateStr = dateObj.toLocaleDateString([], { day: '2-digit', month: 'short' });
+        const userMsgs = (s.history || []).filter(m => m.role === 'user').length;
+
+        return `
+          <div class="copilot-session-item ${isActive ? 'active' : ''}" onclick="window.MecaPsiCopilotInstance.loadSession('${s.id}')">
+            <div class="copilot-session-info">
+              <div class="copilot-session-title">${this.escapeHTML(s.title || 'Conversación')}</div>
+              <div class="copilot-session-meta">
+                <span>📅 ${dateStr}, ${timeStr}</span> · <span>💬 ${userMsgs} preguntas</span>
+              </div>
+            </div>
+            <button class="copilot-session-del" title="Eliminar conversación" onclick="window.MecaPsiCopilotInstance.deleteSession('${s.id}', event)">
+              🗑️
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    renderMessagesFromHistory() {
+      const container = document.getElementById('copilot-messages');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!this.history.length) {
+        this.addMessage(
+          "bot",
+          "👋 **¡Hola, colega! Soy tu Asistente Paraclínico MecaPsi.**\n\n" +
+          "Mi objetivo es responder tus dudas clínicas y paraclínicas **al grano**, directo a los datos y sin rodeos.\n\n" +
+          "Pregúntame sobre cualquier métrica (Span, baremos Kessels/d2, microtemblor, pupilometría) o comparativas de pacientes.",
+          false
+        );
+      } else {
+        for (const item of this.history) {
+          const msgDiv = document.createElement('div');
+          msgDiv.className = `copilot-msg ${item.role === 'user' ? 'user' : 'bot'}`;
+          msgDiv.innerHTML = this.formatMarkdown(item.content);
+          container.appendChild(msgDiv);
+        }
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    escapeHTML(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
     getCustomKey() {
@@ -371,6 +554,115 @@
           color: #FFFFFF;
         }
 
+        /* Drawer de Historial de Sesiones */
+        .copilot-drawer {
+          position: absolute;
+          top: 54px;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(15, 23, 42, 0.96);
+          backdrop-filter: blur(16px);
+          z-index: 50;
+          display: flex;
+          flex-direction: column;
+          padding: 14px;
+          gap: 10px;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          animation: copilotSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes copilotSlideIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .copilot-drawer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 8px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          color: #E2E8F0;
+          font-weight: 700;
+          font-size: 0.85rem;
+        }
+        .copilot-new-chat-btn {
+          background: linear-gradient(135deg, #4F46E5, #06B6D4);
+          color: #FFFFFF;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 8px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          transition: opacity 0.2s;
+        }
+        .copilot-new-chat-btn:hover {
+          opacity: 0.92;
+        }
+        .copilot-session-list {
+          flex: 1;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding-right: 4px;
+        }
+        .copilot-session-item {
+          background: rgba(30, 41, 59, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 8px;
+          padding: 10px 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          cursor: pointer;
+          transition: background 0.2s, border-color 0.2s;
+        }
+        .copilot-session-item:hover {
+          background: rgba(49, 46, 129, 0.4);
+          border-color: rgba(99, 102, 241, 0.4);
+        }
+        .copilot-session-item.active {
+          background: rgba(79, 70, 229, 0.25);
+          border-color: #6366F1;
+        }
+        .copilot-session-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .copilot-session-title {
+          color: #F1F5F9;
+          font-size: 0.82rem;
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .copilot-session-meta {
+          color: #94A3B8;
+          font-size: 0.7rem;
+          margin-top: 2px;
+        }
+        .copilot-session-del {
+          background: none;
+          border: none;
+          color: #94A3B8;
+          cursor: pointer;
+          font-size: 0.85rem;
+          padding: 4px;
+          border-radius: 4px;
+          transition: color 0.2s, background 0.2s;
+        }
+        .copilot-session-del:hover {
+          color: #EF4444;
+          background: rgba(239, 68, 68, 0.15);
+        }
+
         /* Disclaimer Banner */
         .copilot-disclaimer {
           background: rgba(16, 185, 129, 0.08);
@@ -571,8 +863,22 @@
             </div>
           </div>
           <div class="copilot-header-actions">
+            <button class="copilot-btn-icon" title="Nuevo Chat (➕)" onclick="window.MecaPsiCopilotInstance.startNewSession(true)">➕</button>
+            <button class="copilot-btn-icon" title="Historial de Conversaciones (🕒)" id="copilot-history-toggle-btn" onclick="window.MecaPsiCopilotInstance.toggleHistoryDrawer()">🕒</button>
             <button class="copilot-btn-icon" title="Cerrar" onclick="window.MecaPsiCopilotInstance.toggleWindow()">✕</button>
           </div>
+        </div>
+
+        <!-- Drawer de Historial de Conversaciones -->
+        <div class="copilot-drawer" id="copilot-drawer" style="display:none;">
+          <div class="copilot-drawer-header">
+            <span>🕒 Conversaciones Previas</span>
+            <button class="copilot-btn-icon" style="width:24px;height:24px;font-size:11px;" onclick="window.MecaPsiCopilotInstance.toggleHistoryDrawer(false)">✕</button>
+          </div>
+          <button class="copilot-new-chat-btn" onclick="window.MecaPsiCopilotInstance.startNewSession(true)">
+            <span>➕</span> Iniciar Nueva Conversación
+          </button>
+          <div class="copilot-session-list" id="copilot-session-list"></div>
         </div>
 
         <!-- Banner Paraclínico Descriptivo Obligatorio -->
@@ -607,16 +913,6 @@
         </div>
       `;
       document.body.appendChild(win);
-
-      // Mensaje de bienvenida inicial
-      this.addMessage(
-        "bot",
-        "👋 **¡Hola, colega! Soy tu Asistente Paraclínico MecaPsi.**\n\n" +
-        "Mi objetivo es **explicar lo que hay en los datos** de manera objetiva, didáctica y humana, " +
-        "respetando el rigor paraclínico y **sin emitir diagnósticos patológicos cerrados**.\n\n" +
-        "Puedes preguntarme sobre el significado de cualquier biomarcador (pupilometría, micro-temblor del mouse, tiempos de vacilación en Corsi), " +
-        "la calibración de los baremos según la edad cronológica exacta, o cómo traducir estos resultados a los padres de familia."
-      );
 
       this.updateStatusBadge();
     }
@@ -791,7 +1087,7 @@
       }
     }
 
-    addMessage(role, text) {
+    addMessage(role, text, persist = true) {
       const container = document.getElementById('copilot-messages');
       if (!container) return;
 
@@ -801,7 +1097,10 @@
       container.appendChild(msgDiv);
       container.scrollTop = container.scrollHeight;
 
-      this.history.push({ role, content: text });
+      if (persist) {
+        this.history.push({ role, content: text });
+        this.syncCurrentSession();
+      }
     }
 
     formatMarkdown(text) {
@@ -933,16 +1232,13 @@ REGLAS ABSOLUTAS:
 • Usa lenguaje constructivo y orientado a fortalezas: "muestra buena capacidad de sostenimiento en los primeros bloques" en lugar de "tiene déficit en los últimos bloques".
 • La edad cronológica exacta (años y meses) es el estándar obligatorio para ubicar al evaluado en su estrato normativo.
 
-═══ FORMATO OBLIGATORIO DE RESPUESTA ═══
-Toda respuesta debe seguir esta estructura concisa:
-**1. 📊 Lectura Métrica:**
-Datos objetivos crudos relevantes a la pregunta (nombres, puntajes, percentiles, spans o tiempos comparados).
-
-**2. 🧠 Interpretación Neurocognitiva Descriptiva:**
-Qué sugieren esos datos sobre el estilo cognitivo y la manipulación visomotora/atencional, sin patologizar.
-
-**3. ✍️ Pauta de Redacción para el Informe:**
-Frase modelo que el profesional puede adaptar directamente para su informe clínico o para explicar a padres/paciente.
+═══ FORMATO DE RESPUESTA: DIRECTO, CONCISO Y AL GRANO (MÁXIMO AHORRO DE TOKENS) ═══
+• PRIORIZA LA BREVEDAD Y EL AHORRO DE TOKENS: Responde exactamente lo que se te pregunta sin rodeos innecesarios ni formalismos pesados.
+• Si es un saludo ("hola", "¿cómo estás?"), responde con calidez en una sola línea ("¡Hola colega! ¿En qué te colaboro hoy?").
+• Si te piden el significado de una métrica (ej. "¿qué es el Span?", "¿qué es el microtemblor?"), explica su significado clínico paraclínico directamente en 1 o 2 párrafos concisos y claros sin preámbulos solemnes.
+• Si te piden conteos o listas de pacientes, entrega los números y nombres de inmediato.
+• NUNCA inventes cosas que no se te han pedido ni te extiendas en secciones vacías.
+• SOLO usa estructuras largas o plantillas de informe (1. Lectura Métrica, 2. Interpretación, 3. Pauta de Redacción) si el usuario te lo solicita explícitamente ("dame una pauta de redacción", "redáctame el informe", "explícame con todo detalle", "no entiendo, amplía").
 
 ═══ CONSULTAS DE GESTIÓN CLÍNICA Y PACIENTES ═══
 • Si el colega te pregunta cuántos pacientes tiene ("cuántos pacientes tengo", "cuántas evaluaciones hay", "lista de pacientes", "resumen de evaluaciones"):
@@ -1057,14 +1353,14 @@ ${evalsWithMetrics || '(No hay evaluaciones previas registradas en esta cuenta)'
         this.addMessage("bot", reply);
       } else {
         // Prioridad 3: Fallback clínico heurístico local garantizado
-        this.addMessage("bot", `🤖 **MecaPsi Copilot** — Modo Offline\n\n**1. 📊 Lectura Métrica:**\nNo se logró contactar al motor de IA en este momento. Los datos de **${ctx.participant_name || 'el evaluado'}** (${ctx.test_type || 'evaluación'}) están disponibles localmente.\n\n**2. 🧠 Interpretación:**\nLos baremos, tiempos de reacción y biomarcadores permanecen intactos para consulta manual.\n\n**3. ✍️ Pauta:**\nReintenta la pregunta en unos segundos. Si persiste, verifica tu conexión a Internet.\n\n💡 *Motor: Gemini 2.5 Flash · Temp: 0.3 · Modo Descriptivo*`);
+        this.addMessage("bot", `🤖 **MecaPsi Copilot** — Modo Offline\n\nNo se logró contactar al motor de IA en este momento. Los datos de **${ctx.participant_name || 'el evaluado'}** (${ctx.test_type || 'evaluación'}) están disponibles localmente.\n\n💡 *Reintenta tu consulta en unos segundos o verifica tu conexión a Internet.*`);
       }
     } catch (errGlobal) {
       if (document.getElementById('copilot-thinking-indicator')) {
         document.getElementById('copilot-thinking-indicator').remove();
       }
       console.error("Error en copilot sendMessage:", errGlobal);
-      this.addMessage("bot", `🤖 **MecaPsi Copilot** — Error Temporal\n\n**1. 📊 Lectura Métrica:**\nSe produjo un error de comunicación con el motor de IA.\n\n**2. 🧠 Interpretación:**\nTodos los datos clínicos de **${ctx.participant_name || 'el evaluado'}** están seguros. Este error no afecta las métricas guardadas.\n\n**3. ✍️ Pauta:**\nReintenta tu pregunta. Si el problema persiste, revisa la consola del navegador (F12) para más detalles.\n\n💡 *Motor: Gemini 2.5 Flash · Modo Descriptivo*`);
+      this.addMessage("bot", `🤖 **MecaPsi Copilot** — Aviso\n\nSe produjo un error temporal de comunicación con el motor de IA. Todos los datos clínicos de **${ctx.participant_name || 'el evaluado'}** están completamente seguros en la base de datos.`);
     } finally {
       this.isLoading = false;
       if (sendBtn) sendBtn.disabled = false;
