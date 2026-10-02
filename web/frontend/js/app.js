@@ -3145,7 +3145,6 @@ const App = window.App = {
                 .from('evaluations')
                 .update({
                   excel_path: excelFilename,
-                  video_path: videoFilename,
                   metrics_json: this.metrics
                 })
                 .eq('id', this.evalId);
@@ -3708,7 +3707,6 @@ const App = window.App = {
             .from('evaluations')
             .update({ 
               excel_path: excelFilename,
-              video_path: videoFilename,
               metrics_json: updatedMetrics 
             })
             .eq('id', this.evalId);

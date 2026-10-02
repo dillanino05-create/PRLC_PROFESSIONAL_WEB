@@ -709,7 +709,7 @@ def history(auth_ctx: dict = Depends(get_supabase)):
             try:
                 with httpx.Client(timeout=25.0) as client:
                     r_sb = client.get(
-                        f"{SUPABASE_URL}/rest/v1/evaluations?select=id,created_at,participant_id,participant_name,age,metrics_json,status,excel_path,video_path&order=id.desc&limit=500",
+                        f"{SUPABASE_URL}/rest/v1/evaluations?select=id,created_at,participant_id,participant_name,age,metrics_json,status,excel_path&order=id.desc&limit=500",
                         headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"}
                     )
                     if r_sb.status_code == 200:
@@ -719,14 +719,14 @@ def history(auth_ctx: dict = Depends(get_supabase)):
         
         if not data:
             res = sb.table("evaluations").select(
-                "id, created_at, participant_id, participant_name, age, metrics_json, status, excel_path, video_path"
+                "id, created_at, participant_id, participant_name, age, metrics_json, status, excel_path"
             ).order("id", desc=True).execute()
             data = res.data or []
         
         result = []
         for r in data:
             m = r.get("metrics_json") or {}
-            vpath = m.get("video_path") or r.get("video_path") or ""
+            vpath = m.get("video_path", "")
             d_vid_url = m.get("drive_video_url", "")
             d_file_id = m.get("drive_file_id", "")
             if not d_file_id and d_vid_url:
@@ -1543,8 +1543,7 @@ async def upload_video_to_vault(req: UploadVideoRequest, auth_ctx: dict = Depend
                                 cur_m["has_video"] = True
                                 cur_m["video_expired"] = False
                                 sb.table("evaluations").update({
-                                    "metrics_json": cur_m,
-                                    "video_path": fname
+                                    "metrics_json": cur_m
                                 }).eq("id", target_id).execute()
                                 print(f"[VAULT-SYNC-OK] Sincronizado video de eval #{target_id} a Drive Vault: {file_id}")
                     except Exception as db_sync_err:
@@ -1811,28 +1810,19 @@ async def repair_video_records(auth_key: str = ""):
     admin_opts = ClientOptions(httpx_client=httpx.Client(http2=False, timeout=60.0))
     sb_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY, options=admin_opts)
 
-    res = sb_admin.table("evaluations").select("id, metrics_json, video_path").order("id", desc=True).limit(500).execute()
+    res = sb_admin.table("evaluations").select("id, metrics_json").order("id", desc=True).limit(500).execute()
     rows = res.data or []
     repaired = []
     for r in rows:
         m = r.get("metrics_json") or {}
-        vpath = m.get("video_path") or r.get("video_path") or ""
-        d_id = m.get("drive_file_id") or ""
-        d_url = m.get("drive_video_url") or ""
+        vpath = m.get("video_path", "")
+        d_id = m.get("drive_file_id", "")
+        d_url = m.get("drive_video_url", "")
         has_v = bool(d_id or d_url or (vpath and len(vpath) > 4))
 
-        needs_update = False
-        updates = {}
-        if vpath and not r.get("video_path"):
-            updates["video_path"] = vpath
-            needs_update = True
         if has_v and not m.get("has_video"):
             m["has_video"] = True
-            updates["metrics_json"] = m
-            needs_update = True
-
-        if needs_update:
-            sb_admin.table("evaluations").update(updates).eq("id", r["id"]).execute()
+            sb_admin.table("evaluations").update({"metrics_json": m}).eq("id", r["id"]).execute()
             repaired.append(r["id"])
 
     return {"success": True, "repaired_count": len(repaired), "repaired_ids": repaired}
